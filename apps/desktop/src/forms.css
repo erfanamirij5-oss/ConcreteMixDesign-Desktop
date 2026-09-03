@@ -10,6 +10,9 @@
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(79, 124, 255, .08); }
 .list-button { width: 100%; border: 1px solid var(--light); background: var(--surface2); color: var(--text2); border-radius: 10px; padding: 10px 12px; text-align: right; font-size: .68rem; }
 .list-button:hover { border-color: var(--blue); color: var(--blue); }
+.control-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+.check-control { display: inline-flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--light); border-radius: 999px; color: var(--text2); padding: 9px 13px; font-size: .68rem; font-weight: 800; }
+.check-control input { width: 16px; height: 16px; accent-color: var(--orange); }
 .tablewrap { overflow: auto; }
 table { width: 100%; min-width: 820px; border-collapse: collapse; }
 th { background: var(--surface2); color: var(--muted); font-size: .58rem; padding: 10px; text-align: right; }
