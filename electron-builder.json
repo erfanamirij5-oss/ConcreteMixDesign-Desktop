@@ -1,0 +1,29 @@
+{
+  "appId": "ir.tolou.concreteMixDesign",
+  "productName": "Tolou Concrete Mix Design",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "apps/desktop/electron/**/*",
+    "engine/python/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "Tolou-Concrete-Mix-Design-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "طلوع بتن"
+  }
+}
