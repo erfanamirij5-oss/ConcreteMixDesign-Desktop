@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+release/
+.out/
+.DS_Store
+*.log
+.env
+.env.*
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.sqlite
+*.db
+reports/generated/
+uploads/local/
