@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { listRecentProjects, saveProjectIntake } from './database';
+import { listMaterialsByMixDesign, listRecentProjects, saveMaterial, saveProjectIntake } from './database';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -27,9 +27,7 @@ function createWindow() {
   }
 }
 
-ipcMain.handle('engine:health', async () => {
-  return runPythonCommand('health');
-});
+ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => {
   return runPythonCommand('calculate-normal-mix', payload);
@@ -39,24 +37,31 @@ ipcMain.handle('projects:save-intake', async (_event, payload) => {
   try {
     return saveProjectIntake(payload);
   } catch (error) {
-    return {
-      status: 'fail',
-      error: error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره پروژه'
-    };
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره پروژه' };
   }
 });
 
 ipcMain.handle('projects:list-recent', async () => {
   try {
-    return {
-      status: 'pass',
-      projects: listRecentProjects()
-    };
+    return { status: 'pass', projects: listRecentProjects() };
   } catch (error) {
-    return {
-      status: 'fail',
-      error: error instanceof Error ? error.message : 'خطای ناشناخته در خواندن پروژه‌ها'
-    };
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در خواندن پروژه‌ها' };
+  }
+});
+
+ipcMain.handle('materials:save', async (_event, payload) => {
+  try {
+    return saveMaterial(payload);
+  } catch (error) {
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره مصالح' };
+  }
+});
+
+ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => {
+  try {
+    return { status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) };
+  } catch (error) {
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در خواندن مصالح' };
   }
 });
 
@@ -68,10 +73,7 @@ function getEnginePath(): string {
   ];
 
   const found = candidates.find(candidate => existsSync(candidate));
-  if (!found) {
-    throw new Error(`Python engine CLI was not found. Checked: ${candidates.join(' | ')}`);
-  }
-
+  if (!found) throw new Error(`Python engine CLI was not found. Checked: ${candidates.join(' | ')}`);
   return found;
 }
 
@@ -86,21 +88,12 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
       return;
     }
 
-    const child = spawn('python', [enginePath, command], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
+    const child = spawn('python', [enginePath, command], { stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', chunk => {
-      stdout += chunk.toString();
-    });
-
-    child.stderr.on('data', chunk => {
-      stderr += chunk.toString();
-    });
-
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
     child.on('error', reject);
     child.on('close', code => {
       if (code !== 0) {
@@ -122,7 +115,6 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
 
 app.whenReady().then(() => {
   createWindow();
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
