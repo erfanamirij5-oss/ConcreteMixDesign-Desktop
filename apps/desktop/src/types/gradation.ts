@@ -17,6 +17,7 @@ export type GradationSummary = {
   passedCount: number;
   warningCount: number;
   recommendation: string;
+  correctionHints: string[];
 };
 
 export type SaveGradationResponse = {
