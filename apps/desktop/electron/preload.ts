@@ -9,3 +9,8 @@ contextBridge.exposeInMainWorld('tolouProjects', {
   saveIntake: (payload: unknown) => ipcRenderer.invoke('projects:save-intake', payload),
   listRecent: () => ipcRenderer.invoke('projects:list-recent')
 });
+
+contextBridge.exposeInMainWorld('tolouMaterials', {
+  save: (payload: unknown) => ipcRenderer.invoke('materials:save', payload),
+  listByMixDesign: (mixDesignId: string) => ipcRenderer.invoke('materials:list-by-mix-design', mixDesignId)
+});
