@@ -60,14 +60,13 @@ export function saveMaterial(input: MaterialInput) {
 export function saveGradation(input: AggregateGradationInput) {
   validateGradation(input);
   const database = getDatabase();
+  const classifiedRows = input.rows.map(row => ({ ...row, status: classifySieve(row) }));
   database.transaction(() => {
     database.prepare('DELETE FROM aggregate_sieve_results WHERE material_id = ?').run(input.materialId);
     const insert = database.prepare(`INSERT INTO aggregate_sieve_results (id, material_id, sieve_size, percent_passing, standard_min, standard_max, status) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-    for (const row of input.rows) {
-      insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.percentPassing, row.standardMin, row.standardMax, classifySieve(row));
-    }
+    for (const row of classifiedRows) insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.percentPassing, row.standardMin, row.standardMax, row.status);
   })();
-  return { status: 'pass' as const, summary: summarizeGradation(input.rows) };
+  return { status: 'pass' as const, summary: summarizeGradation(classifiedRows) };
 }
 
 export function listGradationByMaterial(materialId: string) {
@@ -95,13 +94,23 @@ function classifySieve(row: SieveRow): SieveRow['status'] {
 }
 
 function summarizeGradation(rows: SieveRow[]) {
-  const classified = rows.map(row => ({ ...row, status: classifySieve(row) }));
-  const warningCount = classified.filter(row => row.status === 'low' || row.status === 'high').length;
-  const passedCount = classified.filter(row => row.status === 'pass').length;
-  const retainedSum = classified.reduce((sum, row) => sum + (100 - row.percentPassing), 0);
-  const finenessModulus = classified.length ? Math.round((retainedSum / 100) * 100) / 100 : null;
-  const recommendation = warningCount === 0 ? 'دانه‌بندی در محدوده‌های واردشده قرار دارد؛ کنترل با استاندارد نهایی پروژه ادامه یابد.' : 'برخی الک‌ها خارج از محدوده هستند؛ در مرحله بعد پیشنهاد اصلاح ترکیب ماسه/شن تولید می‌شود.';
-  return { finenessModulus, passedCount, warningCount, recommendation };
+  const warningRows = rows.filter(row => row.status === 'low' || row.status === 'high');
+  const passedCount = rows.filter(row => row.status === 'pass').length;
+  const retainedSum = rows.reduce((sum, row) => sum + (100 - row.percentPassing), 0);
+  const finenessModulus = rows.length ? Math.round((retainedSum / 100) * 100) / 100 : null;
+  const correctionHints = buildCorrectionHints(warningRows);
+  const recommendation = warningRows.length === 0
+    ? 'منحنی دانه‌بندی در محدوده‌های واردشده قرار دارد؛ کنترل نهایی با استاندارد انتخابی پروژه انجام شود.'
+    : 'منحنی دانه‌بندی نیاز به اصلاح دارد. پیشنهادهای اولیه زیر باید با ترکیب منابع سنگدانه و بچ آزمایشی کنترل شوند.';
+  return { finenessModulus, passedCount, warningCount: warningRows.length, recommendation, correctionHints };
+}
+
+function buildCorrectionHints(warningRows: SieveRow[]) {
+  if (!warningRows.length) return ['نیاز فوری به اصلاح دانه‌بندی دیده نشد؛ کنترل ریزدانه عبوری از الک 75 میکرون در مرحله بعد اضافه شود.'];
+  return warningRows.map(row => {
+    if (row.status === 'high') return `عبوری الک ${row.label} بالاتر از محدوده است؛ مصالح در این بازه ریزتر از هدف است و باید سهم ذرات درشت‌تر یا منبع درشت‌تر بررسی شود.`;
+    return `عبوری الک ${row.label} پایین‌تر از محدوده است؛ مصالح در این بازه درشت‌تر از هدف است و باید سهم ذرات ریزتر یا منبع اصلاحی بررسی شود.`;
+  });
 }
 
 function runMigrations(database: Database.Database) {
