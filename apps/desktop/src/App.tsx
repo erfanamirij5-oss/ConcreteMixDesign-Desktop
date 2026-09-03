@@ -1,9 +1,20 @@
-const kpis = [
-  { label: 'طرح‌های ذخیره‌شده', value: '0', hint: 'آرشیو محلی SQLite', tone: 'blue' },
-  { label: 'وضعیت موتور مهندسی', value: 'آماده', hint: 'Python Engine', tone: 'green' },
-  { label: 'استانداردهای فعال', value: 'ACI', hint: 'قابل توسعه به ASTM/EN/ISIRI', tone: 'orange' },
-  { label: 'گزارش‌ها', value: 'PDF', hint: 'خروجی چاپ حرفه‌ای', tone: 'purple' }
-];
+import { useMemo, useState } from 'react';
+
+type EngineState = 'idle' | 'checking' | 'ready' | 'error';
+
+type EngineResult = {
+  status?: string;
+  engine?: string;
+  version?: string;
+  message?: string;
+  mix_proportions?: {
+    water_kg_m3?: number;
+    cementitious_kg_m3?: number;
+    w_cm_ratio?: number;
+  };
+  warnings?: Array<{ code: string; message: string }>;
+  standard_references?: string[];
+};
 
 const modules = [
   'مشخصات پروژه',
@@ -25,6 +36,49 @@ const standards = [
 ];
 
 export function App() {
+  const [engineState, setEngineState] = useState<EngineState>('idle');
+  const [engineResult, setEngineResult] = useState<EngineResult | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
+
+  const kpis = useMemo(() => [
+    { label: 'طرح‌های ذخیره‌شده', value: '0', hint: 'آرشیو محلی SQLite', tone: 'blue' },
+    {
+      label: 'وضعیت موتور مهندسی',
+      value: engineState === 'ready' ? 'متصل' : engineState === 'error' ? 'خطا' : 'آماده تست',
+      hint: 'Python Engine',
+      tone: engineState === 'error' ? 'red' : 'green'
+    },
+    { label: 'استانداردهای فعال', value: 'ACI', hint: 'قابل توسعه به ASTM/EN/ISIRI', tone: 'orange' },
+    { label: 'گزارش‌ها', value: 'PDF', hint: 'خروجی چاپ حرفه‌ای', tone: 'purple' }
+  ], [engineState]);
+
+  async function checkEngine() {
+    setEngineState('checking');
+    setEngineError(null);
+
+    try {
+      if (!window.tolouEngine) {
+        throw new Error('Electron preload API در دسترس نیست. برنامه باید داخل Electron اجرا شود.');
+      }
+
+      const health = await window.tolouEngine.health() as EngineResult;
+      const sampleMix = await window.tolouEngine.calculateNormalMix({
+        requirements: {
+          target_strength_mpa: 35,
+          slump_mm: 100,
+          max_aggregate_size_mm: 19,
+          w_cm_ratio: 0.45
+        }
+      }) as EngineResult;
+
+      setEngineResult({ ...sampleMix, engine: health.engine, version: health.version, message: health.message });
+      setEngineState('ready');
+    } catch (error) {
+      setEngineError(error instanceof Error ? error.message : 'خطای ناشناخته در ارتباط با موتور Python');
+      setEngineState('error');
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="header">
@@ -90,7 +144,9 @@ export function App() {
             <div className="toolbar">
               <button className="btn ghost">ورود داده نمونه</button>
               <button className="btn primary">طرح جدید</button>
-              <button className="btn success">تست موتور Python</button>
+              <button className="btn success" disabled={engineState === 'checking'} onClick={checkEngine}>
+                {engineState === 'checking' ? 'در حال تست...' : 'تست موتور Python'}
+              </button>
             </div>
           </section>
 
@@ -138,15 +194,27 @@ export function App() {
             <article className="panel wide">
               <div className="panel-head">
                 <div>
-                  <h3>نمونه کارت تحلیل مهندسی</h3>
-                  <span>در نسخه بعد با خروجی واقعی Python پر می‌شود</span>
+                  <h3>وضعیت اتصال به موتور Python</h3>
+                  <span>خروجی واقعی از IPC و Engine</span>
                 </div>
-                <span className="badge orange">Needs Review</span>
+                <span className={`badge ${engineState === 'ready' ? 'green' : engineState === 'error' ? 'red' : 'orange'}`}>
+                  {engineState === 'ready' ? 'Connected' : engineState === 'error' ? 'Error' : 'Ready to test'}
+                </span>
               </div>
               <div className="panel-body alerts">
-                <div className="alert info">اطلاعات پروژه هنوز وارد نشده است؛ تحلیل دوام قطعی ممکن نیست.</div>
-                <div className="alert warn">برای خروجی صنعتی، نتایج باید با داده آزمایشگاهی مصالح کنترل شود.</div>
-                <div className="alert ok">ساختار نرم‌افزار آماده اتصال به موتور Python و دیتابیس SQLite است.</div>
+                {engineError && <div className="alert danger">{engineError}</div>}
+                {!engineResult && !engineError && <div className="alert info">برای تست ارتباط، روی دکمه «تست موتور Python» کلیک کنید.</div>}
+                {engineResult && (
+                  <>
+                    <div className="alert ok">{engineResult.message ?? 'موتور Python پاسخ معتبر داد.'}</div>
+                    <div className="result-grid">
+                      <div><label>آب تخمینی</label><strong>{engineResult.mix_proportions?.water_kg_m3 ?? '-'} kg/m³</strong></div>
+                      <div><label>مواد سیمانی</label><strong>{engineResult.mix_proportions?.cementitious_kg_m3 ?? '-'} kg/m³</strong></div>
+                      <div><label>w/cm</label><strong>{engineResult.mix_proportions?.w_cm_ratio ?? '-'}</strong></div>
+                    </div>
+                    <div className="alert warn">این فقط تست مسیر محاسبات است؛ پیاده‌سازی کامل ACI 211.1 در مرحله بعد انجام می‌شود.</div>
+                  </>
+                )}
               </div>
             </article>
           </section>
