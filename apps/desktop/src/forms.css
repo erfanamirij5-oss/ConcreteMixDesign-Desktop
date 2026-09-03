@@ -19,4 +19,6 @@ td { border-top: 1px solid var(--light); color: var(--text2); font-size: .64rem;
 .status-pill.pass { background: rgba(16,185,129,.12); color: #07845b; }
 .status-pill.low, .status-pill.high { background: rgba(245,166,35,.13); color: #a76700; }
 .status-pill.not_checked { background: rgba(79,124,255,.10); color: #4567c7; }
-@media (max-width: 1050px) { .form-grid, .form-body { grid-template-columns: 1fr; } .form-panel:last-child, .field.full { grid-column: auto; } }
+.gradation-chart { width: 100%; height: 330px; }
+.single-column { grid-template-columns: 1fr; }
+@media (max-width: 1050px) { .form-grid, .form-body { grid-template-columns: 1fr; } .form-panel:last-child, .field.full { grid-column: auto; } .gradation-chart { height: 280px; } }
