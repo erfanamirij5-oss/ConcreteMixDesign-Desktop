@@ -14,5 +14,9 @@ declare global {
       save: (payload: unknown) => Promise<unknown>;
       listByMixDesign: (mixDesignId: string) => Promise<unknown>;
     };
+    tolouGradation?: {
+      save: (payload: unknown) => Promise<unknown>;
+      listByMaterial: (materialId: string) => Promise<unknown>;
+    };
   }
 }
