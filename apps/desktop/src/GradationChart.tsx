@@ -8,60 +8,66 @@ import type { SieveRow } from './types/gradation';
 
 echarts.use([GridComponent, LegendComponent, TooltipComponent, LineChart, CanvasRenderer]);
 
-export function GradationChart(props: { rows: SieveRow[] }) {
+export function GradationChart(props: { rows: SieveRow[]; combinedRows?: SieveRow[] }) {
   const chartRef = useRef<HTMLDivElement | null>(null);
 
   const option = useMemo<EChartsOption>(() => {
     const orderedRows = [...props.rows].sort((a, b) => b.sieveSizeMm - a.sieveSizeMm);
+    const combinedBySieve = new Map((props.combinedRows ?? []).map(row => [row.sieveSizeMm, row.percentPassing]));
+    const series: NonNullable<EChartsOption['series']> = [
+      {
+        name: 'درصد عبوری مصالح انتخابی',
+        type: 'line',
+        smooth: true,
+        symbolSize: 8,
+        data: orderedRows.map(row => row.percentPassing),
+        lineStyle: { width: 4, color: '#4f7cff' },
+        itemStyle: { color: '#4f7cff' }
+      }
+    ];
+
+    if (props.combinedRows?.length) {
+      series.push({
+        name: 'منحنی ترکیبی سنگدانه‌ها',
+        type: 'line',
+        smooth: true,
+        symbolSize: 8,
+        data: orderedRows.map(row => combinedBySieve.get(row.sieveSizeMm) ?? null),
+        lineStyle: { width: 4, color: '#7c3aed' },
+        itemStyle: { color: '#7c3aed' }
+      });
+    }
+
+    series.push(
+      {
+        name: 'حد پایین',
+        type: 'line',
+        smooth: true,
+        symbolSize: 6,
+        data: orderedRows.map(row => row.standardMin),
+        lineStyle: { width: 2, color: '#10b981', type: 'dashed' },
+        itemStyle: { color: '#10b981' }
+      },
+      {
+        name: 'حد بالا',
+        type: 'line',
+        smooth: true,
+        symbolSize: 6,
+        data: orderedRows.map(row => row.standardMax),
+        lineStyle: { width: 2, color: '#f5a623', type: 'dashed' },
+        itemStyle: { color: '#f5a623' }
+      }
+    );
 
     return {
       tooltip: { trigger: 'axis' },
       legend: { top: 0, textStyle: { fontFamily: 'Tahoma' } },
       grid: { top: 48, right: 26, left: 42, bottom: 40 },
-      xAxis: {
-        type: 'category',
-        data: orderedRows.map(row => row.label),
-        axisLabel: { fontFamily: 'Tahoma' }
-      },
-      yAxis: {
-        type: 'value',
-        min: 0,
-        max: 100,
-        name: 'درصد عبوری',
-        nameTextStyle: { fontFamily: 'Tahoma' },
-        axisLabel: { formatter: '{value}%' }
-      },
-      series: [
-        {
-          name: 'درصد عبوری مصالح',
-          type: 'line',
-          smooth: true,
-          symbolSize: 8,
-          data: orderedRows.map(row => row.percentPassing),
-          lineStyle: { width: 4, color: '#4f7cff' },
-          itemStyle: { color: '#4f7cff' }
-        },
-        {
-          name: 'حد پایین',
-          type: 'line',
-          smooth: true,
-          symbolSize: 6,
-          data: orderedRows.map(row => row.standardMin),
-          lineStyle: { width: 2, color: '#10b981', type: 'dashed' },
-          itemStyle: { color: '#10b981' }
-        },
-        {
-          name: 'حد بالا',
-          type: 'line',
-          smooth: true,
-          symbolSize: 6,
-          data: orderedRows.map(row => row.standardMax),
-          lineStyle: { width: 2, color: '#f5a623', type: 'dashed' },
-          itemStyle: { color: '#f5a623' }
-        }
-      ]
+      xAxis: { type: 'category', data: orderedRows.map(row => row.label), axisLabel: { fontFamily: 'Tahoma' } },
+      yAxis: { type: 'value', min: 0, max: 100, name: 'درصد عبوری', nameTextStyle: { fontFamily: 'Tahoma' }, axisLabel: { formatter: '{value}%' } },
+      series
     };
-  }, [props.rows]);
+  }, [props.rows, props.combinedRows]);
 
   useEffect(() => {
     if (!chartRef.current) return;
