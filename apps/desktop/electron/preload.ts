@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('tolouEngine', {
   health: () => ipcRenderer.invoke('engine:health'),
-  calculateNormalMix: (payload: unknown) => ipcRenderer.invoke('engine:calculate-normal-mix', payload)
+  calculateNormalMix: (payload: unknown) => ipcRenderer.invoke('engine:calculate-normal-mix', payload),
+  calculateSavedMix: (mixDesignId: string) => ipcRenderer.invoke('engine:calculate-saved-mix', mixDesignId)
 });
 
 contextBridge.exposeInMainWorld('tolouProjects', {
