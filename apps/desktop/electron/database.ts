@@ -11,7 +11,21 @@ type ProjectIntake = {
   mixDesign: { concreteType: string; targetStrengthMpa: number; requiredSlumpMm: number; maxAggregateSizeMm: number; exposureSummary: string; };
 };
 
-type MaterialInput = { mixDesignId: string; materialType: string; name: string; source: string; specificGravity: number | null; absorptionPercent: number | null; moisturePercent: number | null; unitWeightKgM3: number | null; notes: string; };
+type MaterialInput = {
+  mixDesignId: string;
+  materialType: string;
+  aggregateRole: string | null;
+  nominalSizeMm: number | null;
+  fracturedFacePercent: number | null;
+  moistureCondition: string | null;
+  name: string;
+  source: string;
+  specificGravity: number | null;
+  absorptionPercent: number | null;
+  moisturePercent: number | null;
+  unitWeightKgM3: number | null;
+  notes: string;
+};
 type SieveRow = { sieveSizeMm: number; label: string; percentPassing: number; standardMin: number | null; standardMax: number | null; status: 'pass' | 'low' | 'high' | 'not_checked'; };
 type AggregateBlendShare = { materialId: string; materialName: string; sharePercent: number; };
 type AggregateGradationInput = { materialId: string; manualLimitOverride: boolean; manualBlendEnabled: boolean; blendShares: AggregateBlendShare[]; rows: SieveRow[]; };
@@ -54,7 +68,7 @@ export function saveMaterial(input: MaterialInput) {
   validateMaterial(input);
   const database = getDatabase();
   const materialId = crypto.randomUUID();
-  database.prepare(`INSERT INTO materials (id, mix_design_id, material_type, name, source, specific_gravity, absorption_percent, moisture_percent, unit_weight_kg_m3, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(materialId, input.mixDesignId, input.materialType, input.name, input.source, input.specificGravity, input.absorptionPercent, input.moisturePercent, input.unitWeightKgM3, input.notes);
+  database.prepare(`INSERT INTO materials (id, mix_design_id, material_type, aggregate_role, nominal_size_mm, fractured_face_percent, moisture_condition, name, source, specific_gravity, absorption_percent, moisture_percent, unit_weight_kg_m3, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(materialId, input.mixDesignId, input.materialType, input.aggregateRole, input.nominalSizeMm, input.fracturedFacePercent, input.moistureCondition, input.name, input.source, input.specificGravity, input.absorptionPercent, input.moisturePercent, input.unitWeightKgM3, input.notes);
   return { status: 'pass' as const, materialId };
 }
 
@@ -91,7 +105,7 @@ export function listGradationByMaterial(materialId: string) {
 export function listMaterialsByMixDesign(mixDesignId: string) {
   if (!mixDesignId.trim()) return [];
   const database = getDatabase();
-  return database.prepare(`SELECT id, mix_design_id AS mixDesignId, material_type AS materialType, name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, moisture_percent AS moisturePercent, unit_weight_kg_m3 AS unitWeightKgM3, notes FROM materials WHERE mix_design_id = ? ORDER BY rowid DESC`).all(mixDesignId);
+  return database.prepare(`SELECT id, mix_design_id AS mixDesignId, material_type AS materialType, aggregate_role AS aggregateRole, nominal_size_mm AS nominalSizeMm, fractured_face_percent AS fracturedFacePercent, moisture_condition AS moistureCondition, name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, moisture_percent AS moisturePercent, unit_weight_kg_m3 AS unitWeightKgM3, notes FROM materials WHERE mix_design_id = ? ORDER BY rowid DESC`).all(mixDesignId);
 }
 
 export function listRecentProjects() {
@@ -140,7 +154,7 @@ function buildManualNotes(manualLimitOverride: boolean, manualBlendEnabled: bool
 
 function runMigrations(database: Database.Database) {
   database.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);`);
-  const migrations = ['001_initial_schema', '002_manual_gradation_controls'];
+  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields'];
   for (const migrationId of migrations) {
     const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId);
     if (applied) continue;
@@ -162,6 +176,8 @@ function validateMaterial(input: MaterialInput) {
   if (!input.mixDesignId.trim()) throw new Error('برای ثبت مصالح، ابتدا باید یک طرح اختلاط ذخیره شود.');
   if (!input.name.trim()) throw new Error('نام مصالح الزامی است.');
   if (!input.materialType.trim()) throw new Error('نوع مصالح الزامی است.');
+  if ((input.materialType === 'fine_aggregate' || input.materialType === 'coarse_aggregate') && !input.aggregateRole) throw new Error('برای سنگدانه، نقش سنگدانه باید مشخص شود.');
+  if (input.fracturedFacePercent !== null && (input.fracturedFacePercent < 0 || input.fracturedFacePercent > 100)) throw new Error('درصد شکستگی باید بین ۰ تا ۱۰۰ باشد.');
 }
 
 function validateGradation(input: AggregateGradationInput) {
