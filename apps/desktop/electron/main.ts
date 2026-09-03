@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { listRecentProjects, saveProjectIntake } from './database';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -32,6 +33,31 @@ ipcMain.handle('engine:health', async () => {
 
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => {
   return runPythonCommand('calculate-normal-mix', payload);
+});
+
+ipcMain.handle('projects:save-intake', async (_event, payload) => {
+  try {
+    return saveProjectIntake(payload);
+  } catch (error) {
+    return {
+      status: 'fail',
+      error: error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره پروژه'
+    };
+  }
+});
+
+ipcMain.handle('projects:list-recent', async () => {
+  try {
+    return {
+      status: 'pass',
+      projects: listRecentProjects()
+    };
+  } catch (error) {
+    return {
+      status: 'fail',
+      error: error instanceof Error ? error.message : 'خطای ناشناخته در خواندن پروژه‌ها'
+    };
+  }
 });
 
 function getEnginePath(): string {
