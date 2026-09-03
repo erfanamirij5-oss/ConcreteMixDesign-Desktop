@@ -14,3 +14,8 @@ contextBridge.exposeInMainWorld('tolouMaterials', {
   save: (payload: unknown) => ipcRenderer.invoke('materials:save', payload),
   listByMixDesign: (mixDesignId: string) => ipcRenderer.invoke('materials:list-by-mix-design', mixDesignId)
 });
+
+contextBridge.exposeInMainWorld('tolouGradation', {
+  save: (payload: unknown) => ipcRenderer.invoke('gradation:save', payload),
+  listByMaterial: (materialId: string) => ipcRenderer.invoke('gradation:list-by-material', materialId)
+});
