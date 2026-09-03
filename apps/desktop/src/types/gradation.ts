@@ -7,8 +7,17 @@ export type SieveRow = {
   status: 'pass' | 'low' | 'high' | 'not_checked';
 };
 
+export type AggregateBlendShare = {
+  materialId: string;
+  materialName: string;
+  sharePercent: number;
+};
+
 export type AggregateGradationInput = {
   materialId: string;
+  manualLimitOverride: boolean;
+  manualBlendEnabled: boolean;
+  blendShares: AggregateBlendShare[];
   rows: SieveRow[];
 };
 
@@ -18,6 +27,7 @@ export type GradationSummary = {
   warningCount: number;
   recommendation: string;
   correctionHints: string[];
+  manualNotes: string[];
 };
 
 export type SaveGradationResponse = {
