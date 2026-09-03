@@ -81,8 +81,8 @@ export function saveGradation(input: AggregateGradationInput) {
 
   database.transaction(() => {
     database.prepare('DELETE FROM aggregate_sieve_results WHERE material_id = ?').run(input.materialId);
-    const insert = database.prepare(`INSERT INTO aggregate_sieve_results (id, material_id, sieve_size_mm, percent_passing, standard_min, standard_max, status) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-    for (const row of classifiedRows) insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.percentPassing, row.standardMin, row.standardMax, row.status);
+    const insert = database.prepare(`INSERT INTO aggregate_sieve_results (id, material_id, sieve_size_mm, label, percent_passing, standard_min, standard_max, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    for (const row of classifiedRows) insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.label, row.percentPassing, row.standardMin, row.standardMax, row.status);
 
     database.prepare('INSERT OR REPLACE INTO aggregate_gradation_controls (material_id, manual_limit_override, manual_blend_enabled, updated_at) VALUES (?, ?, ?, ?)').run(input.materialId, input.manualLimitOverride ? 1 : 0, input.manualBlendEnabled ? 1 : 0, now);
 
@@ -99,7 +99,7 @@ export function saveGradation(input: AggregateGradationInput) {
 export function listGradationByMaterial(materialId: string) {
   if (!materialId.trim()) return [];
   const database = getDatabase();
-  return database.prepare(`SELECT sieve_size_mm AS sieveSizeMm, percent_passing AS percentPassing, standard_min AS standardMin, standard_max AS standardMax, status FROM aggregate_sieve_results WHERE material_id = ? ORDER BY sieve_size_mm DESC`).all(materialId);
+  return database.prepare(`SELECT sieve_size_mm AS sieveSizeMm, COALESCE(label, sieve_size_mm || ' mm') AS label, percent_passing AS percentPassing, standard_min AS standardMin, standard_max AS standardMax, status FROM aggregate_sieve_results WHERE material_id = ? ORDER BY sieve_size_mm DESC`).all(materialId);
 }
 
 export function listMaterialsByMixDesign(mixDesignId: string) {
@@ -154,7 +154,7 @@ function buildManualNotes(manualLimitOverride: boolean, manualBlendEnabled: bool
 
 function runMigrations(database: Database.Database) {
   database.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);`);
-  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields'];
+  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels'];
   for (const migrationId of migrations) {
     const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId);
     if (applied) continue;
