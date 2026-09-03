@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies for static validation
+        run: npm install --ignore-scripts
 
       - name: Typecheck
         run: npm run typecheck
