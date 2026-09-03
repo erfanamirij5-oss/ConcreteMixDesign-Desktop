@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { buildNormalMixPayload } from './enginePayload';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -26,6 +27,14 @@ function createWindow() {
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));
+ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string) => {
+  try {
+    const payload = buildNormalMixPayload(mixDesignId);
+    return await runPythonCommand('calculate-normal-mix', payload);
+  } catch (error) {
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده' };
+  }
+});
 
 ipcMain.handle('projects:save-intake', async (_event, payload) => safeCall(() => saveProjectIntake(payload), 'خطای ناشناخته در ذخیره پروژه'));
 ipcMain.handle('projects:list-recent', async () => safeCall(() => ({ status: 'pass', projects: listRecentProjects() }), 'خطای ناشناخته در خواندن پروژه‌ها'));
