@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -21,7 +22,7 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 }
 
@@ -33,9 +34,32 @@ ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => {
   return runPythonCommand('calculate-normal-mix', payload);
 });
 
+function getEnginePath(): string {
+  const candidates = [
+    path.join(process.cwd(), 'engine/python/src/tolou_mix_engine/cli.py'),
+    path.join(app.getAppPath(), 'engine/python/src/tolou_mix_engine/cli.py'),
+    path.join(process.resourcesPath, 'engine/python/src/tolou_mix_engine/cli.py')
+  ];
+
+  const found = candidates.find(candidate => existsSync(candidate));
+  if (!found) {
+    throw new Error(`Python engine CLI was not found. Checked: ${candidates.join(' | ')}`);
+  }
+
+  return found;
+}
+
 function runPythonCommand(command: string, payload?: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const enginePath = path.join(process.cwd(), 'engine/python/src/tolou_mix_engine/cli.py');
+    let enginePath: string;
+
+    try {
+      enginePath = getEnginePath();
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
     const child = spawn('python', [enginePath, command], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
