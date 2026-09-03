@@ -1,0 +1,24 @@
+{
+  "name": "concrete-mix-design-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tolou Concrete Mix Design Desktop - professional concrete mix design software for Windows.",
+  "main": "apps/desktop/electron/main.ts",
+  "scripts": {
+    "dev": "echo \"Development script will be wired after scaffold setup\"",
+    "build": "echo \"Build script will be wired after scaffold setup\"",
+    "dist:win": "echo \"Windows installer packaging will be wired with electron-builder\"",
+    "test": "echo \"Tests will be added for engineering engine and UI\""
+  },
+  "keywords": [
+    "concrete",
+    "mix-design",
+    "aci",
+    "electron",
+    "react",
+    "python",
+    "sqlite"
+  ],
+  "author": "Erfan Amiri / Tolou",
+  "license": "UNLICENSED"
+}
