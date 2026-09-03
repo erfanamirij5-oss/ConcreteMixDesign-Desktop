@@ -6,11 +6,13 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "dev:ui": "vite --config apps/desktop/vite.config.ts",
-    "dev:electron": "cross-env NODE_ENV=development electron .",
     "build:ui": "vite build --config apps/desktop/vite.config.ts",
-    "typecheck": "tsc --noEmit",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:ui && npm run build:electron",
+    "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test:engine": "cd engine/python && python -m pytest",
-    "dist:win": "npm run build:ui && electron-builder --config electron-builder.json --win"
+    "dist:win": "npm run build && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -24,7 +26,11 @@
     "echarts": "latest",
     "better-sqlite3": "latest"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  },
   "keywords": [
     "concrete",
     "mix-design",
