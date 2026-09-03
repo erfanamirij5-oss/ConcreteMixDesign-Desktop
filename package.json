@@ -3,13 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "description": "Tolou Concrete Mix Design Desktop - professional concrete mix design software for Windows.",
-  "main": "apps/desktop/electron/main.ts",
+  "main": "dist/electron/main.js",
   "scripts": {
-    "dev": "echo \"Development script will be wired after scaffold setup\"",
-    "build": "echo \"Build script will be wired after scaffold setup\"",
-    "dist:win": "echo \"Windows installer packaging will be wired with electron-builder\"",
-    "test": "echo \"Tests will be added for engineering engine and UI\""
+    "dev:ui": "vite --config apps/desktop/vite.config.ts",
+    "dev:electron": "cross-env NODE_ENV=development electron .",
+    "build:ui": "vite build --config apps/desktop/vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test:engine": "cd engine/python && python -m pytest",
+    "dist:win": "npm run build:ui && electron-builder --config electron-builder.json --win"
   },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "cross-env": "latest",
+    "echarts": "latest",
+    "better-sqlite3": "latest"
+  },
+  "devDependencies": {},
   "keywords": [
     "concrete",
     "mix-design",
