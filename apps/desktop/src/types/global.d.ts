@@ -10,5 +10,9 @@ declare global {
       saveIntake: (payload: unknown) => Promise<unknown>;
       listRecent: () => Promise<unknown>;
     };
+    tolouMaterials?: {
+      save: (payload: unknown) => Promise<unknown>;
+      listByMixDesign: (mixDesignId: string) => Promise<unknown>;
+    };
   }
 }
