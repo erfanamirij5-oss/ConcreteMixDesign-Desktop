@@ -61,6 +61,47 @@
   box-shadow: 0 0 0 3px rgba(79, 124, 255, .08);
 }
 
+.list-button {
+  width: 100%;
+  border: 1px solid var(--light);
+  background: var(--surface2);
+  color: var(--text2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: right;
+  font-size: .68rem;
+}
+
+.list-button:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.tablewrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: .58rem;
+  padding: 10px;
+  text-align: right;
+}
+
+td {
+  border-top: 1px solid var(--light);
+  color: var(--text2);
+  font-size: .64rem;
+  padding: 10px;
+}
+
 @media (max-width: 1050px) {
   .form-grid,
   .form-body {
