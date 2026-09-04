@@ -21,6 +21,7 @@ def water(**overrides):
         "total_solids_mg_l": 700.0,
         "c1602_strength_ratio_7d_percent": 96.0,
         "c1602_setting_time_deviation_min": 20.0,
+        "c1602_performance_evidence_ref": "LAB-C1602-001",
     }
     item.update(overrides)
     return item
@@ -53,7 +54,7 @@ def recycled(**overrides):
 
 def test_single_potable_source_passes_without_performance_test_requirement():
     result = evaluate_mixing_water_compliance(
-        {"admixtures": [water(c1602_strength_ratio_7d_percent=None, c1602_setting_time_deviation_min=None)]},
+        {"admixtures": [water(c1602_strength_ratio_7d_percent=None, c1602_setting_time_deviation_min=None, c1602_performance_evidence_ref=None)]},
         {},
     )
     assert result["status"] == "pass"
@@ -76,12 +77,20 @@ def test_nonpotable_missing_performance_data_needs_review():
     assert result["status"] == "needs_review"
 
 
+def test_nonpotable_performance_values_without_evidence_need_review():
+    result = evaluate_mixing_water_compliance({"admixtures": [nonpotable(c1602_performance_evidence_ref=None)]}, {})
+    assert result["status"] == "needs_review"
+    assert result["combined_water"]["performance_qualified"] is False
+    assert any(item["code"] == "ASTM_C1602_PERFORMANCE_EVIDENCE_MISSING" for item in result["warnings"])
+
+
 def test_two_sources_require_combined_performance_qualification():
     first = water(id="w1", name="شهری", water_share_percent=70.0)
     second = recycled(id="w2", water_share_percent=30.0)
     result = evaluate_mixing_water_compliance({"admixtures": [first, second]}, {})
     assert result["status"] == "needs_review"
     assert result["combined_water"]["chloride_mg_l"] == 120.0
+    assert result["combined_water"]["qualification_basis"] == "combined_water_test_required"
     assert any(item["code"] == "COMBINED_WATER_PERFORMANCE_TEST_REQUIRED" for item in result["warnings"])
 
 
