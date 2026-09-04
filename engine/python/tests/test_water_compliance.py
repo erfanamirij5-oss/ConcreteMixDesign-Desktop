@@ -1,6 +1,10 @@
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 
 from tolou_mix_engine.water_compliance import evaluate_mixing_water_compliance
+
+
+def today():
+    return datetime.now(UTC).date()
 
 
 def water(**overrides):
@@ -27,7 +31,7 @@ def nonpotable(**overrides):
         name="آب چاه غیرآشامیدنی",
         material_subtype="other",
         water_source_class="nonpotable",
-        c1602_last_qualification_date=date.today().isoformat(),
+        c1602_last_qualification_date=today().isoformat(),
         **overrides,
     )
 
@@ -38,8 +42,8 @@ def recycled(**overrides):
         material_subtype="wash_water",
         water_source_class="concrete_production",
         density_kg_m3=1020.0,
-        c1602_last_qualification_date=date.today().isoformat(),
-        c1602_last_density_check_date=date.today().isoformat(),
+        c1602_last_qualification_date=today().isoformat(),
+        c1602_last_density_check_date=today().isoformat(),
         c1602_density_monitoring_method="astm_c1603",
         **overrides,
     )
@@ -97,7 +101,7 @@ def test_prestressed_uses_lower_chloride_screening_limit():
 
 def test_recycled_water_requires_daily_density_monitoring():
     result = evaluate_mixing_water_compliance(
-        {"admixtures": [recycled(c1602_last_density_check_date=(date.today() - timedelta(days=3)).isoformat())]},
+        {"admixtures": [recycled(c1602_last_density_check_date=(today() - timedelta(days=3)).isoformat())]},
         {},
     )
     assert result["status"] == "needs_review"
@@ -115,7 +119,7 @@ def test_recycled_water_density_controls_default_qualification_frequency():
 
 def test_nonpotable_default_requalification_due_after_three_months():
     result = evaluate_mixing_water_compliance(
-        {"admixtures": [nonpotable(c1602_last_qualification_date=(date.today() - timedelta(days=100)).isoformat())]},
+        {"admixtures": [nonpotable(c1602_last_qualification_date=(today() - timedelta(days=100)).isoformat())]},
         {},
     )
     assert result["status"] == "needs_review"
