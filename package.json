@@ -27,6 +27,7 @@
     "test:material-library-snapshot": "npm run build:electron && node dist/electron/materialLibrarySnapshotSmoke.js",
     "test:trial-mix": "npm run build:electron && node dist/electron/trialMixSmoke.js",
     "test:trial-workflow": "npm run build:electron && node dist/electron/trialWorkflowSmoke.js",
+    "test:backup-restore": "npm run build:electron && node dist/electron/backupRestoreSmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {

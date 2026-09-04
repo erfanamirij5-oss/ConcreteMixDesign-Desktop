@@ -71,3 +71,8 @@ contextBridge.exposeInMainWorld('tolouReports', {
   exportPdf: (snapshotId: string) => ipcRenderer.invoke('report-center:export-pdf', snapshotId),
   print: (snapshotId: string) => ipcRenderer.invoke('report-center:print', snapshotId)
 });
+
+contextBridge.exposeInMainWorld('tolouDataSafety', {
+  backup: () => ipcRenderer.invoke('data-safety:backup'),
+  restore: () => ipcRenderer.invoke('data-safety:restore')
+});

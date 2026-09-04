@@ -59,5 +59,9 @@ declare global {
       exportPdf: (snapshotId: string) => Promise<unknown>;
       print: (snapshotId: string) => Promise<unknown>;
     };
+    tolouDataSafety?: {
+      backup: () => Promise<unknown>;
+      restore: () => Promise<unknown>;
+    };
   }
 }
