@@ -2,11 +2,12 @@ from __future__ import annotations
 
 
 def evaluate_aggregate_compliance(materials: dict) -> dict:
-    """Evaluate aggregate quality data without inventing project-specific ASTM C33 limits.
+    """Evaluate aggregate quality without inventing project-specific acceptance limits.
 
-    Grading pass/fail is based on the stored lower/upper limits for each sieve. ASTM C117
-    material finer than 75 µm is checked only when a project/specification limit is
-    explicitly stored, because the applicable C33 limit depends on aggregate/use.
+    Stored grading limits are used for ASTM C136/C33 checks. C117, LA abrasion,
+    sulfate soundness and deleterious-material results become pass/fail only when an
+    explicit project/specification limit is stored. Otherwise the result remains
+    needs_review so the software does not create an unsupported acceptance criterion.
     """
     aggregates = list(materials.get("aggregates") or [])
     warnings: list[dict] = []
@@ -44,20 +45,20 @@ def evaluate_aggregate_compliance(materials: dict) -> dict:
 
         fines = _optional_number(item.get("astm_c117_finer_75um_percent"))
         fines_limit = _optional_number(item.get("finer_75um_limit_percent"))
-        if fines is None:
-            fines_status = "needs_review"
-            all_core_complete = False
-            row_warnings.append(_warning("ASTM_C117_RESULT_MISSING", "needs_review", f"نتیجه مواد ریزتر از 75 µm به روش ASTM C117 برای «{_name(item)}» ثبت نشده است.", "ASTM C117"))
-        elif fines_limit is None:
-            fines_status = "needs_review"
-            all_core_complete = False
-            row_warnings.append(_warning("C117_PROJECT_LIMIT_MISSING", "needs_review", f"نتیجه C117 برای «{_name(item)}» موجود است ولی حد مجاز پروژه/Specification ثبت نشده است.", "ASTM C33/C33M + ASTM C117"))
-        elif fines > fines_limit:
-            fines_status = "fail"
-            any_fail = True
-            row_warnings.append(_warning("ASTM_C117_FINER_75UM_EXCEEDS_LIMIT", "fail", f"مواد ریزتر از 75 µm در «{_name(item)}» برابر {fines:g}% و بیشتر از حد ثبت‌شده {fines_limit:g}% است.", "ASTM C33/C33M + ASTM C117"))
-        else:
-            fines_status = "pass"
+        fines_check = _limit_check(
+            fines,
+            fines_limit,
+            "ASTM_C117_RESULT_MISSING",
+            "C117_PROJECT_LIMIT_MISSING",
+            "ASTM_C117_FINER_75UM_EXCEEDS_LIMIT",
+            f"نتیجه مواد ریزتر از 75 µm به روش ASTM C117 برای «{_name(item)}» ثبت نشده است.",
+            f"نتیجه C117 برای «{_name(item)}» موجود است ولی حد مجاز پروژه/Specification ثبت نشده است.",
+            "مواد ریزتر از 75 µm",
+            "ASTM C33/C33M + ASTM C117",
+        )
+        row_warnings.extend(fines_check["warnings"])
+        any_fail = any_fail or fines_check["status"] == "fail"
+        all_core_complete = all_core_complete and fines_check["status"] == "pass"
 
         sg = _optional_number(item.get("astm_c127_c128_ssd_specific_gravity"))
         if sg is None:
@@ -81,6 +82,57 @@ def evaluate_aggregate_compliance(materials: dict) -> dict:
             all_core_complete = False
             row_warnings.append(_warning("FINE_AGGREGATE_FM_INCOMPLETE", "needs_review", f"مدول نرمی «{_name(item)}» از ردیف‌های C136 قابل محاسبه نیست.", "ASTM C136/C136M"))
 
+        abrasion = _advanced_check(
+            item,
+            "la_abrasion_loss_percent",
+            "la_abrasion_limit_percent",
+            "LA_ABRASION_RESULT_MISSING",
+            "LA_ABRASION_PROJECT_LIMIT_MISSING",
+            "LA_ABRASION_EXCEEDS_LIMIT",
+            "افت LA Abrasion",
+            _abrasion_reference(item),
+            required=item.get("material_type") == "coarse_aggregate",
+        )
+        soundness = _advanced_check(
+            item,
+            "astm_c88_soundness_loss_percent",
+            "soundness_limit_percent",
+            "C88_SOUNDNESS_RESULT_MISSING",
+            "C88_SOUNDNESS_PROJECT_LIMIT_MISSING",
+            "C88_SOUNDNESS_EXCEEDS_LIMIT",
+            "افت Soundness",
+            "ASTM C88/C88M-24 + ASTM C33/C33M-24a",
+            required=False,
+        )
+        clay_lumps = _advanced_check(
+            item,
+            "astm_c142_clay_lumps_percent",
+            "clay_lumps_limit_percent",
+            "C142_RESULT_MISSING",
+            "C142_PROJECT_LIMIT_MISSING",
+            "C142_CLAY_LUMPS_EXCEEDS_LIMIT",
+            "کلوخه‌های رسی و ذرات سست",
+            "ASTM C142/C142M-17(2023) + ASTM C33/C33M-24a",
+            required=False,
+        )
+        lightweight = _advanced_check(
+            item,
+            "astm_c123_lightweight_particles_percent",
+            "lightweight_particles_limit_percent",
+            "C123_RESULT_MISSING",
+            "C123_PROJECT_LIMIT_MISSING",
+            "C123_LIGHTWEIGHT_PARTICLES_EXCEEDS_LIMIT",
+            "ذرات سبک",
+            "ASTM C123/C123M-23 + ASTM C33/C33M-24a",
+            required=False,
+        )
+
+        for check in (abrasion, soundness, clay_lumps, lightweight):
+            row_warnings.extend(check["warnings"])
+            any_fail = any_fail or check["status"] == "fail"
+            if check["required"]:
+                all_core_complete = all_core_complete and check["status"] == "pass"
+
         source_status = "fail" if any(w["severity"] == "fail" for w in row_warnings) else "needs_review" if row_warnings else "pass"
         warnings.extend(row_warnings)
         sources.append({
@@ -88,7 +140,7 @@ def evaluate_aggregate_compliance(materials: dict) -> dict:
             "name": item.get("name"),
             "material_type": item.get("material_type"),
             "aggregate_role": item.get("aggregate_role"),
-            "standard": item.get("aggregate_quality_standard") or "ASTM C33/C33M",
+            "standard": item.get("aggregate_quality_standard") or "ASTM C33/C33M-24a",
             "status": source_status,
             "gradation": {
                 "status": gradation_status,
@@ -97,19 +149,76 @@ def evaluate_aggregate_compliance(materials: dict) -> dict:
                 "failures": gradation_failures,
                 "fineness_modulus": fm,
             },
-            "fines_75um": {"status": fines_status, "astm_c117_percent": fines, "limit_percent": fines_limit},
+            "fines_75um": {"status": fines_check["status"], "astm_c117_percent": fines, "limit_percent": fines_limit},
             "physical_properties": {
                 "data_complete": physical_complete,
                 "ssd_specific_gravity": sg,
                 "absorption_percent": absorption,
                 "rodded_unit_weight_kg_m3": unit_weight,
             },
+            "abrasion": {
+                "status": abrasion["status"],
+                "method": item.get("la_abrasion_method"),
+                "loss_percent": abrasion["value"],
+                "limit_percent": abrasion["limit"],
+            },
+            "soundness": {
+                "status": soundness["status"],
+                "salt": item.get("soundness_salt"),
+                "loss_percent": soundness["value"],
+                "limit_percent": soundness["limit"],
+            },
+            "deleterious_materials": {
+                "clay_lumps": {"status": clay_lumps["status"], "percent": clay_lumps["value"], "limit_percent": clay_lumps["limit"]},
+                "lightweight_particles": {"status": lightweight["status"], "percent": lightweight["value"], "limit_percent": lightweight["limit"]},
+            },
             "fractured_face_percent": _optional_number(item.get("fractured_face_percent")),
-            "evidence_ref": item.get("aggregate_test_evidence_ref"),
+            "evidence_ref": item.get("advanced_aggregate_evidence_ref") or item.get("aggregate_test_evidence_ref"),
         })
 
     status = "fail" if any_fail else "needs_review" if not all_core_complete or any(row["status"] == "needs_review" for row in sources) else "pass"
     return {"status": status, "data_complete": status == "pass", "sources": sources, "warnings": warnings, "references": _references()}
+
+
+def _limit_check(value: float | None, limit: float | None, missing_code: str, limit_code: str, exceed_code: str, missing_message: str, limit_message: str, label: str, reference: str) -> dict:
+    warnings: list[dict] = []
+    if value is None:
+        warnings.append(_warning(missing_code, "needs_review", missing_message, reference))
+        return {"status": "needs_review", "value": None, "limit": limit, "warnings": warnings}
+    if limit is None:
+        warnings.append(_warning(limit_code, "needs_review", limit_message, reference))
+        return {"status": "needs_review", "value": value, "limit": None, "warnings": warnings}
+    if value > limit:
+        warnings.append(_warning(exceed_code, "fail", f"{label} برابر {value:g}% و بیشتر از حد ثبت‌شده {limit:g}% است.", reference))
+        return {"status": "fail", "value": value, "limit": limit, "warnings": warnings}
+    return {"status": "pass", "value": value, "limit": limit, "warnings": warnings}
+
+
+def _advanced_check(item: dict, value_key: str, limit_key: str, missing_code: str, limit_code: str, exceed_code: str, label: str, reference: str, required: bool) -> dict:
+    value = _optional_number(item.get(value_key))
+    limit = _optional_number(item.get(limit_key))
+    if value is None and not required:
+        return {"status": "not_checked", "required": False, "value": None, "limit": limit, "warnings": []}
+    result = _limit_check(
+        value,
+        limit,
+        missing_code,
+        limit_code,
+        exceed_code,
+        f"نتیجه {label} برای «{_name(item)}» ثبت نشده است.",
+        f"نتیجه {label} برای «{_name(item)}» موجود است ولی حد پروژه/Specification ثبت نشده است.",
+        label,
+        reference,
+    )
+    result["required"] = required
+    return result
+
+
+def _abrasion_reference(item: dict) -> str:
+    method = str(item.get("la_abrasion_method") or "").strip().lower()
+    if method == "astm_c535":
+        return "ASTM C535-16(2024) + ASTM C33/C33M-24a"
+    return "ASTM C131/C131M-20 + ASTM C33/C33M-24a"
 
 
 def _optional_number(value: object) -> float | None:
@@ -131,10 +240,15 @@ def _warning(code: str, severity: str, message: str, reference: str) -> dict:
 
 def _references() -> list[str]:
     return [
-        "ASTM C33/C33M - Concrete Aggregates",
-        "ASTM C136/C136M - Sieve Analysis of Fine and Coarse Aggregates",
-        "ASTM C117 - Materials Finer than 75-µm Sieve by Washing",
-        "ASTM C127 - Relative Density and Absorption of Coarse Aggregate",
-        "ASTM C128 - Relative Density and Absorption of Fine Aggregate",
-        "ASTM C29/C29M - Bulk Density and Voids in Aggregate",
+        "ASTM C33/C33M-24a - Concrete Aggregates",
+        "ASTM C136/C136M-25 - Sieve Analysis of Fine and Coarse Aggregates",
+        "ASTM C117-23 - Materials Finer than 75-µm Sieve by Washing",
+        "ASTM C127-25 - Relative Density and Absorption of Coarse Aggregate",
+        "ASTM C128-25 - Relative Density and Absorption of Fine Aggregate",
+        "ASTM C29/C29M-23 - Bulk Density and Voids in Aggregate",
+        "ASTM C131/C131M-20 - Resistance to Degradation of Small-Size Coarse Aggregate",
+        "ASTM C535-16(2024) - Resistance to Degradation of Large-Size Coarse Aggregate",
+        "ASTM C88/C88M-24 - Soundness of Aggregates by Sodium or Magnesium Sulfate",
+        "ASTM C142/C142M-17(2023) - Clay Lumps and Friable Particles in Aggregates",
+        "ASTM C123/C123M-23 - Lightweight Particles in Aggregate",
     ]
