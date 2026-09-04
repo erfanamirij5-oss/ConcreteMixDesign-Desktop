@@ -38,6 +38,7 @@ def evaluate_mixing_water_compliance(materials: dict, durability_conditions: dic
         source_class = _source_class(item)
         strength = _num(item.get("c1602_strength_ratio_7d_percent"))
         set_dev = _num(item.get("c1602_setting_time_deviation_min"), allow_negative=True)
+        evidence = str(item.get("c1602_performance_evidence_ref") or "").strip()
         required = source_class != "potable"
         complete = strength is not None and set_dev is not None
         perf_pass = bool(complete and strength >= 90.0 and -60.0 <= set_dev <= 90.0)
@@ -48,6 +49,9 @@ def evaluate_mixing_water_compliance(materials: dict, durability_conditions: dic
             any_fail = True
             all_required_qualified = False
             warnings.append(_warning("ASTM_C1602_PERFORMANCE_FAILED", "fail", f"آب «{_name(item)}» الزامات عملکردی مقاومت/زمان گیرش ASTM C1602 را برآورده نمی‌کند.", "ASTM C1602/C1602M-22 Table 1"))
+        elif required and not evidence:
+            all_required_qualified = False
+            warnings.append(_warning("ASTM_C1602_PERFORMANCE_EVIDENCE_MISSING", "needs_review", f"نتایج عملکردی آب «{_name(item)}» وارد شده اما مرجع گزارش Qualification ثبت نشده است.", "ASTM C1602/C1602M-22 Table 1"))
         elif not required and complete and not perf_pass:
             warnings.append(_warning("POTABLE_WATER_RECORDED_TEST_OUTSIDE_C1602_TABLE1", "needs_review", f"آزمون ثبت‌شده آب آشامیدنی «{_name(item)}» خارج از Table 1 است و باید بازبینی شود.", "ASTM C1602/C1602M-22"))
 
@@ -70,7 +74,7 @@ def evaluate_mixing_water_compliance(materials: dict, durability_conditions: dic
             **chemistry, "performance_required": required, "strength_ratio_7d_percent": strength,
             "setting_time_deviation_min": set_dev, "performance_complete": complete,
             "performance_pass": perf_pass if complete else (True if not required else None),
-            "evidence_ref": item.get("c1602_performance_evidence_ref"), "monitoring": monitoring,
+            "evidence_ref": evidence or None, "monitoring": monitoring,
         })
 
     checks = _chemical_checks(weighted, chloride_limit) if chemical_complete else []
@@ -81,7 +85,7 @@ def evaluate_mixing_water_compliance(materials: dict, durability_conditions: dic
     performance_qualified = len(waters) == 1 and all_required_qualified and not any_fail
     if len(waters) > 1:
         performance_qualified = False
-        warnings.append(_warning("COMBINED_WATER_PERFORMANCE_TEST_REQUIRED", "needs_review", "برای چند منبع آب، Qualification عملکردی باید روی آب ترکیبی انجام شود.", "ASTM C1602/C1602M-22"))
+        warnings.append(_warning("COMBINED_WATER_PERFORMANCE_TEST_REQUIRED", "needs_review", "برای چند منبع آب، Qualification عملکردی باید روی خود آب ترکیبی و در نامساعدترین نسبت/بیشترین سهم منبع غیرآشامیدنی یا بیشترین جامدات مورد انتظار تولید انجام و مستند شود؛ میانگین‌گیری نتایج آزمون منابع منفرد جایگزین آزمون آب ترکیبی نیست.", "ASTM C1602/C1602M-22 Sections 4.3, 5.1 and 5.2"))
 
     status = "fail" if any_fail else "needs_review" if (not share_valid or not performance_qualified or monitoring_review or exceeded) else "pass"
     return {
@@ -97,6 +101,7 @@ def evaluate_mixing_water_compliance(materials: dict, durability_conditions: dic
             "total_solids_mg_l": round(weighted["total_solids_mg_l"], 3) if chemical_complete else None,
             "chloride_optional_limit_mg_l": chloride_limit, "chemical_data_complete": chemical_complete,
             "chemical_checks": checks, "performance_qualified": performance_qualified,
+            "qualification_basis": "single_source" if len(waters) == 1 else "combined_water_test_required",
         },
         "warnings": warnings, "references": _references(),
     }
@@ -113,13 +118,13 @@ def _monitoring(item: dict, source_class: str) -> dict:
     daily = source_class == "concrete_production"
     density_due = daily and (last_d is None or today - last_d > dt.timedelta(days=1))
     if density_due:
-        row_warnings.append(_warning("C1602_DAILY_DENSITY_MONITORING_DUE", "needs_review", f"کنترل روزانه چگالی آب تولیدی «{_name(item)}» ثبت نشده یا منقضی است.", "ASTM C1602/C1602M-22 / ASTM C1603"))
+        row_warnings.append(_warning("C1602_DAILY_DENSITY_MONITORING_DUE", "needs_review", f"کنترل روزانه چگالی آب تولیدی «{_name(item)}» ثبت نشده یا منقضی است.", "ASTM C1602/C1602M-22 / ASTM C1603-23"))
 
     if source_class == "nonpotable":
         days, frequency = 92, "every_3_months_default"
     elif density is None:
         days, frequency = None, "density_required_to_determine_frequency"
-        row_warnings.append(_warning("C1602_RECYCLED_WATER_DENSITY_REQUIRED", "needs_review", f"برای تعیین فرکانس Qualification آب تولیدی «{_name(item)}» چگالی ثبت شود.", "ASTM C1602/C1602M-22 / ASTM C1603"))
+        row_warnings.append(_warning("C1602_RECYCLED_WATER_DENSITY_REQUIRED", "needs_review", f"برای تعیین فرکانس Qualification آب تولیدی «{_name(item)}» چگالی ثبت شود.", "ASTM C1602/C1602M-22 / ASTM C1603-23"))
     elif density < 1010.0:
         days, frequency = 183, "every_6_months_default"
     elif density <= 1030.0:
@@ -133,7 +138,7 @@ def _monitoring(item: dict, source_class: str) -> dict:
         row_warnings.append(_warning("C1602_PERFORMANCE_REQUALIFICATION_DUE", "needs_review", f"Qualification عملکردی ASTM C1602 برای آب «{_name(item)}» سررسید/منقضی است.", "ASTM C1602/C1602M-22"))
     method = item.get("c1602_density_monitoring_method")
     if daily and not method:
-        row_warnings.append(_warning("C1602_DENSITY_MONITORING_METHOD_MISSING", "needs_review", f"روش پایش چگالی آب تولیدی «{_name(item)}» ثبت نشده است.", "ASTM C1603"))
+        row_warnings.append(_warning("C1602_DENSITY_MONITORING_METHOD_MISSING", "needs_review", f"روش پایش چگالی آب تولیدی «{_name(item)}» ثبت نشده است.", "ASTM C1603-23"))
     return {
         "material_id": item.get("id"), "name": item.get("name"), "source_class": source_class,
         "status": "needs_review" if row_warnings else "pass", "density_kg_m3": density,
