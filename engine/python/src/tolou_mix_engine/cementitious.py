@@ -39,10 +39,19 @@ def allocate_cementitious(materials: list[dict], total_kg_m3: float) -> dict:
     absolute_volume = 0.0
     for item, share in zip(rows, shares):
         subtype = str(item.get("material_subtype") or item.get("material_type") or "cement")
-        sg = float(item.get("specific_gravity") or DEFAULT_SG.get(subtype, 3.0))
+        explicit_sg = item.get("specific_gravity")
+        fallback_sg = DEFAULT_SG.get(subtype, 3.0)
+        sg = float(explicit_sg) if explicit_sg is not None else fallback_sg
+        if explicit_sg is None:
+            warnings.append({
+                "code": "DEFAULT_BINDER_SG_USED",
+                "severity": "needs_review",
+                "message": f"برای {item.get('name') or subtype} وزن مخصوص ثبت نشده بود؛ مقدار پیش‌فرض {fallback_sg:.3f} فقط برای محاسبه مقدماتی استفاده شد.",
+                "reference": "ACI PRC-211.1-22 absolute-volume method; verify material-specific relative density",
+            })
         mass = total_kg_m3 * share / 100.0
         absolute_volume += mass / (sg * 1000.0)
-        components.append({"material_id": item.get("id"), "name": item.get("name"), "material_type": item.get("material_type"), "material_subtype": subtype, "standard_designation": item.get("standard_designation"), "share_percent": round(share, 3), "mass_kg_m3": round(mass, 1), "specific_gravity": round(sg, 3), "replacement_percent": item.get("replacement_percent")})
+        components.append({"material_id": item.get("id"), "name": item.get("name"), "material_type": item.get("material_type"), "material_subtype": subtype, "standard_designation": item.get("standard_designation"), "share_percent": round(share, 3), "mass_kg_m3": round(mass, 1), "specific_gravity": round(sg, 3), "specific_gravity_source": "material_input" if explicit_sg is not None else "default_preliminary", "replacement_percent": item.get("replacement_percent")})
 
     weighted_sg = total_kg_m3 / (absolute_volume * 1000.0) if absolute_volume > 0 else 3.15
     return {"components": components, "weighted_specific_gravity": round(weighted_sg, 4), "absolute_volume_m3": round(absolute_volume, 6), "warnings": warnings}
