@@ -63,3 +63,11 @@ contextBridge.exposeInMainWorld('tolouTrialMix', {
   list: (mixDesignId: string) => ipcRenderer.invoke('trial-mix:list', mixDesignId),
   hasCompleted: (mixDesignId: string) => ipcRenderer.invoke('trial-mix:has-completed', mixDesignId)
 });
+
+contextBridge.exposeInMainWorld('tolouReports', {
+  create: (payload: unknown) => ipcRenderer.invoke('report-center:create', payload),
+  list: (mixDesignId: string) => ipcRenderer.invoke('report-center:list', mixDesignId),
+  get: (snapshotId: string) => ipcRenderer.invoke('report-center:get', snapshotId),
+  exportPdf: (snapshotId: string) => ipcRenderer.invoke('report-center:export-pdf', snapshotId),
+  print: (snapshotId: string) => ipcRenderer.invoke('report-center:print', snapshotId)
+});
