@@ -72,6 +72,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         durability_conditions,
     )
     warnings.extend(full_chloride.get("warnings", []))
+    admixture_system["chloride_compliance"] = full_chloride
 
     target_strength_mpa = float(requirements.get("target_strength_mpa", 0) or 0)
     if durability_min_strength_mpa is not None and target_strength_mpa < float(durability_min_strength_mpa):
