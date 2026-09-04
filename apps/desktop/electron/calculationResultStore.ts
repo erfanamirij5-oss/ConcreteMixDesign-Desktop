@@ -19,7 +19,20 @@ export type PersistedCalculationInput = {
   limitations?: string[];
 };
 
-export function persistCalculatedMixResult(database: Database.Database, mixDesignId: string, result: PersistedCalculationInput) {
+export type PersistedCalculationRecord = {
+  id: string;
+  mixDesignId: string;
+  cementitiousContentKgM3: number | null;
+  waterContentKgM3: number | null;
+  wCmRatio: number | null;
+  fineAggregateKgM3: number | null;
+  coarseAggregateKgM3: number | null;
+  airContentPercent: number | null;
+  notes: string | null;
+  traceability: unknown;
+};
+
+export function persistCalculatedMixResult(database: Database.Database, mixDesignId: string, result: PersistedCalculationInput): PersistedCalculationRecord | null {
   if (!mixDesignId.trim()) throw new Error('شناسه طرح اختلاط برای ذخیره نتیجه محاسبه الزامی است.');
   if (result.status && result.status !== 'pass') throw new Error('نتیجه ناموفق موتور نباید به‌عنوان نتیجه معتبر طرح ذخیره شود.');
 
@@ -60,7 +73,7 @@ export function persistCalculatedMixResult(database: Database.Database, mixDesig
   return getLatestCalculatedMixResult(database, mixDesignId);
 }
 
-export function getLatestCalculatedMixResult(database: Database.Database, mixDesignId: string) {
+export function getLatestCalculatedMixResult(database: Database.Database, mixDesignId: string): PersistedCalculationRecord | null {
   const row = database.prepare(`
     SELECT id, mix_design_id AS mixDesignId,
       cementitious_content_kg_m3 AS cementitiousContentKgM3,
@@ -71,7 +84,7 @@ export function getLatestCalculatedMixResult(database: Database.Database, mixDes
       air_content_percent AS airContentPercent,
       notes
     FROM mix_results WHERE mix_design_id = ? ORDER BY rowid DESC LIMIT 1
-  `).get(mixDesignId) as Record<string, unknown> | undefined;
+  `).get(mixDesignId) as Omit<PersistedCalculationRecord, 'traceability'> | undefined;
   if (!row) return null;
 
   let traceability: unknown = null;
