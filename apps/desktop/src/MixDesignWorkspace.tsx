@@ -14,6 +14,15 @@ type ManagementRecord = {
   clientName?: string;
   contractorName?: string;
   consultantName?: string;
+  laboratoryName?: string;
+  laboratoryLicenseNumber?: string;
+  laboratoryAddress?: string;
+  laboratoryPhone?: string;
+  designerFullName?: string;
+  designerRole?: string;
+  designerLicenseNumber?: string;
+  designerPhone?: string;
+  designerEmail?: string;
   concreteType: string;
   targetStrengthMpa: number;
   requiredSlumpMm: number;
@@ -93,6 +102,8 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     projectName: project.projectName,
     city: project.city,
     locationDescription: '', structureType: '', elementType: '', clientName: '', contractorName: '', consultantName: '',
+    laboratoryName: '', laboratoryLicenseNumber: '', laboratoryAddress: '', laboratoryPhone: '',
+    designerFullName: '', designerRole: '', designerLicenseNumber: '', designerPhone: '', designerEmail: '',
     concreteType: project.concreteType,
     targetStrengthMpa: project.targetStrengthMpa,
     requiredSlumpMm: 0,
@@ -132,7 +143,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
       if (!window.tolouMixDesigns?.updateBasics) throw new Error('API ویرایش طرح در دسترس نیست.');
       const response = await window.tolouMixDesigns.updateBasics({ ...record, actorName }) as { status?: string; record?: ManagementRecord; error?: string };
       if (response.status !== 'pass' || !response.record) throw new Error(response.error ?? 'ویرایش مشخصات طرح ناموفق بود.');
-      setRecord(response.record); setMode('overview'); setMessage('مشخصات کامل پروژه، استاندارد طراحی و یادداشت مهندسی ذخیره و در Audit Log ثبت شد.');
+      setRecord(response.record); setMode('overview'); setMessage('شناسنامه کامل پروژه، آزمایشگاه، طراح، استاندارد طراحی و یادداشت مهندسی ذخیره و در Audit Log ثبت شد.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ویرایش طرح'); }
     finally { setBusy(false); }
   }
@@ -184,7 +195,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     {locked && mode === 'edit' && <div className="alert warn">نسخه با وضعیت {statusLabel(current.status)} قفل است. برای تغییر مهندسی ابتدا Revision جدید بسازید.</div>}
 
     {mode === 'edit' && record && !locked && <section className="panel revision-editor">
-      <div className="panel-head"><div><h3>ویرایش نسخه جاری R{String(record.revisionNumber).padStart(2, '0')}</h3><span>مشخصات پروژه و الزامات بتن در یک تراکنش ذخیره و در Audit Log ثبت می‌شوند.</span></div></div>
+      <div className="panel-head"><div><h3>ویرایش نسخه جاری R{String(record.revisionNumber).padStart(2, '0')}</h3><span>تمام شناسنامه پرونده در یک تراکنش ذخیره و در Audit Log ثبت می‌شود.</span></div></div>
       <div className="panel-body revision-form-grid">
         <label><span>نام پروژه</span><input value={record.projectName} onChange={event => setRecord({ ...record, projectName: event.target.value })} /></label>
         <label><span>شهر</span><input value={record.city ?? ''} onChange={event => setRecord({ ...record, city: event.target.value })} /></label>
@@ -194,6 +205,15 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
         <label><span>پیمانکار</span><input value={record.contractorName ?? ''} onChange={event => setRecord({ ...record, contractorName: event.target.value })} /></label>
         <label><span>مشاور</span><input value={record.consultantName ?? ''} onChange={event => setRecord({ ...record, consultantName: event.target.value })} /></label>
         <label className="revision-field-wide"><span>شرح موقعیت / شرایط پروژه</span><textarea value={record.locationDescription ?? ''} onChange={event => setRecord({ ...record, locationDescription: event.target.value })} /></label>
+        <label><span>نام آزمایشگاه</span><input value={record.laboratoryName ?? ''} onChange={event => setRecord({ ...record, laboratoryName: event.target.value })} /></label>
+        <label><span>شماره مجوز آزمایشگاه</span><input value={record.laboratoryLicenseNumber ?? ''} onChange={event => setRecord({ ...record, laboratoryLicenseNumber: event.target.value })} /></label>
+        <label><span>تلفن آزمایشگاه</span><input value={record.laboratoryPhone ?? ''} onChange={event => setRecord({ ...record, laboratoryPhone: event.target.value })} /></label>
+        <label className="revision-field-wide"><span>آدرس آزمایشگاه</span><input value={record.laboratoryAddress ?? ''} onChange={event => setRecord({ ...record, laboratoryAddress: event.target.value })} /></label>
+        <label><span>نام طراح</span><input value={record.designerFullName ?? ''} onChange={event => setRecord({ ...record, designerFullName: event.target.value })} /></label>
+        <label><span>سمت / نقش طراح</span><input value={record.designerRole ?? ''} onChange={event => setRecord({ ...record, designerRole: event.target.value })} /></label>
+        <label><span>شماره عضویت / پروانه طراح</span><input value={record.designerLicenseNumber ?? ''} onChange={event => setRecord({ ...record, designerLicenseNumber: event.target.value })} /></label>
+        <label><span>تلفن طراح</span><input value={record.designerPhone ?? ''} onChange={event => setRecord({ ...record, designerPhone: event.target.value })} /></label>
+        <label><span>ایمیل طراح</span><input value={record.designerEmail ?? ''} onChange={event => setRecord({ ...record, designerEmail: event.target.value })} /></label>
         <label><span>نوع بتن</span><select value={record.concreteType} onChange={event => setRecord({ ...record, concreteType: event.target.value })}><option value="normal_weight">بتن معمولی</option><option value="pumped">بتن پمپی</option></select></label>
         <label><span>مقاومت هدف MPa</span><input type="number" value={record.targetStrengthMpa} onChange={event => setRecord({ ...record, targetStrengthMpa: Number(event.target.value) })} /></label>
         <label><span>اسلامپ mm</span><input type="number" value={record.requiredSlumpMm} onChange={event => setRecord({ ...record, requiredSlumpMm: Number(event.target.value) })} /></label>
@@ -245,6 +265,10 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
           <div><span>کارفرما</span><b>{current.clientName || '-'}</b></div>
           <div><span>پیمانکار</span><b>{current.contractorName || '-'}</b></div>
           <div><span>مشاور</span><b>{current.consultantName || '-'}</b></div>
+          <div><span>آزمایشگاه</span><b>{current.laboratoryName || '-'}</b></div>
+          <div><span>مجوز آزمایشگاه</span><b>{current.laboratoryLicenseNumber || '-'}</b></div>
+          <div><span>طراح</span><b>{current.designerFullName || '-'}</b></div>
+          <div><span>نقش طراح</span><b>{current.designerRole || '-'}</b></div>
           <div><span>نوع بتن</span><b>{concreteTypeLabel(current.concreteType)}</b></div>
           <div><span>مقاومت هدف</span><b>{current.targetStrengthMpa} MPa</b></div>
           <div><span>اسلامپ</span><b>{current.requiredSlumpMm || '-'} mm</b></div>
