@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from tolou_mix_engine.admixture_compliance import evaluate_admixture_compliance
 from tolou_mix_engine.admixtures import apply_admixtures
+from tolou_mix_engine.aggregate_compliance import evaluate_aggregate_compliance
 from tolou_mix_engine.asr_compliance import evaluate_asr_compliance
 from tolou_mix_engine.cementitious import allocate_cementitious
 from tolou_mix_engine.cementitious_compliance import evaluate_cementitious_compliance
@@ -39,9 +40,12 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     binder_preview = allocate_cementitious(raw_cementitious, 100.0)
     materials["cement_specific_gravity"] = binder_preview["weighted_specific_gravity"]
 
+    aggregate_compliance = evaluate_aggregate_compliance(materials)
+
     result = calculate_normal_weight_mix(source)
     warnings = list(result.get("warnings", []))
     warnings.extend(durability.get("warnings", []))
+    warnings.extend(aggregate_compliance.get("warnings", []))
 
     mix = result.setdefault("mix_proportions", {})
     cementitious_total = float(mix.get("cementitious_kg_m3") or 0)
@@ -98,6 +102,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["governing_w_cm_ratio"] = mix.get("w_cm_ratio")
     mix["durability_min_strength_mpa"] = durability_min_strength_mpa
     mix["durability_target_air_percent"] = durability_target_air
+    mix["aggregate_compliance_status"] = aggregate_compliance.get("status")
     mix["cementitious_weighted_specific_gravity"] = binder.get("weighted_specific_gravity")
     mix["sulfate_exposure_class"] = cementitious_compliance.get("sulfate_exposure_class")
     mix["cementitious_sulfate_compliance_status"] = cementitious_compliance.get("status")
@@ -111,6 +116,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["total_chloride_percent_binder"] = full_chloride.get("total_chloride_percent_by_mass_cementitious")
 
     result["durability"] = durability
+    result["aggregate_compliance"] = aggregate_compliance
     result["cementitious_system"] = binder
     result["cementitious_compliance"] = cementitious_compliance
     result["asr_compliance"] = asr_compliance
@@ -121,6 +127,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["warnings"] = warnings
     result["engineering_notes"] = list(result.get("engineering_notes", [])) + [
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
+        "دانه‌بندی، نتیجه ASTM C117 و خواص فیزیکی هر منبع سنگدانه کنترل شد؛ حد مواد ریزتر از 75 µm فقط از Specification ثبت‌شده پروژه اعمال می‌شود و نرم‌افزار حد وابسته به کاربرد را حدس نمی‌زند.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
         "انطباق سیستم سیمانی با کلاس سولفات S0/S1/S2/S3 بر اساس Designation محصول و مدارک Qualification کنترل شد؛ S3 بدون انتخاب صریح مهندس pass کامل نمی‌گیرد.",
         "بار قلیایی Na₂Oeq مواد سیمانی و شواهد واکنش‌زایی سنگدانه برای ASR کنترل شد؛ سنگدانه واکنش‌زا بدون Qualification معتبر سیستم کاهش‌دهنده pass نمی‌گیرد.",
@@ -132,7 +139,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     ]
 
     references = list(result.get("standard_references", []))
-    for group in (cementitious_compliance, asr_compliance, water_compliance, admixture_compliance, full_chloride):
+    for group in (aggregate_compliance, cementitious_compliance, asr_compliance, water_compliance, admixture_compliance, full_chloride):
         for reference in group.get("references", []):
             if reference not in references:
                 references.append(reference)
@@ -143,6 +150,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["status"] = "fail" if max_rank >= 3 else "warning" if max_rank >= 2 else "needs_review" if max_rank >= 1 else result.get("status", "pass")
     result["calculation_pipeline"] = [
         "ACI_318_25_durability",
+        "ASTM_C33_C136_C117_C127_C128_C29_aggregate_compliance",
         "cementitious_multi_binder_allocation",
         "ACI_318_25_sulfate_cementitious_compliance",
         "ASTM_C1778_ASR_alkali_compliance",
