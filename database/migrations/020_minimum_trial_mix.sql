@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS trial_mix_records (
   id TEXT PRIMARY KEY,
   mix_design_id TEXT NOT NULL,
+  revision_number INTEGER NOT NULL DEFAULT 0 CHECK (revision_number >= 0),
   trial_date TEXT NOT NULL,
   batch_quantity_m3 REAL NOT NULL CHECK (batch_quantity_m3 > 0),
   actual_slump_mm REAL NOT NULL CHECK (actual_slump_mm >= 0),
@@ -17,7 +18,7 @@ CREATE TABLE IF NOT EXISTS trial_mix_records (
 );
 
 CREATE INDEX IF NOT EXISTS idx_trial_mix_records_mix_design
-  ON trial_mix_records(mix_design_id, trial_date DESC, created_at DESC);
+  ON trial_mix_records(mix_design_id, revision_number, trial_date DESC, created_at DESC);
 
 CREATE TRIGGER IF NOT EXISTS trg_mix_design_trial_completion_requires_record
 BEFORE UPDATE OF status ON mix_designs
@@ -27,11 +28,12 @@ WHEN OLD.status = 'trial_required'
     SELECT 1
     FROM trial_mix_records t
     WHERE t.mix_design_id = NEW.id
+      AND t.revision_number = COALESCE(NEW.revision_number, 0)
       AND t.batch_quantity_m3 > 0
       AND t.actual_slump_mm >= 0
       AND t.air_content_percent BETWEEN 0 AND 100
       AND t.fresh_density_kg_m3 > 0
   )
 BEGIN
-  SELECT RAISE(ABORT, 'trial_completed_requires_valid_trial_mix_record');
+  SELECT RAISE(ABORT, 'trial_completed_requires_valid_trial_mix_record_for_current_revision');
 END;
