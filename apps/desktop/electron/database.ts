@@ -154,7 +154,7 @@ function buildManualNotes(manualLimitOverride: boolean, manualBlendEnabled: bool
 
 function runMigrations(database: Database.Database) {
   database.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);`);
-  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels'];
+  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels', '005_durability_inputs'];
   for (const migrationId of migrations) {
     const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId);
     if (applied) continue;
