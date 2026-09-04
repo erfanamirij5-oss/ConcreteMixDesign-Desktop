@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
 
 type TrialMixInput = {
@@ -15,9 +16,8 @@ type TrialMixInput = {
   actorName?: string;
 };
 
-export function saveTrialMixRecord(input: TrialMixInput) {
+export function saveTrialMixRecordToDatabase(database: Database.Database, input: TrialMixInput) {
   validateTrialMixInput(input);
-  const database = getDatabase();
   const mix = database.prepare('SELECT id, status FROM mix_designs WHERE id = ?').get(input.mixDesignId) as { id: string; status: string } | undefined;
   if (!mix) throw new Error('طرح اختلاط موردنظر پیدا نشد.');
   if (!['trial_required', 'trial_completed'].includes(String(mix.status))) {
@@ -34,29 +34,17 @@ export function saveTrialMixRecord(input: TrialMixInput) {
         strength_7d_mpa, strength_28d_mpa, notes, created_by, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      id,
-      input.mixDesignId,
-      input.trialDate.trim(),
-      input.batchQuantityM3,
-      input.actualSlumpMm,
-      input.airContentPercent,
-      input.concreteTemperatureC,
-      input.freshDensityKgM3,
-      input.strength7dMpa ?? null,
-      input.strength28dMpa ?? null,
-      input.notes?.trim() || null,
-      input.actorName?.trim() || null,
-      now,
-      now
+      id, input.mixDesignId, input.trialDate.trim(), input.batchQuantityM3,
+      input.actualSlumpMm, input.airContentPercent, input.concreteTemperatureC,
+      input.freshDensityKgM3, input.strength7dMpa ?? null, input.strength28dMpa ?? null,
+      input.notes?.trim() || null, input.actorName?.trim() || null, now, now
     );
 
     database.prepare(`
       INSERT INTO audit_logs (id, mix_design_id, action, details_json, actor_name, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
-      crypto.randomUUID(),
-      input.mixDesignId,
-      'trial_mix_record_created',
+      crypto.randomUUID(), input.mixDesignId, 'trial_mix_record_created',
       JSON.stringify({
         trialMixRecordId: id,
         trialDate: input.trialDate.trim(),
@@ -68,17 +56,16 @@ export function saveTrialMixRecord(input: TrialMixInput) {
         strength7dMpa: input.strength7dMpa ?? null,
         strength28dMpa: input.strength28dMpa ?? null
       }),
-      input.actorName?.trim() || null,
-      now
+      input.actorName?.trim() || null, now
     );
   })();
 
-  return { status: 'pass' as const, record: getTrialMixRecord(id) };
+  return { status: 'pass' as const, record: getTrialMixRecordFromDatabase(database, id) };
 }
 
-export function listTrialMixRecords(mixDesignId: string) {
+export function listTrialMixRecordsFromDatabase(database: Database.Database, mixDesignId: string) {
   if (!mixDesignId.trim()) return [];
-  return getDatabase().prepare(`
+  return database.prepare(`
     SELECT id, mix_design_id AS mixDesignId, trial_date AS trialDate,
       batch_quantity_m3 AS batchQuantityM3, actual_slump_mm AS actualSlumpMm,
       air_content_percent AS airContentPercent, concrete_temperature_c AS concreteTemperatureC,
@@ -91,9 +78,9 @@ export function listTrialMixRecords(mixDesignId: string) {
   `).all(mixDesignId);
 }
 
-export function hasCompletedTrialMixRecord(mixDesignId: string) {
+export function hasCompletedTrialMixRecordInDatabase(database: Database.Database, mixDesignId: string) {
   if (!mixDesignId.trim()) return false;
-  const row = getDatabase().prepare(`
+  const row = database.prepare(`
     SELECT id FROM trial_mix_records
     WHERE mix_design_id = ?
       AND batch_quantity_m3 > 0
@@ -105,8 +92,20 @@ export function hasCompletedTrialMixRecord(mixDesignId: string) {
   return Boolean(row);
 }
 
-function getTrialMixRecord(id: string) {
-  return getDatabase().prepare(`
+export function saveTrialMixRecord(input: TrialMixInput) {
+  return saveTrialMixRecordToDatabase(getDatabase(), input);
+}
+
+export function listTrialMixRecords(mixDesignId: string) {
+  return listTrialMixRecordsFromDatabase(getDatabase(), mixDesignId);
+}
+
+export function hasCompletedTrialMixRecord(mixDesignId: string) {
+  return hasCompletedTrialMixRecordInDatabase(getDatabase(), mixDesignId);
+}
+
+function getTrialMixRecordFromDatabase(database: Database.Database, id: string) {
+  return database.prepare(`
     SELECT id, mix_design_id AS mixDesignId, trial_date AS trialDate,
       batch_quantity_m3 AS batchQuantityM3, actual_slump_mm AS actualSlumpMm,
       air_content_percent AS airContentPercent, concrete_temperature_c AS concreteTemperatureC,
