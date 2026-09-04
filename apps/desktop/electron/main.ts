@@ -12,6 +12,7 @@ import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalcula
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
 import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
 import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
+import { registerReportCenterIpc } from './reportIpc';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -165,6 +166,7 @@ app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   const database = getDatabase();
   ensureTrialMixMigration(database);
+  registerReportCenterIpc();
   assertDatabaseReadyForRuntime(database);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
