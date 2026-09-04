@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 const repositoryRoot = process.cwd();
 const databaseSourcePath = path.join(repositoryRoot, 'apps/desktop/electron/database.ts');
 const databaseSource = readFileSync(databaseSourcePath, 'utf-8');
+const enginePayloadSource = readFileSync(path.join(repositoryRoot, 'apps/desktop/electron/enginePayload.ts'), 'utf-8');
 
 const insertMatch = databaseSource.match(
   /INSERT INTO materials \(([\s\S]*?)\) VALUES \(\$\{Array\.from\(\{ length: (\d+) \}/,
@@ -73,6 +74,12 @@ if (insertColumns.length !== placeholderCount || placeholderCount !== saveMateri
 if (!databaseSource.includes("'015_aggregate_blend_optimizer_criteria'")) {
   throw new Error('database.ts runMigrations does not include migration 015_aggregate_blend_optimizer_criteria');
 }
+if (enginePayloadSource.includes('w_cm_ratio: 0.45') || enginePayloadSource.includes('air_content_percent: 2.0')) {
+  throw new Error('Saved mix payload must not inject hardcoded preliminary w/cm or air-content values');
+}
+if (!enginePayloadSource.includes('max_aggregate_size_mm: mix.maxAggregateSizeMm')) {
+  throw new Error('Saved mix payload must source NMSA from the persisted mix design');
+}
 
 const database = new DatabaseSync(':memory:');
 database.exec('PRAGMA foreign_keys = OFF;');
@@ -125,4 +132,4 @@ if (!constraintSaved || constraintSaved.min_percent !== 20 || constraintSaved.ma
 if (!limitSaved || limitSaved.lower_percent !== 35 || limitSaved.upper_percent !== 55) throw new Error('Migration 015 combined gradation limits did not round-trip correctly');
 
 database.close();
-console.log(`SQLite persistence smoke passed: ${migrationFiles.length} migrations, ${insertColumns.length} material columns, optimizer criteria round-trip verified.`);
+console.log(`SQLite persistence smoke passed: ${migrationFiles.length} migrations, ${insertColumns.length} material columns, optimizer criteria and saved-payload guards verified.`);
