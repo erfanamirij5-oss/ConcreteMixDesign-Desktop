@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-DEFAULT_SG = {"cement": 3.15, "slag_cement": 2.90, "fly_ash": 2.35, "silica_fume": 2.20, "natural_pozzolan": 2.40, "calcined_clay": 2.60, "limestone_filler": 2.70}
+DEFAULT_SG = {
+    "cement": 3.15,
+    "portland_cement": 3.15,
+    "blended_cement": 3.05,
+    "slag_cement": 2.90,
+    "fly_ash": 2.35,
+    "silica_fume": 2.20,
+    "natural_pozzolan": 2.40,
+    "calcined_clay": 2.60,
+    "limestone_filler": 2.70,
+    "other_scm": 2.50,
+}
 
 
 def allocate_cementitious(materials: list[dict], total_kg_m3: float) -> dict:
