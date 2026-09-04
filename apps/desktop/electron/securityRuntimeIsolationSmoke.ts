@@ -13,6 +13,21 @@ function fakeSender(id: number): WebContents {
 
 const database = new Database(':memory:');
 database.pragma('foreign_keys = ON');
+database.exec(`
+  CREATE TABLE mix_designs (
+    id TEXT PRIMARY KEY,
+    revision_number INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'draft'
+  );
+  CREATE TABLE audit_logs (
+    id TEXT PRIMARY KEY,
+    mix_design_id TEXT,
+    action TEXT NOT NULL,
+    details_json TEXT,
+    actor_name TEXT,
+    created_at TEXT NOT NULL
+  );
+`);
 const security = initializeSecurityRuntime(database);
 const admin = security.bootstrapFirstAdministrator('runtime.admin', 'Runtime Administrator', 'Runtime-Admin-Password-2026');
 assert.equal(admin.username, 'runtime.admin');
@@ -39,4 +54,4 @@ assert.throws(() => requireRendererPermission(viewerRenderer, 'security.users.ma
 assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
 assert.equal((database.pragma('foreign_key_check') as unknown[]).length, 0);
 database.close();
-console.log('Gate 09 renderer session isolation smoke passed: renderer binding and direct authorization bypass protection verified.');
+console.log('Gate 09 renderer session isolation smoke passed: Gate08-dependent migration chain, renderer binding and direct authorization bypass protection verified.');
