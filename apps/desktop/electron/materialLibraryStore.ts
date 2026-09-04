@@ -105,9 +105,7 @@ export function getMaterialLibraryRecord(database: Database.Database, id: string
 export function attachLibraryMaterialToMixDesign(database: Database.Database, mixDesignId: string, libraryMaterialId: string) {
   const mix = database.prepare('SELECT id, status FROM mix_designs WHERE id = ?').get(mixDesignId) as { id: string; status: string } | undefined;
   if (!mix) throw new Error('طرح اختلاط مقصد پیدا نشد.');
-  if (['approved', 'production', 'superseded', 'archived'].includes(String(mix.status).toLowerCase())) {
-    throw new Error('نسخه قفل‌شده اجازه افزودن مصالح از Library را ندارد. ابتدا Revision جدید ایجاد کنید.');
-  }
+  if (['approved', 'production', 'superseded', 'archived'].includes(String(mix.status).toLowerCase())) throw new Error('نسخه قفل‌شده اجازه افزودن مصالح از Library را ندارد. ابتدا Revision جدید ایجاد کنید.');
 
   const library = getMaterialLibraryRecord(database, libraryMaterialId);
   if (library.status !== 'active') throw new Error('فقط مصالح فعال Library قابل استفاده در طرح اختلاط هستند.');
@@ -117,7 +115,6 @@ export function attachLibraryMaterialToMixDesign(database: Database.Database, mi
   const snapshotAt = new Date().toISOString();
   const snapshot = { ...library, snapshotAt };
   const materialId = crypto.randomUUID();
-
   database.prepare(`
     INSERT INTO materials (
       id, mix_design_id, material_type, aggregate_role, nominal_size_mm, moisture_condition,
@@ -137,29 +134,14 @@ export function attachLibraryMaterialToMixDesign(database: Database.Database, mi
     numberOrNull(properties.alkaliPercent), library.manufacturer, library.productCode,
     library.id, JSON.stringify(snapshot), snapshotAt
   );
-
   return { status: 'pass' as const, materialId, snapshot };
 }
 
-export function saveLibraryMaterial(input: MaterialLibraryInput) {
-  return saveMaterialLibraryRecord(getDatabase(), input);
-}
-
-export function changeLibraryMaterialStatus(id: string, status: MaterialLibraryStatus) {
-  return setMaterialLibraryStatus(getDatabase(), id, status);
-}
-
-export function listLibraryMaterials(materialType?: MaterialLibraryType) {
-  return listMaterialLibraryRecords(getDatabase(), materialType);
-}
-
-export function listMaterialProvenance(mixDesignId: string) {
-  return listMixDesignMaterialProvenance(getDatabase(), mixDesignId);
-}
-
-export function attachLibraryMaterial(mixDesignId: string, libraryMaterialId: string) {
-  return attachLibraryMaterialToMixDesign(getDatabase(), mixDesignId, libraryMaterialId);
-}
+export function saveLibraryMaterial(input: MaterialLibraryInput) { return saveMaterialLibraryRecord(getDatabase(), input); }
+export function changeLibraryMaterialStatus(id: string, status: MaterialLibraryStatus) { return setMaterialLibraryStatus(getDatabase(), id, status); }
+export function listLibraryMaterials(materialType?: MaterialLibraryType) { return listMaterialLibraryRecords(getDatabase(), materialType); }
+export function listMaterialProvenance(mixDesignId: string) { return listMixDesignMaterialProvenance(getDatabase(), mixDesignId); }
+export function attachLibraryMaterial(mixDesignId: string, libraryMaterialId: string) { return attachLibraryMaterialToMixDesign(getDatabase(), mixDesignId, libraryMaterialId); }
 
 function validateLibraryInput(input: MaterialLibraryInput) {
   const allowed = new Set<MaterialLibraryType>(['cement', 'scm', 'fine_aggregate', 'coarse_aggregate', 'water', 'admixture']);
@@ -169,29 +151,52 @@ function validateLibraryInput(input: MaterialLibraryInput) {
   if (input.testDate && Number.isNaN(Date.parse(input.testDate))) throw new Error('تاریخ آزمایش معتبر نیست.');
   if (input.validUntil && Number.isNaN(Date.parse(input.validUntil))) throw new Error('تاریخ اعتبار معتبر نیست.');
   if (input.testDate && input.validUntil && Date.parse(input.validUntil) < Date.parse(input.testDate)) throw new Error('تاریخ پایان اعتبار نمی‌تواند قبل از تاریخ آزمایش باشد.');
+  validateMaterialProperties(input.materialType, input.properties ?? {});
+}
+
+function validateMaterialProperties(type: MaterialLibraryType, properties: Record<string, unknown>) {
+  const number = (key: string, min: number, max: number, required = false) => {
+    const value = properties[key];
+    if (value == null || value === '') { if (required) throw new Error(`خاصیت ${key} برای این نوع ماده الزامی است.`); return; }
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) throw new Error(`مقدار ${key} باید در بازه ${min} تا ${max} باشد.`);
+  };
+  if (type === 'cement' || type === 'scm') {
+    number('specificGravity', 1.5, 4.0, true);
+    number('alkaliPercent', 0, 10);
+    if (type === 'scm') { number('activityIndexPercent', 0, 200); number('lossOnIgnitionPercent', 0, 30); }
+  }
+  if (type === 'fine_aggregate' || type === 'coarse_aggregate') {
+    number('specificGravity', 1.5, 4.0, true);
+    number('absorptionPercent', 0, 20, true);
+    number('moisturePercent', -5, 30);
+    number('unitWeightKgM3', 500, 2500);
+    number('nominalSizeMm', 0.075, 150);
+  }
+  if (type === 'water') {
+    number('densityKgM3', 900, 1100);
+    number('chlorideMgL', 0, 100000);
+    number('sulfateMgL', 0, 100000);
+    number('totalSolidsMgL', 0, 200000);
+  }
+  if (type === 'admixture') {
+    number('densityKgM3', 500, 2500, true);
+    number('dosageValue', 0, 100000);
+    number('solidsPercent', 0, 100);
+    number('chloridePercent', 0, 100);
+  }
 }
 
 function parseLibraryRow(row: Record<string, unknown>) {
   let properties: Record<string, unknown> = {};
   try { properties = JSON.parse(String(row.properties_json ?? '{}')) as Record<string, unknown>; } catch { properties = {}; }
   return {
-    id: String(row.id),
-    materialType: String(row.material_type) as MaterialLibraryType,
-    name: String(row.name),
-    materialSubtype: row.material_subtype ? String(row.material_subtype) : null,
-    manufacturer: row.manufacturer ? String(row.manufacturer) : null,
-    source: row.source ? String(row.source) : null,
-    productCode: row.product_code ? String(row.product_code) : null,
-    standardDesignation: row.standard_designation ? String(row.standard_designation) : null,
-    status: String(row.status) as MaterialLibraryStatus,
-    testDate: row.test_date ? String(row.test_date) : null,
-    validUntil: row.valid_until ? String(row.valid_until) : null,
-    laboratoryName: row.laboratory_name ? String(row.laboratory_name) : null,
-    laboratoryReportNumber: row.laboratory_report_number ? String(row.laboratory_report_number) : null,
-    properties,
-    notes: row.notes ? String(row.notes) : null,
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at)
+    id: String(row.id), materialType: String(row.material_type) as MaterialLibraryType, name: String(row.name),
+    materialSubtype: row.material_subtype ? String(row.material_subtype) : null, manufacturer: row.manufacturer ? String(row.manufacturer) : null,
+    source: row.source ? String(row.source) : null, productCode: row.product_code ? String(row.product_code) : null,
+    standardDesignation: row.standard_designation ? String(row.standard_designation) : null, status: String(row.status) as MaterialLibraryStatus,
+    testDate: row.test_date ? String(row.test_date) : null, validUntil: row.valid_until ? String(row.valid_until) : null,
+    laboratoryName: row.laboratory_name ? String(row.laboratory_name) : null, laboratoryReportNumber: row.laboratory_report_number ? String(row.laboratory_report_number) : null,
+    properties, notes: row.notes ? String(row.notes) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at)
   };
 }
 
