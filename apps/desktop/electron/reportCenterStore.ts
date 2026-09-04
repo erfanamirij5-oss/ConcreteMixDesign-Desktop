@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
 
@@ -27,6 +29,17 @@ export type ReportSnapshot = {
   standards: string[];
   signatures: { preparedBy: string | null; reviewedBy: string | null; approvedBy: string | null };
 };
+
+export function ensureReportCenterMigration(database: Database.Database) {
+  database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);');
+  const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get('021_report_center_snapshots');
+  if (applied) return;
+  const migrationPath = path.join(process.cwd(), 'database/migrations/021_report_center_snapshots.sql');
+  database.transaction(() => {
+    database.exec(readFileSync(migrationPath, 'utf-8'));
+    database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run('021_report_center_snapshots', new Date().toISOString());
+  })();
+}
 
 export function createReportSnapshotInDatabase(
   database: Database.Database,
@@ -84,10 +97,20 @@ export function listReportSnapshotsFromDatabase(database: Database.Database, mix
 }
 
 export function createReportSnapshot(input: { mixDesignId: string; reportType: ReportType; language: ReportLanguage; generatedBy?: string }) {
-  return createReportSnapshotInDatabase(getDatabase(), input);
+  const database = getDatabase();
+  ensureReportCenterMigration(database);
+  return createReportSnapshotInDatabase(database, input);
 }
-export function getReportSnapshot(id: string) { return getReportSnapshotFromDatabase(getDatabase(), id); }
-export function listReportSnapshots(mixDesignId: string) { return listReportSnapshotsFromDatabase(getDatabase(), mixDesignId); }
+export function getReportSnapshot(id: string) {
+  const database = getDatabase();
+  ensureReportCenterMigration(database);
+  return getReportSnapshotFromDatabase(database, id);
+}
+export function listReportSnapshots(mixDesignId: string) {
+  const database = getDatabase();
+  ensureReportCenterMigration(database);
+  return listReportSnapshotsFromDatabase(database, mixDesignId);
+}
 
 const REPORT_TYPES = new Set<ReportType>([
   'mix_design', 'engineering_calculation', 'material_summary', 'durability_compliance',
@@ -176,8 +199,13 @@ function rows(database: Database.Database, sql: string, ...params: unknown[]) {
   catch (error) { if (isMissingTable(error)) return []; throw error; }
 }
 function one(database: Database.Database, sql: string, ...params: unknown[]) {
-  try { return database.prepare(sql).get(...params) as Record<string, unknown> | undefined ?? null; }
-  catch (error) { if (isMissingTable(error)) return null; throw error; }
+  try {
+    const result = database.prepare(sql).get(...params) as Record<string, unknown> | undefined;
+    return result ?? null;
+  } catch (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
 }
 function isMissingTable(error: unknown) { return String(error).includes('no such table'); }
 function parseJson(value: unknown) { if (typeof value !== 'string' || !value) return null; try { return JSON.parse(value); } catch { return { legacyNotes: value }; } }
