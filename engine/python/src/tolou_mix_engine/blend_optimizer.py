@@ -11,6 +11,23 @@ def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> di
     never interpolated. Candidate scores are comparative and must be verified by trial mix.
     """
     options = options or {}
+    if options.get("blend_optimizer_enabled") is False:
+        return {
+            "status": "disabled",
+            "search_step_percent": None,
+            "evaluated_candidate_count": 0,
+            "common_sieve_count": 0,
+            "constraints_applied": False,
+            "combined_limits_applied": False,
+            "candidates": [],
+            "warnings": [],
+            "references": [
+                "ASTM C136/C136M-25 - Sieve Analysis of Fine and Coarse Aggregates",
+                "ACI PRC-211.1-22 - Selecting Proportions for Normal-Density and High-Density Concrete",
+            ],
+            "note": "Blend Optimizer برای این طرح غیرفعال است؛ هیچ سهم خودکاری پیشنهاد یا اعمال نشده است.",
+        }
+
     aggregates = list(materials.get("aggregates") or [])
     excluded = {str(value) for value in options.get("aggregate_blend_exclude_material_ids", [])}
     active = [item for item in aggregates if str(item.get("id")) not in excluded]
