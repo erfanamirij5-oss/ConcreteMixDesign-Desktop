@@ -20,12 +20,26 @@ type Props = {
   onCheckEngine: () => void;
 };
 
+function normalizedStatus(status: string) {
+  const value = (status || 'draft').toLowerCase();
+  if (value === 'trial') return 'trial_required';
+  if (value === 'review' || value === 'needs_review') return 'under_review';
+  return value;
+}
+
 function statusLabel(status: string) {
-  const normalized = status?.toLowerCase();
-  if (normalized === 'approved') return 'تأییدشده';
-  if (normalized === 'archived') return 'بایگانی';
-  if (normalized === 'trial') return 'در انتظار Trial';
-  return status || 'پیش‌نویس';
+  const labels: Record<string, string> = {
+    draft: 'پیش‌نویس',
+    trial_required: 'Trial موردنیاز',
+    trial_completed: 'Trial تکمیل',
+    under_review: 'در بازبینی',
+    approved: 'تأییدشده',
+    production: 'تولید',
+    superseded: 'جایگزین‌شده',
+    archived: 'بایگانی'
+  };
+  const normalized = normalizedStatus(status);
+  return labels[normalized] ?? normalized;
 }
 
 function concreteTypeLabel(type: string) {
@@ -33,8 +47,8 @@ function concreteTypeLabel(type: string) {
 }
 
 export function DashboardHome(props: Props) {
-  const approved = props.projects.filter(item => item.status?.toLowerCase() === 'approved').length;
-  const review = props.projects.filter(item => ['review', 'needs_review', 'trial'].includes(item.status?.toLowerCase())).length;
+  const approved = props.projects.filter(item => normalizedStatus(item.status) === 'approved').length;
+  const followUp = props.projects.filter(item => ['trial_required', 'trial_completed', 'under_review'].includes(normalizedStatus(item.status))).length;
   const latest = props.projects.slice(0, 8);
 
   return <>
@@ -52,16 +66,16 @@ export function DashboardHome(props: Props) {
 
     <section className="kpis management-kpis">
       <article className="kpi blue"><label>کل طرح‌های ثبت‌شده</label><strong>{props.projects.length}</strong><small>پرونده‌های موجود در SQLite</small></article>
-      <article className="kpi green"><label>طرح‌های تأییدشده</label><strong>{approved}</strong><small>آماده استفاده طبق وضعیت ثبت‌شده</small></article>
-      <article className="kpi orange"><label>نیازمند پیگیری</label><strong>{review}</strong><small>Trial / Review / Needs Review</small></article>
+      <article className="kpi green"><label>طرح‌های تأییدشده</label><strong>{approved}</strong><small>وضعیت رسمی Approved</small></article>
+      <article className="kpi orange"><label>نیازمند پیگیری</label><strong>{followUp}</strong><small>Trial Required / Trial Completed / Under Review</small></article>
       <article className={`kpi ${props.activeMixDesignId ? 'purple' : 'red'}`}><label>پرونده فعال</label><strong>{props.activeMixDesignId ? 'فعال' : 'انتخاب نشده'}</strong><small>{props.activeMixDesignId ?? 'یک طرح را از فهرست باز کنید'}</small></article>
     </section>
 
     <section className="quick-actions">
       <button onClick={props.onNewProject}><b>＋</b><span><strong>طرح جدید</strong><small>شروع پرونده مهندسی</small></span></button>
-      <button disabled><b>◫</b><span><strong>Trial Mix</strong><small>در Sprint بعد فعال می‌شود</small></span></button>
+      <button disabled><b>◫</b><span><strong>Trial Mix</strong><small>در Gate مربوط به Trial فعال می‌شود</small></span></button>
       <button disabled><b>▤</b><span><strong>مرکز گزارش</strong><small>پس از تکمیل Workspace</small></span></button>
-      <button disabled><b>↺</b><span><strong>Revision</strong><small>کنترل نسخه طرح</small></span></button>
+      <button disabled={!props.activeMixDesignId} onClick={() => props.activeMixDesignId && props.onOpenProject(props.activeMixDesignId)}><b>↺</b><span><strong>Revision</strong><small>{props.activeMixDesignId ? 'باز کردن پرونده فعال و Revision History' : 'ابتدا یک پرونده را انتخاب کنید'}</small></span></button>
     </section>
 
     <section className="dashboard-main-grid">
@@ -80,7 +94,7 @@ export function DashboardHome(props: Props) {
               <td>{concreteTypeLabel(project.concreteType)}</td>
               <td>{project.targetStrengthMpa} MPa</td>
               <td>{project.city || '-'}</td>
-              <td><span className="status-chip">{statusLabel(project.status)}</span></td>
+              <td><span className={`status-chip status-${normalizedStatus(project.status)}`}>{statusLabel(project.status)}</span></td>
               <td><button className="row-action" onClick={() => props.onOpenProject(project.mixDesignId)}>باز کردن ←</button></td>
             </tr>)}</tbody>
           </table>}
@@ -98,9 +112,9 @@ export function DashboardHome(props: Props) {
           </div>
         </article>
         <article className="panel">
-          <div className="panel-head"><div><h3>گردش کار طرح</h3><span>مسیر هدف داشبورد مدیریتی</span></div></div>
+          <div className="panel-head"><div><h3>گردش کار طرح</h3><span>State Machine مدیریتی نسخه جاری</span></div></div>
           <div className="panel-body workflow-rail">
-            <span className="done">ثبت طرح</span><span>محاسبه</span><span>Trial Mix</span><span>بازبینی</span><span>تأیید</span><span>گزارش</span>
+            <span className="done">Draft</span><span>Trial Required</span><span>Trial Completed</span><span>Under Review</span><span>Approved</span><span>Production</span><span>Superseded</span>
           </div>
         </article>
       </aside>
