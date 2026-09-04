@@ -33,6 +33,7 @@ const first = persistCalculatedMixResult(database, 'mix-1', {
     coarse_aggregate_kg_m3: 1020,
     air_content_percent: 2
   },
+  engineering_notes: ['Moisture corrections are included in batch water.'],
   standard_references: ['ACI PRC-211.1-22'],
   assumptions: ['SSD basis'],
   warnings: [{ code: 'TRACE', message: 'engineering traceability preserved' }],
@@ -40,8 +41,9 @@ const first = persistCalculatedMixResult(database, 'mix-1', {
 });
 
 if (!first || first.wCmRatio !== 0.45 || first.cementitiousContentKgM3 !== 400) throw new Error('Calculated mix result was not persisted correctly.');
-const firstTrace = first.traceability as { calculationMethod?: string; standardReferences?: string[]; limitations?: string[] };
+const firstTrace = first.traceability as { calculationMethod?: string; engineeringNotes?: string[]; standardReferences?: string[]; limitations?: string[] };
 if (firstTrace.calculationMethod !== 'ACI PRC-211.1-22') throw new Error('Calculation method traceability was not persisted.');
+if (!firstTrace.engineeringNotes?.includes('Moisture corrections are included in batch water.')) throw new Error('Engineering notes were not persisted.');
 if (!firstTrace.standardReferences?.includes('ACI PRC-211.1-22')) throw new Error('Standard references were not persisted.');
 if (!firstTrace.limitations?.includes('Trial validation pending')) throw new Error('Calculation limitations were not persisted.');
 
