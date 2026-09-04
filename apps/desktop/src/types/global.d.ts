@@ -52,5 +52,12 @@ declare global {
       list: (mixDesignId: string) => Promise<unknown>;
       hasCompleted: (mixDesignId: string) => Promise<unknown>;
     };
+    tolouReports?: {
+      create: (payload: unknown) => Promise<unknown>;
+      list: (mixDesignId: string) => Promise<unknown>;
+      get: (snapshotId: string) => Promise<unknown>;
+      exportPdf: (snapshotId: string) => Promise<unknown>;
+      print: (snapshotId: string) => Promise<unknown>;
+    };
   }
 }
