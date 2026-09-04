@@ -6,13 +6,14 @@ import { DashboardHome } from './DashboardHome';
 import { DurabilityView } from './DurabilityView';
 import { EngineeringSystemsResults } from './EngineeringSystemsResults';
 import { GradationView } from './GradationView';
+import { MaterialLibraryView } from './MaterialLibraryView';
 import { MaterialsView } from './MaterialsView';
 import { MixDesignManager } from './MixDesignManager';
 import { MixDesignWorkspace } from './MixDesignWorkspace';
 import type { ProjectIntake, SaveProjectResponse } from './types/project';
 
 type EngineState = 'idle' | 'checking' | 'ready' | 'error';
-type ActiveView = 'dashboard' | 'mix-designs' | 'workspace' | 'new-project' | 'materials' | 'gradation' | 'aggregate-blend' | 'durability' | 'results';
+type ActiveView = 'dashboard' | 'mix-designs' | 'material-library' | 'workspace' | 'new-project' | 'materials' | 'gradation' | 'aggregate-blend' | 'durability' | 'results';
 type WorkspaceSection = 'overview' | 'materials' | 'gradation' | 'blend' | 'durability' | 'results';
 type CalculationState = 'idle' | 'calculating' | 'done' | 'error';
 type AggregateAnalysisRow = { material_id?: string; material_name?: string; material_type?: string; share_percent?: number; specific_gravity_ssd?: number; ssd_mass_kg_m3?: number; batch_mass_kg_m3?: number; absorption_percent?: number; moisture_percent?: number; water_adjustment_kg_m3?: number; };
@@ -147,10 +148,11 @@ export function App() {
 
   return <div className="app-shell">
     <header className="header"><div className="header-top"><div className="brand"><div className="brand-icon">ط</div><div><strong>طلوع بتن</strong><small>TOLOU CONCRETE MIX DESIGN</small></div></div><div className="module-title"><h1>سامانه مهندسی و مدیریت طرح اختلاط بتن</h1><p>مدیریت پرونده طرح، مصالح، دوام، محاسبات و کنترل مهندسی</p></div><div className="header-actions"><button disabled>راهنما — در دست توسعه</button></div></div><div className="header-bottom"><span>ConcreteMixDesign-Desktop / Management v0.4 Development</span><div className="badges"><span className="badge green">Python Engine</span><span className="badge blue">SQLite</span><span className="badge orange">Core 0.3.0</span></div></div></header>
-    <nav className="top-nav"><button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button><button className={activeView === 'mix-designs' ? 'active' : ''} onClick={() => setActiveView('mix-designs')}>طرح‌های اختلاط</button><button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>ثبت طرح جدید</button><button className={activeView === 'workspace' ? 'active' : ''} disabled={!activeProject} onClick={() => setActiveView('workspace')}>پرونده فعال</button></nav>
+    <nav className="top-nav"><button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button><button className={activeView === 'mix-designs' ? 'active' : ''} onClick={() => setActiveView('mix-designs')}>طرح‌های اختلاط</button><button className={activeView === 'material-library' ? 'active' : ''} onClick={() => setActiveView('material-library')}>کتابخانه مصالح</button><button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>ثبت طرح جدید</button><button className={activeView === 'workspace' ? 'active' : ''} disabled={!activeProject} onClick={() => setActiveView('workspace')}>پرونده فعال</button></nav>
     <div className="page-grid"><aside className="sidebar"><div className="sidebar-title">مرکز عملیات</div>{modules.map((item, index) => <button className={sidebarClass(index, activeView)} key={item} disabled={index >= 4}><span><b className="ico">{index + 1}</b>{item}</span><span>›</span></button>)}<div className="note"><b>اصل مهندسی</b><br />هیچ خروجی بدون استاندارد، فرضیه، هشدار و قابلیت ردیابی معتبر نیست.</div></aside><main className="workspace">
       {activeView === 'dashboard' && <DashboardHome projects={recentProjects} engineState={engineState} activeMixDesignId={activeMixDesignId} onCheckEngine={checkEngine} onNewProject={() => setActiveView('new-project')} onOpenProject={openProject} />}
       {activeView === 'mix-designs' && <MixDesignManager projects={recentProjects} activeMixDesignId={activeMixDesignId} onNewProject={() => setActiveView('new-project')} onOpenProject={openProject} onRefresh={refreshProjects} />}
+      {activeView === 'material-library' && <MaterialLibraryView activeMixDesignId={activeMixDesignId} />}
       {activeView === 'new-project' && <ProjectForm projectIntake={projectIntake} saveStatus={saveStatus} saveMessage={saveMessage} onUpdate={updateProject} onSave={saveProject} />}
       {activeView === 'workspace' && renderWorkspaceBody()}
       {activeView === 'materials' && <MaterialsView mixDesignId={activeMixDesignId} />}
