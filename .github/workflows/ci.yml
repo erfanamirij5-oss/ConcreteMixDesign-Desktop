@@ -52,6 +52,9 @@ jobs:
       - name: Persistent database path contract smoke test
         run: node dist/electron/dataPathContractSmoke.js
 
+      - name: Database schema compatibility policy smoke test
+        run: node dist/electron/databaseCompatibilitySmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
