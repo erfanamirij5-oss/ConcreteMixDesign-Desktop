@@ -31,7 +31,7 @@ export function ensureTrialMixMigration(database: Database.Database) {
 
 export function saveTrialMixRecordToDatabase(database: Database.Database, input: TrialMixInput) {
   validateTrialMixInput(input);
-  const mix = database.prepare('SELECT id, status FROM mix_designs WHERE id = ?').get(input.mixDesignId) as { id: string; status: string } | undefined;
+  const mix = database.prepare('SELECT id, status, COALESCE(revision_number, 0) AS revisionNumber FROM mix_designs WHERE id = ?').get(input.mixDesignId) as { id: string; status: string; revisionNumber: number } | undefined;
   if (!mix) throw new Error('طرح اختلاط موردنظر پیدا نشد.');
   if (!['trial_required', 'trial_completed'].includes(String(mix.status))) {
     throw new Error('ثبت Trial Mix فقط در وضعیت trial_required یا trial_completed مجاز است.');
@@ -42,12 +42,12 @@ export function saveTrialMixRecordToDatabase(database: Database.Database, input:
   database.transaction(() => {
     database.prepare(`
       INSERT INTO trial_mix_records (
-        id, mix_design_id, trial_date, batch_quantity_m3, actual_slump_mm,
+        id, mix_design_id, revision_number, trial_date, batch_quantity_m3, actual_slump_mm,
         air_content_percent, concrete_temperature_c, fresh_density_kg_m3,
         strength_7d_mpa, strength_28d_mpa, notes, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      id, input.mixDesignId, input.trialDate.trim(), input.batchQuantityM3,
+      id, input.mixDesignId, mix.revisionNumber, input.trialDate.trim(), input.batchQuantityM3,
       input.actualSlumpMm, input.airContentPercent, input.concreteTemperatureC,
       input.freshDensityKgM3, input.strength7dMpa ?? null, input.strength28dMpa ?? null,
       input.notes?.trim() || null, input.actorName?.trim() || null, now, now
@@ -60,6 +60,7 @@ export function saveTrialMixRecordToDatabase(database: Database.Database, input:
       crypto.randomUUID(), input.mixDesignId, 'trial_mix_record_created',
       JSON.stringify({
         trialMixRecordId: id,
+        revisionNumber: mix.revisionNumber,
         trialDate: input.trialDate.trim(),
         batchQuantityM3: input.batchQuantityM3,
         actualSlumpMm: input.actualSlumpMm,
@@ -79,7 +80,7 @@ export function saveTrialMixRecordToDatabase(database: Database.Database, input:
 export function listTrialMixRecordsFromDatabase(database: Database.Database, mixDesignId: string) {
   if (!mixDesignId.trim()) return [];
   return database.prepare(`
-    SELECT id, mix_design_id AS mixDesignId, trial_date AS trialDate,
+    SELECT id, mix_design_id AS mixDesignId, revision_number AS revisionNumber, trial_date AS trialDate,
       batch_quantity_m3 AS batchQuantityM3, actual_slump_mm AS actualSlumpMm,
       air_content_percent AS airContentPercent, concrete_temperature_c AS concreteTemperatureC,
       fresh_density_kg_m3 AS freshDensityKgM3, strength_7d_mpa AS strength7dMpa,
@@ -87,19 +88,22 @@ export function listTrialMixRecordsFromDatabase(database: Database.Database, mix
       created_at AS createdAt, updated_at AS updatedAt
     FROM trial_mix_records
     WHERE mix_design_id = ?
-    ORDER BY trial_date DESC, created_at DESC
+    ORDER BY revision_number DESC, trial_date DESC, created_at DESC
   `).all(mixDesignId);
 }
 
 export function hasCompletedTrialMixRecordInDatabase(database: Database.Database, mixDesignId: string) {
   if (!mixDesignId.trim()) return false;
   const row = database.prepare(`
-    SELECT id FROM trial_mix_records
-    WHERE mix_design_id = ?
-      AND batch_quantity_m3 > 0
-      AND actual_slump_mm >= 0
-      AND air_content_percent BETWEEN 0 AND 100
-      AND fresh_density_kg_m3 > 0
+    SELECT t.id
+    FROM trial_mix_records t
+    INNER JOIN mix_designs md ON md.id = t.mix_design_id
+    WHERE t.mix_design_id = ?
+      AND t.revision_number = COALESCE(md.revision_number, 0)
+      AND t.batch_quantity_m3 > 0
+      AND t.actual_slump_mm >= 0
+      AND t.air_content_percent BETWEEN 0 AND 100
+      AND t.fresh_density_kg_m3 > 0
     LIMIT 1
   `).get(mixDesignId);
   return Boolean(row);
@@ -125,7 +129,7 @@ export function hasCompletedTrialMixRecord(mixDesignId: string) {
 
 function getTrialMixRecordFromDatabase(database: Database.Database, id: string) {
   return database.prepare(`
-    SELECT id, mix_design_id AS mixDesignId, trial_date AS trialDate,
+    SELECT id, mix_design_id AS mixDesignId, revision_number AS revisionNumber, trial_date AS trialDate,
       batch_quantity_m3 AS batchQuantityM3, actual_slump_mm AS actualSlumpMm,
       air_content_percent AS airContentPercent, concrete_temperature_c AS concreteTemperatureC,
       fresh_density_kg_m3 AS freshDensityKgM3, strength_7d_mpa AS strength7dMpa,
