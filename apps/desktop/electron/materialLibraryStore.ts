@@ -76,6 +76,26 @@ export function listMaterialLibraryRecords(database: Database.Database, material
   return (rows as Array<Record<string, unknown>>).map(parseLibraryRow);
 }
 
+export function listMixDesignMaterialProvenance(database: Database.Database, mixDesignId: string) {
+  if (!mixDesignId.trim()) return [];
+  return database.prepare(`
+    SELECT id, name, material_type AS materialType,
+      library_material_id AS libraryMaterialId,
+      library_snapshot_at AS librarySnapshotAt,
+      CASE WHEN library_material_id IS NULL THEN 'manual' ELSE 'library_snapshot' END AS provenance
+    FROM materials
+    WHERE mix_design_id = ?
+    ORDER BY rowid DESC
+  `).all(mixDesignId) as Array<{
+    id: string;
+    name: string;
+    materialType: string;
+    libraryMaterialId: string | null;
+    librarySnapshotAt: string | null;
+    provenance: 'manual' | 'library_snapshot';
+  }>;
+}
+
 export function getMaterialLibraryRecord(database: Database.Database, id: string) {
   const row = database.prepare('SELECT * FROM material_library WHERE id = ?').get(id) as Record<string, unknown> | undefined;
   if (!row) throw new Error('رکورد کتابخانه مصالح پیدا نشد.');
@@ -131,6 +151,10 @@ export function changeLibraryMaterialStatus(id: string, status: MaterialLibraryS
 
 export function listLibraryMaterials(materialType?: MaterialLibraryType) {
   return listMaterialLibraryRecords(getDatabase(), materialType);
+}
+
+export function listMaterialProvenance(mixDesignId: string) {
+  return listMixDesignMaterialProvenance(getDatabase(), mixDesignId);
 }
 
 export function attachLibraryMaterial(mixDesignId: string, libraryMaterialId: string) {
