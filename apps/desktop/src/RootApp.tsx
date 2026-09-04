@@ -3,19 +3,22 @@ import { App } from './App';
 import { DataSafetyView } from './DataSafetyView';
 import { ReportCenterView } from './ReportCenterView';
 import { SecurityAdministrationView } from './SecurityAdministrationView';
+import { SecurityGate, type SecuritySession } from './SecurityGate';
 
 type RootView = 'application' | 'reports' | 'data-safety' | 'security';
 type RecentProject = { mixDesignId: string; projectName: string; status: string; targetStrengthMpa: number };
 
 export function RootApp() {
+  const [session, setSession] = useState<SecuritySession | null>(null);
   const [view, setView] = useState<RootView>('application');
   const [projects, setProjects] = useState<RecentProject[]>([]);
   const [mixDesignId, setMixDesignId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (view === 'reports') void loadProjects();
-  }, [view]);
+    if (session && view === 'reports') void loadProjects();
+  }, [session, view]);
 
   async function loadProjects() {
     setMessage('');
@@ -31,24 +34,41 @@ export function RootApp() {
     }
   }
 
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      const api = (window as typeof window & { tolouSecurity?: { logout: () => Promise<unknown> } }).tolouSecurity;
+      if (!api) throw new Error('Security API در دسترس نیست.');
+      const response = await api.logout() as { status?: string; error?: string };
+      if (response?.status === 'fail') throw new Error(response.error || 'خروج از حساب ناموفق بود.');
+      setSession(null);
+      setView('application');
+      setProjects([]);
+      setMixDesignId(null);
+      setMessage('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'خروج از حساب ناموفق بود.');
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  if (!session) return <SecurityGate onAuthenticated={setSession} />;
+
   const navigation = <div className="root-module-nav">
     <button className={view === 'application' ? 'active' : ''} onClick={() => setView('application')}>سامانه مهندسی</button>
     <button className={view === 'reports' ? 'active' : ''} onClick={() => setView('reports')}>Report Center</button>
     <button className={view === 'data-safety' ? 'active' : ''} onClick={() => setView('data-safety')}>Data Safety</button>
     <button className={view === 'security' ? 'active' : ''} onClick={() => setView('security')}>امنیت و کاربران</button>
+    <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span className="badge green">{session.displayName} · {session.username}</span>
+      <button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button>
+    </span>
   </div>;
 
-  if (view === 'application') {
-    return <div>{navigation}<App /></div>;
-  }
-
-  if (view === 'data-safety') {
-    return <div className="app-shell">{navigation}<DataSafetyView /></div>;
-  }
-
-  if (view === 'security') {
-    return <div className="app-shell">{navigation}<SecurityAdministrationView /></div>;
-  }
+  if (view === 'application') return <div>{navigation}<App /></div>;
+  if (view === 'data-safety') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<DataSafetyView /></div>;
+  if (view === 'security') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<SecurityAdministrationView /></div>;
 
   return <div className="app-shell">
     {navigation}
