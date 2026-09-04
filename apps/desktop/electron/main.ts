@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { getAggregateBlendOptimizer, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
 import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
 
@@ -44,6 +44,8 @@ ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => saveM
 ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) }), 'خطای ناشناخته در خواندن مصالح'));
 ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => saveGradation(payload), 'خطای ناشناخته در ذخیره دانه‌بندی'));
 ipcMain.handle('gradation:list-by-material', async (_event, materialId: string) => safeCall(() => ({ status: 'pass', rows: listGradationByMaterial(materialId) }), 'خطای ناشناخته در خواندن دانه‌بندی'));
+ipcMain.handle('blend-optimizer:save', async (_event, payload) => safeCall(() => saveAggregateBlendOptimizer(payload), 'خطای ناشناخته در ذخیره تنظیمات Blend Optimizer'));
+ipcMain.handle('blend-optimizer:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getAggregateBlendOptimizer(mixDesignId) }), 'خطای ناشناخته در خواندن تنظیمات Blend Optimizer'));
 ipcMain.handle('durability:save', async (_event, payload) => safeCall(() => saveDurabilityInput(payload), 'خطای ناشناخته در ذخیره دوام'));
 ipcMain.handle('durability:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getDurabilityInput(mixDesignId) }), 'خطای ناشناخته در خواندن دوام'));
 
