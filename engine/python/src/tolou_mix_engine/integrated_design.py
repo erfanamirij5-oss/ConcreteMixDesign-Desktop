@@ -60,6 +60,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         bool(durability_conditions.get("prestressed_concrete", False)),
     )
     warnings.extend(admixture_compliance.get("warnings", []))
+    admixture_system["compliance"] = admixture_compliance
 
     target_strength_mpa = float(requirements.get("target_strength_mpa", 0) or 0)
     if durability_min_strength_mpa is not None and target_strength_mpa < float(durability_min_strength_mpa):
