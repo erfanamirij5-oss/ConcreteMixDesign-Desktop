@@ -16,33 +16,56 @@ export async function createValidatedBackup(database: Database.Database, destina
   assertDatabaseReadyForRuntime(database);
   mkdirSync(path.dirname(destination), { recursive: true });
   const temp = `${destination}.tmp`;
+  const manifestPath = `${destination}.manifest.json`;
+  const tempManifest = `${manifestPath}.tmp`;
   rmIfExists(temp);
+  rmIfExists(tempManifest);
+
   await database.backup(temp);
   validateDatabaseFile(temp);
   const manifest = buildManifest(temp);
+  writeFileSync(tempManifest, JSON.stringify(manifest, null, 2), 'utf8');
+
   rmIfExists(destination);
+  rmIfExists(manifestPath);
   renameSync(temp, destination);
-  writeFileSync(`${destination}.manifest.json`, JSON.stringify(manifest, null, 2), 'utf8');
+  renameSync(tempManifest, manifestPath);
   return manifest;
 }
 
 export function validateBackupCandidate(candidate: string): BackupManifest {
   if (!existsSync(candidate)) throw new Error('Backup file does not exist.');
-  const database = new Database(candidate, { readonly: true, fileMustExist: true });
-  try { assertDatabaseReadyForRuntime(database); }
-  finally { database.close(); }
-  return buildManifest(candidate);
+  const manifest = readAndValidateManifest(candidate);
+  validateDatabaseFile(candidate);
+  const actual = buildManifest(candidate, manifest.createdAt);
+  if (actual.sha256 !== manifest.sha256) throw new Error('Backup digest does not match its manifest.');
+  if (actual.sizeBytes !== manifest.sizeBytes) throw new Error('Backup size does not match its manifest.');
+  if (JSON.stringify(actual.schemaMigrations) !== JSON.stringify(manifest.schemaMigrations)) throw new Error('Backup schema migration list does not match its manifest.');
+  return manifest;
 }
 
-export function restoreValidatedBackup(candidate: string, activePath: string): { recoveryPath: string; manifest: BackupManifest } {
+export async function restoreValidatedBackup(candidate: string, activePath: string): Promise<{ recoveryPath: string; manifest: BackupManifest }> {
   const manifest = validateBackupCandidate(candidate);
   mkdirSync(path.dirname(activePath), { recursive: true });
   const recoveryPath = `${activePath}.pre-restore-${timestampToken()}.sqlite`;
   const incoming = `${activePath}.restore-incoming`;
   rmIfExists(incoming);
+  rmIfExists(recoveryPath);
+
   copyFileSync(candidate, incoming);
   validateDatabaseFile(incoming);
-  if (existsSync(activePath)) copyFileSync(activePath, recoveryPath);
+
+  if (existsSync(activePath)) {
+    const active = new Database(activePath, { fileMustExist: true });
+    try {
+      assertDatabaseReadyForRuntime(active);
+      await active.backup(recoveryPath);
+    } finally {
+      active.close();
+    }
+    validateDatabaseFile(recoveryPath);
+  }
+
   removeSidecars(activePath);
   try {
     rmIfExists(activePath);
@@ -68,7 +91,7 @@ function validateDatabaseFile(filePath: string) {
   finally { database.close(); }
 }
 
-function buildManifest(filePath: string): BackupManifest {
+function buildManifest(filePath: string, createdAt = new Date().toISOString()): BackupManifest {
   const database = new Database(filePath, { readonly: true, fileMustExist: true });
   let schemaMigrations: string[] = [];
   try {
@@ -76,7 +99,23 @@ function buildManifest(filePath: string): BackupManifest {
     if (hasTable) schemaMigrations = (database.prepare('SELECT id FROM schema_migrations ORDER BY id').all() as Array<{ id: string }>).map(row => row.id);
   } finally { database.close(); }
   const bytes = readFileSync(filePath);
-  return { formatVersion: 1, createdAt: new Date().toISOString(), schemaMigrations, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), sizeBytes: statSync(filePath).size };
+  return { formatVersion: 1, createdAt, schemaMigrations, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), sizeBytes: statSync(filePath).size };
+}
+
+function readAndValidateManifest(candidate: string): BackupManifest {
+  const manifestPath = `${candidate}.manifest.json`;
+  if (!existsSync(manifestPath)) throw new Error('Backup manifest is missing.');
+  let parsed: unknown;
+  try { parsed = JSON.parse(readFileSync(manifestPath, 'utf8')); }
+  catch { throw new Error('Backup manifest is not valid JSON.'); }
+  if (!parsed || typeof parsed !== 'object') throw new Error('Backup manifest is invalid.');
+  const value = parsed as Partial<BackupManifest>;
+  if (value.formatVersion !== 1) throw new Error('Unsupported backup manifest format version.');
+  if (typeof value.createdAt !== 'string' || !Number.isFinite(Date.parse(value.createdAt))) throw new Error('Backup manifest timestamp is invalid.');
+  if (!Array.isArray(value.schemaMigrations) || !value.schemaMigrations.every(item => typeof item === 'string')) throw new Error('Backup manifest schema migration list is invalid.');
+  if (typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(value.sha256)) throw new Error('Backup manifest digest is invalid.');
+  if (!Number.isSafeInteger(value.sizeBytes) || (value.sizeBytes ?? 0) <= 0) throw new Error('Backup manifest size is invalid.');
+  return value as BackupManifest;
 }
 
 function removeSidecars(databasePath: string) {
