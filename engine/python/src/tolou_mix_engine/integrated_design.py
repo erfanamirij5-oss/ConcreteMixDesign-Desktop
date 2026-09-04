@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from tolou_mix_engine.admixture_compliance import evaluate_admixture_compliance
 from tolou_mix_engine.admixtures import apply_admixtures
 from tolou_mix_engine.cementitious import allocate_cementitious
 from tolou_mix_engine.durability import evaluate_durability
@@ -9,7 +10,7 @@ from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mi
 
 
 def calculate_integrated_normal_mix(payload: dict) -> dict:
-    """Run durability, binder allocation, ACI proportioning and admixture corrections."""
+    """Run durability, binder allocation, ACI proportioning, admixture correction and compliance."""
     source = deepcopy(payload if isinstance(payload, dict) else {})
     requirements = source.setdefault("requirements", {})
     materials = source.setdefault("materials", {})
@@ -42,13 +43,23 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     binder = allocate_cementitious(list(materials.get("cementitious") or []), cementitious_total)
     warnings.extend(binder.get("warnings", []))
 
+    raw_admixtures = list(materials.get("admixtures") or [])
     admixture_system = apply_admixtures(
         result,
-        list(materials.get("admixtures") or []),
+        raw_admixtures,
         cementitious_total,
         str(options.get("aggregate_proportioning_mode") or "manual_absolute_volume"),
     )
     warnings.extend(admixture_system.get("warnings", []))
+
+    admixture_compliance = evaluate_admixture_compliance(
+        admixture_system,
+        raw_admixtures,
+        cementitious_total,
+        durability,
+        bool(durability_conditions.get("prestressed_concrete", False)),
+    )
+    warnings.extend(admixture_compliance.get("warnings", []))
 
     target_strength_mpa = float(requirements.get("target_strength_mpa", 0) or 0)
     if durability_min_strength_mpa is not None and target_strength_mpa < float(durability_min_strength_mpa):
@@ -60,25 +71,37 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["durability_min_strength_mpa"] = durability_min_strength_mpa
     mix["durability_target_air_percent"] = durability_target_air
     mix["cementitious_weighted_specific_gravity"] = binder.get("weighted_specific_gravity")
+    mix["admixture_chloride_kg_m3"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_kg_m3")
+    mix["admixture_chloride_percent_binder"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_percent_by_mass_cementitious")
+    mix["aci_chloride_limit_percent_binder"] = admixture_compliance.get("chloride", {}).get("aci_limit_percent_by_mass_cementitious")
 
     result["durability"] = durability
     result["cementitious_system"] = binder
     result["admixture_system"] = admixture_system
+    result["admixture_compliance"] = admixture_compliance
     result["warnings"] = warnings
     result["engineering_notes"] = list(result.get("engineering_notes", [])) + [
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
         "آب حامل افزودنی‌های مایع از آب قابل افزودن به بچ کسر و حجم غیرآبی افزودنی در موازنه حجم سنگدانه اعمال شد.",
+        "انطباق استاندارد افزودنی و سهم کلراید ناشی از افزودنی‌ها کنترل شد؛ تأیید کل کلراید بتن نیازمند داده آب، سنگدانه و مواد سیمانی نیز هست.",
         "اگر مقاومت هدف پروژه از حداقل مقاومت دوام کمتر باشد، خروجی fail می‌شود و باید مشخصات پروژه اصلاح شود.",
     ]
 
+    references = list(result.get("standard_references", []))
+    for reference in admixture_compliance.get("references", []):
+        if reference not in references:
+            references.append(reference)
+    result["standard_references"] = references
+
     severity_rank = {"needs_review": 1, "warning": 2, "fail": 3}
     max_rank = max((severity_rank.get(str(item.get("severity")), 0) for item in warnings), default=0)
-    result["status"] = "fail" if max_rank >= 3 else "warning" if max_rank >= 2 else result.get("status", "pass")
+    result["status"] = "fail" if max_rank >= 3 else "warning" if max_rank >= 2 else "needs_review" if max_rank >= 1 else result.get("status", "pass")
     result["calculation_pipeline"] = [
         "ACI_318_25_durability",
         "cementitious_multi_binder_allocation",
         "ACI_PRC_211_1_22_proportioning",
         "chemical_admixture_batch_water_and_volume_correction",
+        "ASTM_C494_C260_and_ACI_chloride_partial_compliance",
     ]
     return result
