@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
+from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mix
 
 
@@ -25,11 +26,13 @@ def main() -> int:
         response = {
             "status": "pass",
             "engine": "tolou-mix-engine",
-            "version": "0.1.0",
+            "version": "0.3.0",
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
         response = calculate_normal_weight_mix(payload)
+    elif command == "evaluate-durability":
+        response = evaluate_durability(payload)
     else:
         response = {"status": "fail", "error": f"unknown command: {command}"}
 
