@@ -59,7 +59,7 @@ async function run() {
     assert.ok(manifest.sizeBytes > 0);
     assert.deepEqual(validateBackupCandidate(backupPath).sha256, manifest.sha256);
 
-    active.prepare('DELETE FROM projects');
+    active.prepare('DELETE FROM projects').run();
     active.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run('project-after', 'After backup');
 
     const restored = await restoreValidatedBackup(backupPath, activePath, active);
@@ -127,9 +127,10 @@ async function run() {
     copyFileSync(activePath, rollbackActivePath);
     const rollbackActive = new Database(rollbackActivePath);
     rollbackActive.pragma('journal_mode = WAL');
-    rollbackActive.prepare('DELETE FROM projects');
+    rollbackActive.prepare('DELETE FROM projects').run();
     rollbackActive.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run('rollback-current', 'Rollback current');
     const prepared = await prepareValidatedRestore(backupPath, rollbackActivePath, rollbackActive);
+    assertProject(prepared.recoveryPath, 'rollback-current');
     writeFileSync(prepared.incomingPath, Buffer.from('forced post-replacement validation failure'));
     assert.throws(() => commitPreparedRestore(prepared, rollbackActive), /database|sqlite|malformed|disk image|file is not/i);
     assertProject(rollbackActivePath, 'rollback-current');
@@ -141,7 +142,7 @@ async function run() {
     for (let cycle = 1; cycle <= 3; cycle += 1) {
       const cycleDatabase = new Database(cyclePath);
       cycleDatabase.pragma('journal_mode = WAL');
-      cycleDatabase.prepare('DELETE FROM projects');
+      cycleDatabase.prepare('DELETE FROM projects').run();
       cycleDatabase.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run(`cycle-${cycle}`, `Cycle ${cycle}`);
       const cycleBackupPath = path.join(tempDir, `cycle-${cycle}.sqlite`);
       await createValidatedBackup(cycleDatabase, cycleBackupPath);
