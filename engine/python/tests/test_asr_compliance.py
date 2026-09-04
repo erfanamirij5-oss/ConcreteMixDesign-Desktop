@@ -14,6 +14,7 @@ def test_nonreactive_aggregate_and_complete_alkali_data_can_pass():
     assert result["status"] == "pass"
     assert result["binder_alkali"]["total_na2oeq_kg_m3"] == 2.2
     assert result["aggregate_reactivity"]["sources"][0]["status"] == "nonreactive"
+    assert result["screening_criteria"]["c1293_1y_percent"]["guide_limit"] == 0.04
 
 
 def test_missing_binder_alkali_needs_review():
@@ -37,14 +38,36 @@ def test_reactive_aggregate_without_mitigation_needs_review():
     assert any(w["code"] == "ASR_MITIGATION_QUALIFICATION_REQUIRED" for w in result["warnings"])
 
 
-def test_reactive_aggregate_with_effective_c1567_can_pass():
+def test_reactive_aggregate_with_effective_c1567_and_evidence_can_pass():
     materials = {
-        "cementitious": [{"id": "c1", "material_type": "cement", "alkali_percent": 0.60, "astm_c1567_expansion_14d_percent": 0.07}],
+        "cementitious": [{
+            "id": "c1",
+            "material_type": "cement",
+            "alkali_percent": 0.60,
+            "astm_c1567_expansion_14d_percent": 0.07,
+            "asr_performance_evidence_ref": "LAB-ASR-1567-001",
+        }],
         "aggregates": [{"id": "a1", "name": "Reactive aggregate", "astm_c1293_expansion_1y_percent": 0.08}],
     }
     result = evaluate_asr_compliance(materials, binder_system())
     assert result["status"] == "pass"
     assert result["mitigation"]["qualified"] is True
+
+
+def test_effective_c1567_without_evidence_reference_needs_review():
+    materials = {
+        "cementitious": [{
+            "id": "c1",
+            "material_type": "cement",
+            "alkali_percent": 0.60,
+            "astm_c1567_expansion_14d_percent": 0.07,
+        }],
+        "aggregates": [{"id": "a1", "name": "Reactive aggregate", "astm_c1293_expansion_1y_percent": 0.08}],
+    }
+    result = evaluate_asr_compliance(materials, binder_system())
+    assert result["status"] == "needs_review"
+    assert result["mitigation"]["qualified"] is False
+    assert any(w["code"] == "ASR_MITIGATION_EVIDENCE_REF_MISSING" for w in result["warnings"])
 
 
 def test_failed_c1567_causes_fail():
