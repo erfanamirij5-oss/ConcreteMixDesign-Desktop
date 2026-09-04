@@ -34,6 +34,9 @@ const first = persistCalculatedMixResult(database, 'mix-1', {
     air_content_percent: 2
   },
   engineering_notes: ['Moisture corrections are included in batch water.'],
+  aggregate_blend_optimizer: { status: 'pass', selected_shares: [{ material_id: 'sand-1', share_percent: 42 }] },
+  durability: { exposure_classes: { sulfate: 'S1', corrosion: 'C1' } },
+  cementitious_compliance: { status: 'pass', standard: 'ASTM C150' },
   standard_references: ['ACI PRC-211.1-22'],
   assumptions: ['SSD basis'],
   warnings: [{ code: 'TRACE', message: 'engineering traceability preserved' }],
@@ -41,11 +44,21 @@ const first = persistCalculatedMixResult(database, 'mix-1', {
 });
 
 if (!first || first.wCmRatio !== 0.45 || first.cementitiousContentKgM3 !== 400) throw new Error('Calculated mix result was not persisted correctly.');
-const firstTrace = first.traceability as { calculationMethod?: string; engineeringNotes?: string[]; standardReferences?: string[]; limitations?: string[] };
+const firstTrace = first.traceability as {
+  calculationMethod?: string;
+  engineeringNotes?: string[];
+  standardReferences?: string[];
+  limitations?: string[];
+  engineeringOutput?: Record<string, unknown>;
+};
 if (firstTrace.calculationMethod !== 'ACI PRC-211.1-22') throw new Error('Calculation method traceability was not persisted.');
 if (!firstTrace.engineeringNotes?.includes('Moisture corrections are included in batch water.')) throw new Error('Engineering notes were not persisted.');
 if (!firstTrace.standardReferences?.includes('ACI PRC-211.1-22')) throw new Error('Standard references were not persisted.');
 if (!firstTrace.limitations?.includes('Trial validation pending')) throw new Error('Calculation limitations were not persisted.');
+const output = firstTrace.engineeringOutput as { aggregate_blend_optimizer?: { status?: string }; durability?: { exposure_classes?: { sulfate?: string } }; cementitious_compliance?: { standard?: string } } | undefined;
+if (output?.aggregate_blend_optimizer?.status !== 'pass') throw new Error('Full Blend engineering output was not persisted for reopen.');
+if (output?.durability?.exposure_classes?.sulfate !== 'S1') throw new Error('Full durability output was not persisted for reopen.');
+if (output?.cementitious_compliance?.standard !== 'ASTM C150') throw new Error('Full compliance output was not persisted for reopen.');
 
 const second = persistCalculatedMixResult(database, 'mix-1', {
   status: 'pass',
@@ -65,4 +78,4 @@ const afterReject = database.prepare('SELECT cementitious_content_kg_m3 AS cemen
 if (afterReject.cementitious !== 420) throw new Error('Rejected engine result modified the last valid persisted calculation.');
 
 database.close();
-console.log('Calculation result persistence smoke validation passed.');
+console.log('Calculation result persistence smoke validation passed with full engineering reopen fidelity.');
