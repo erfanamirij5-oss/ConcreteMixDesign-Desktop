@@ -37,6 +37,9 @@ jobs:
       - name: Management migration chain smoke test
         run: node dist/electron/managementMigrationSmoke.js
 
+      - name: Management workflow regression smoke test
+        run: node dist/electron/managementWorkflowSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
