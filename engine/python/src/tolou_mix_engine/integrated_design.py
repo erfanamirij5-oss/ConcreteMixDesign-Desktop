@@ -24,6 +24,7 @@ def _unsupported_concrete_type_result(concrete_type: str) -> dict:
         "engine": "tolou-mix-engine",
         "engine_version": "0.3.0",
         "error": "unsupported_concrete_type_for_current_engine",
+        "calculation_method": "engineering_scope_guard_no_proportioning_performed",
         "mix_proportions": {},
         "warnings": [
             {
@@ -43,9 +44,16 @@ def _unsupported_concrete_type_result(concrete_type: str) -> dict:
             "در v0.3.0 فقط بتن معمولی و حالت بتن پمپی مبتنی بر همان سیستم بتن معمولی محاسبه می‌شوند.",
             "بتن خودتراکم، سبک، حجیم، الیافی و سایر خانواده‌ها باید با ماژول و روش اختصاصی خود پیاده‌سازی شوند و نباید به‌صورت خام از موتور بتن معمولی عبور داده شوند.",
         ],
+        "assumptions": [
+            f"requested_concrete_type={concrete_type}",
+            "supported_concrete_types=normal_weight,pumped",
+            "proportioning_execution=blocked_before_calculation",
+        ],
         "limitations": [
             "این توقف یک کنترل ایمنی مهندسی است و نباید با تغییر نام نوع بتن دور زده شود.",
+            "هیچ نسبت اختلاطی برای نوع بتن پشتیبانی‌نشده تولید نشده است.",
         ],
+        "calculation_pipeline": ["engineering_scope_guard"],
     }
 
 
