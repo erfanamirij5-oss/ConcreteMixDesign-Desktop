@@ -20,11 +20,11 @@ type EngineWarning = { code?: string; severity?: 'needs_review' | 'warning' | 'f
 type EngineeringSystemsProps = Parameters<typeof EngineeringSystemsResults>[0];
 type AggregateBlendResultProps = Parameters<typeof AggregateBlendResults>[0];
 type EngineResult = {
-  status?: string; engine?: string; version?: string; engine_version?: string; message?: string; calculation_method?: string;
+  status?: string; engine?: string; version?: string; engine_version?: string; message?: string; error?: string; calculation_method?: string;
   mix_proportions?: { water_kg_m3?: number | null; cementitious_kg_m3?: number | null; w_cm_ratio?: number | null; fine_aggregate_kg_m3?: number | null; coarse_aggregate_kg_m3?: number | null; aggregate_ssd_kg_m3?: number | null; aggregate_batch_kg_m3?: number | null; batch_water_adjustment_kg_m3?: number | null; water_to_add_kg_m3?: number | null; air_content_percent?: number; durability_governing_max_w_cm?: number | null; durability_min_strength_mpa?: number | null; durability_target_air_percent?: number | null; };
   aggregate_analysis?: AggregateAnalysisRow[]; aggregate_compliance?: EngineeringSystemsProps['aggregateCompliance']; combined_aggregate_system?: AggregateBlendResultProps['combined']; aggregate_blend_optimizer?: AggregateBlendResultProps['optimizer']; engineering_notes?: string[]; warnings?: EngineWarning[]; standard_references?: string[]; assumptions?: string[]; limitations?: string[]; durability?: { exposure_classes?: { freeze_thaw?: string; sulfate?: string; water?: string; corrosion?: string } }; cementitious_system?: EngineeringSystemsProps['cementitiousSystem']; cementitious_compliance?: EngineeringSystemsProps['cementitiousCompliance']; asr_compliance?: EngineeringSystemsProps['asrCompliance']; water_compliance?: EngineeringSystemsProps['waterCompliance']; admixture_system?: EngineeringSystemsProps['admixtureSystem']; admixture_compliance?: EngineeringSystemsProps['admixtureCompliance']; chloride_compliance?: EngineeringSystemsProps['chlorideCompliance'];
 };
-type PersistedResult = { cementitiousContentKgM3?: number | null; waterContentKgM3?: number | null; wCmRatio?: number | null; fineAggregateKgM3?: number | null; coarseAggregateKgM3?: number | null; airContentPercent?: number | null; traceability?: { calculationMethod?: string | null; standardReferences?: string[]; warnings?: EngineWarning[]; assumptions?: string[]; limitations?: string[] } | null };
+type PersistedResult = { cementitiousContentKgM3?: number | null; waterContentKgM3?: number | null; wCmRatio?: number | null; fineAggregateKgM3?: number | null; coarseAggregateKgM3?: number | null; airContentPercent?: number | null; traceability?: { calculationMethod?: string | null; engineeringNotes?: string[]; standardReferences?: string[]; warnings?: EngineWarning[]; assumptions?: string[]; limitations?: string[]; engineeringOutput?: EngineResult } | null };
 type RecentProject = { id: string; projectName: string; city: string; mixDesignId: string; concreteType: string; targetStrengthMpa: number; status: string; createdAt: string; };
 
 const initialProject: ProjectIntake = {
@@ -77,7 +77,7 @@ export function App() {
       if (!activeMixDesignId) throw new Error('ابتدا یک طرح ذخیره‌شده را انتخاب کنید.');
       if (!window.tolouEngine?.calculateSavedMix) throw new Error('مسیر محاسبه طرح ذخیره‌شده در Electron در دسترس نیست.');
       const result = await window.tolouEngine.calculateSavedMix(activeMixDesignId) as EngineResult;
-      if (result.status === 'fail') throw new Error(result.message ?? 'موتور محاسبات نتیجه نامعتبر برگرداند.');
+      if (result.status === 'fail') throw new Error(result.error ?? result.message ?? 'موتور محاسبات نتیجه نامعتبر برگرداند.');
       setEngineResult(result); setCalculationState('done'); setEngineState('ready');
     } catch (error) { setCalculationError(error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده'); setCalculationState('error'); }
   }
@@ -89,22 +89,27 @@ export function App() {
       if (response.status !== 'pass' || !response.result) return;
       const saved = response.result;
       const trace = saved.traceability ?? {};
-      setEngineResult({
-        status: 'pass',
-        calculation_method: trace.calculationMethod ?? undefined,
-        mix_proportions: {
-          cementitious_kg_m3: saved.cementitiousContentKgM3,
-          water_kg_m3: saved.waterContentKgM3,
-          w_cm_ratio: saved.wCmRatio,
-          fine_aggregate_kg_m3: saved.fineAggregateKgM3,
-          coarse_aggregate_kg_m3: saved.coarseAggregateKgM3,
-          air_content_percent: saved.airContentPercent ?? undefined
-        },
-        standard_references: trace.standardReferences ?? [],
-        warnings: trace.warnings ?? [],
-        assumptions: trace.assumptions ?? [],
-        limitations: trace.limitations ?? []
-      });
+      if (trace.engineeringOutput) {
+        setEngineResult(trace.engineeringOutput);
+      } else {
+        setEngineResult({
+          status: 'pass',
+          calculation_method: trace.calculationMethod ?? undefined,
+          mix_proportions: {
+            cementitious_kg_m3: saved.cementitiousContentKgM3,
+            water_kg_m3: saved.waterContentKgM3,
+            w_cm_ratio: saved.wCmRatio,
+            fine_aggregate_kg_m3: saved.fineAggregateKgM3,
+            coarse_aggregate_kg_m3: saved.coarseAggregateKgM3,
+            air_content_percent: saved.airContentPercent ?? undefined
+          },
+          engineering_notes: trace.engineeringNotes ?? [],
+          standard_references: trace.standardReferences ?? [],
+          warnings: trace.warnings ?? [],
+          assumptions: trace.assumptions ?? [],
+          limitations: trace.limitations ?? []
+        });
+      }
       setCalculationState('done');
     } catch { /* A missing legacy result must not prevent opening the engineering file. */ }
   }
