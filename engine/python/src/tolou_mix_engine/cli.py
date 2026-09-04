@@ -4,7 +4,7 @@ import json
 import sys
 
 from tolou_mix_engine.durability import evaluate_durability
-from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mix
+from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
 
 def read_payload() -> dict:
@@ -30,7 +30,7 @@ def main() -> int:
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
-        response = calculate_normal_weight_mix(payload)
+        response = calculate_integrated_normal_mix(payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
