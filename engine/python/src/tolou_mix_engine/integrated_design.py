@@ -15,10 +15,47 @@ from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mix
 from tolou_mix_engine.water_compliance import evaluate_mixing_water_compliance
 
+SUPPORTED_CONCRETE_TYPES = {"normal_weight", "pumped"}
+
+
+def _unsupported_concrete_type_result(concrete_type: str) -> dict:
+    return {
+        "status": "fail",
+        "engine": "tolou-mix-engine",
+        "engine_version": "0.3.0",
+        "error": "unsupported_concrete_type_for_current_engine",
+        "mix_proportions": {},
+        "warnings": [
+            {
+                "code": "CONCRETE_TYPE_NOT_IMPLEMENTED",
+                "severity": "fail",
+                "message": (
+                    f"نوع بتن '{concrete_type}' هنوز در موتور محاسباتی v0.3.0 پیاده‌سازی و اعتبارسنجی نشده است. "
+                    "برای جلوگیری از استفاده نادرست از روش بتن معمولی، محاسبه متوقف شد."
+                ),
+                "reference": "Engineering scope control; ACI PRC-211.1-22 current implementation",
+            }
+        ],
+        "standard_references": [
+            "ACI PRC-211.1-22 - current implemented proportioning scope for normal-density concrete",
+        ],
+        "engineering_notes": [
+            "در v0.3.0 فقط بتن معمولی و حالت بتن پمپی مبتنی بر همان سیستم بتن معمولی محاسبه می‌شوند.",
+            "بتن خودتراکم، سبک، حجیم، الیافی و سایر خانواده‌ها باید با ماژول و روش اختصاصی خود پیاده‌سازی شوند و نباید به‌صورت خام از موتور بتن معمولی عبور داده شوند.",
+        ],
+        "limitations": [
+            "این توقف یک کنترل ایمنی مهندسی است و نباید با تغییر نام نوع بتن دور زده شود.",
+        ],
+    }
+
 
 def calculate_integrated_normal_mix(payload: dict) -> dict:
     """Run durability, binder allocation, proportioning and material compliance checks."""
     source = deepcopy(payload if isinstance(payload, dict) else {})
+    concrete_type = str(source.get("concrete_type") or "normal_weight").strip().lower()
+    if concrete_type not in SUPPORTED_CONCRETE_TYPES:
+        return _unsupported_concrete_type_result(concrete_type)
+
     requirements = source.setdefault("requirements", {})
     materials = source.setdefault("materials", {})
     options = source.setdefault("calculation_options", {})
