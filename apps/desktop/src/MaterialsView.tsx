@@ -1,159 +1,137 @@
 import { useState } from 'react';
-import type { AggregateRole, MaterialInput, MaterialRecord, MaterialType, MoistureCondition, SaveMaterialResponse } from './types/material';
+import type { AggregateRole, AsrQualificationMethod, AsrReactivityClass, LaAbrasionMethod, MaterialInput, MaterialRecord, MaterialSubtype, MaterialType, MoistureCondition, SaveMaterialResponse, SoundnessSalt, SulfateQualificationMethod, SulfateResistanceClass, WaterDensityMonitoringMethod, WaterSourceClass } from './types/material';
 
 const materialTypes: Array<{ value: MaterialType; label: string }> = [
-  { value: 'cement', label: 'سیمان' },
-  { value: 'water', label: 'آب' },
-  { value: 'fine_aggregate', label: 'سنگدانه ریز / ماسه' },
-  { value: 'coarse_aggregate', label: 'سنگدانه درشت / شن' },
-  { value: 'scm', label: 'مواد مکمل سیمانی' },
-  { value: 'admixture', label: 'افزودنی شیمیایی' },
-  { value: 'fiber', label: 'الیاف' }
+  { value: 'cement', label: 'سیمان' }, { value: 'water', label: 'آب' }, { value: 'fine_aggregate', label: 'سنگدانه ریز / ماسه' }, { value: 'coarse_aggregate', label: 'سنگدانه درشت / شن' }, { value: 'scm', label: 'مواد مکمل سیمانی' }, { value: 'admixture', label: 'افزودنی شیمیایی' }, { value: 'fiber', label: 'الیاف' }
 ];
-
 const aggregateRoles: Array<{ value: AggregateRole; label: string; materialType: 'fine_aggregate' | 'coarse_aggregate' | 'both' }> = [
-  { value: 'natural_sand', label: 'ماسه طبیعی', materialType: 'fine_aggregate' },
-  { value: 'manufactured_sand', label: 'ماسه شکسته', materialType: 'fine_aggregate' },
-  { value: 'correction_aggregate', label: 'سنگدانه اصلاحی', materialType: 'both' },
-  { value: 'pea_gravel', label: 'نخودی', materialType: 'coarse_aggregate' },
-  { value: 'coarse_gravel', label: 'بادامی', materialType: 'coarse_aggregate' },
-  { value: 'coarse_12_5', label: 'شن 12.5 میلی‌متر', materialType: 'coarse_aggregate' },
-  { value: 'coarse_19', label: 'شن 19 میلی‌متر', materialType: 'coarse_aggregate' },
-  { value: 'coarse_25', label: 'شن 25 میلی‌متر', materialType: 'coarse_aggregate' },
-  { value: 'recycled_aggregate', label: 'سنگدانه بازیافتی', materialType: 'both' },
-  { value: 'lightweight_aggregate', label: 'سنگدانه سبک', materialType: 'both' },
-  { value: 'heavyweight_aggregate', label: 'سنگدانه سنگین', materialType: 'both' },
-  { value: 'custom', label: 'نام/نقش سفارشی', materialType: 'both' }
+  { value: 'natural_sand', label: 'ماسه طبیعی', materialType: 'fine_aggregate' }, { value: 'manufactured_sand', label: 'ماسه شکسته', materialType: 'fine_aggregate' }, { value: 'correction_aggregate', label: 'سنگدانه اصلاحی', materialType: 'both' }, { value: 'pea_gravel', label: 'نخودی', materialType: 'coarse_aggregate' }, { value: 'coarse_gravel', label: 'بادامی', materialType: 'coarse_aggregate' }, { value: 'coarse_12_5', label: 'شن 12.5 میلی‌متر', materialType: 'coarse_aggregate' }, { value: 'coarse_19', label: 'شن 19 میلی‌متر', materialType: 'coarse_aggregate' }, { value: 'coarse_25', label: 'شن 25 میلی‌متر', materialType: 'coarse_aggregate' }, { value: 'recycled_aggregate', label: 'سنگدانه بازیافتی', materialType: 'both' }, { value: 'lightweight_aggregate', label: 'سنگدانه سبک', materialType: 'both' }, { value: 'heavyweight_aggregate', label: 'سنگدانه سنگین', materialType: 'both' }, { value: 'custom', label: 'نام/نقش سفارشی', materialType: 'both' }
 ];
-
 const moistureConditions: Array<{ value: MoistureCondition; label: string }> = [
-  { value: 'oven_dry', label: 'خشک آون' },
-  { value: 'air_dry', label: 'خشک هوایی' },
-  { value: 'ssd', label: 'SSD' },
-  { value: 'wet', label: 'مرطوب' },
-  { value: 'stockpile', label: 'وضعیت دپو' }
+  { value: 'oven_dry', label: 'خشک آون' }, { value: 'air_dry', label: 'خشک هوایی' }, { value: 'ssd', label: 'SSD' }, { value: 'wet', label: 'مرطوب' }, { value: 'stockpile', label: 'وضعیت دپو' }
+];
+const sulfateClasses: Array<{ value: SulfateResistanceClass; label: string }> = [
+  { value: 'none', label: 'اعلام نشده / بدون کلاس' }, { value: 'MS', label: 'MS - مقاومت متوسط' }, { value: 'HS', label: 'HS - مقاومت بالا' }, { value: 'qualified_combination', label: 'ترکیب واجد Qualification' }
+];
+const sulfateMethods: Array<{ value: SulfateQualificationMethod; label: string }> = [
+  { value: 'product_designation', label: 'Designation مستقیم محصول' }, { value: 'astm_c1012', label: 'ASTM C1012/C1012M' }, { value: 'documented_service_record', label: 'سابقه عملکرد مستند' }, { value: 'engineer_approved_combination', label: 'ترکیب تأییدشده توسط مهندس' }
+];
+const asrClasses: Array<{ value: AsrReactivityClass; label: string }> = [
+  { value: 'unknown', label: 'نامشخص' }, { value: 'nonreactive', label: 'غیرفعال / Nonreactive' }, { value: 'potentially_reactive', label: 'بالقوه واکنش‌زا' }, { value: 'reactive', label: 'واکنش‌زا' }
+];
+const asrMethods: Array<{ value: AsrQualificationMethod; label: string }> = [
+  { value: 'astm_c1260', label: 'ASTM C1260 - Mortar Bar' }, { value: 'astm_c1293', label: 'ASTM C1293 - Concrete Prism' }, { value: 'astm_c1567', label: 'ASTM C1567 - Mitigation' }, { value: 'documented_service_record', label: 'سابقه عملکرد مستند' }, { value: 'engineer_approved_mitigation', label: 'Mitigation تأییدشده توسط مهندس' }
+];
+const waterSourceClasses: Array<{ value: WaterSourceClass; label: string }> = [
+  { value: 'potable', label: 'آب آشامیدنی' }, { value: 'nonpotable', label: 'آب غیرآشامیدنی / چاه / منبع دیگر' }, { value: 'concrete_production', label: 'آب حاصل از عملیات تولید بتن / Wash Water' }
+];
+const waterMonitoringMethods: Array<{ value: WaterDensityMonitoringMethod; label: string }> = [
+  { value: 'astm_c1603', label: 'ASTM C1603' }, { value: 'verified_hydrometer', label: 'Hydrometer تأییدشده طبق C1603' }, { value: 'automated_density_system', label: 'سامانه خودکار پایش چگالی' }
+];
+const subtypes: Array<{ value: MaterialSubtype; label: string; types: MaterialType[] }> = [
+  { value: 'portland_cement', label: 'سیمان پرتلند', types: ['cement'] }, { value: 'blended_cement', label: 'سیمان آمیخته', types: ['cement'] },
+  { value: 'slag_cement', label: 'سرباره آسیاب‌شده', types: ['scm'] }, { value: 'fly_ash', label: 'خاکستر بادی', types: ['scm'] }, { value: 'silica_fume', label: 'میکروسیلیس', types: ['scm'] }, { value: 'natural_pozzolan', label: 'پوزولان طبیعی', types: ['scm'] }, { value: 'calcined_clay', label: 'رس کلسینه', types: ['scm'] }, { value: 'limestone_filler', label: 'فیلر آهکی', types: ['scm'] }, { value: 'other_scm', label: 'SCM دیگر', types: ['scm'] },
+  { value: 'water_reducer', label: 'کاهنده آب', types: ['admixture'] }, { value: 'high_range_water_reducer', label: 'فوق‌روان‌کننده', types: ['admixture'] }, { value: 'retarder', label: 'دیرگیرکننده', types: ['admixture'] }, { value: 'accelerator', label: 'زودگیرکننده بدون CaCl₂', types: ['admixture'] }, { value: 'calcium_chloride_accelerator', label: 'زودگیرکننده بر پایه CaCl₂', types: ['admixture'] }, { value: 'air_entrainer', label: 'هوازا', types: ['admixture'] }, { value: 'viscosity_modifier', label: 'اصلاح‌کننده ویسکوزیته', types: ['admixture'] }, { value: 'corrosion_inhibitor', label: 'بازدارنده خوردگی', types: ['admixture'] }, { value: 'shrinkage_reducer', label: 'کاهنده جمع‌شدگی', types: ['admixture'] }, { value: 'other_admixture', label: 'افزودنی دیگر', types: ['admixture'] },
+  { value: 'steel_fiber', label: 'الیاف فولادی', types: ['fiber'] }, { value: 'polypropylene_fiber', label: 'الیاف پلی‌پروپیلن', types: ['fiber'] }, { value: 'glass_fiber', label: 'الیاف شیشه', types: ['fiber'] }, { value: 'basalt_fiber', label: 'الیاف بازالت', types: ['fiber'] }, { value: 'other_fiber', label: 'الیاف دیگر', types: ['fiber'] },
+  { value: 'mixing_water', label: 'آب اختلاط', types: ['water'] }, { value: 'wash_water', label: 'آب بازیافتی/شستشو', types: ['water'] }, { value: 'other', label: 'سایر', types: ['water'] }
 ];
 
 const initialMaterial: Omit<MaterialInput, 'mixDesignId'> = {
-  materialType: 'fine_aggregate',
-  aggregateRole: 'natural_sand',
-  nominalSizeMm: 4.75,
-  fracturedFacePercent: null,
-  moistureCondition: 'stockpile',
-  name: 'ماسه طبیعی 0-6 منبع نمونه',
-  source: 'یزد',
-  specificGravity: 2.65,
-  absorptionPercent: 1.8,
-  moisturePercent: 3.2,
-  unitWeightKgM3: 1650,
-  notes: 'برای محاسبات صنعتی باید نتایج آزمایشگاهی ASTM/ISIRI ثبت شود.'
+  materialType: 'fine_aggregate', aggregateRole: 'natural_sand', nominalSizeMm: 4.75, fracturedFacePercent: null, moistureCondition: 'stockpile', name: 'ماسه طبیعی 0-6 منبع نمونه', source: 'یزد', specificGravity: 2.65, absorptionPercent: 1.8, moisturePercent: 3.2, unitWeightKgM3: 1650, notes: 'نتایج آزمایشگاهی معتبر ثبت شود.',
+  materialSubtype: null, standardDesignation: null, densityKgM3: null, dosageValue: null, dosageUnit: null, binderSharePercent: null, replacementPercent: null, solidsPercent: null, chloridePercent: null, chlorideMgL: null, waterSharePercent: null, alkaliPercent: null,
+  sulfateMgL: null, totalSolidsMgL: null, alkalisNa2oeqMgL: null, c1602StrengthRatio7dPercent: null, c1602SettingTimeDeviationMin: null, c1602PerformanceEvidenceRef: null,
+  waterSourceClass: null, c1602LastQualificationDate: null, c1602LastDensityCheckDate: null, c1602DensityMonitoringMethod: null, c1602MonitoringEvidenceRef: null,
+  astmC117Finer75umPercent: null, finer75umLimitPercent: null, aggregateTestEvidenceRef: null, astmC29RoddedUnitWeightKgM3: null, astmC127C128SsdSpecificGravity: null, astmC127C128AbsorptionPercent: null, aggregateQualityStandard: 'ASTM C33/C33M-24a',
+  laAbrasionMethod: null, laAbrasionLossPercent: null, laAbrasionLimitPercent: null, soundnessSalt: null, astmC88SoundnessLossPercent: null, soundnessLimitPercent: null, astmC142ClayLumpsPercent: null, clayLumpsLimitPercent: null, astmC123LightweightParticlesPercent: null, lightweightParticlesLimitPercent: null, advancedAggregateEvidenceRef: null,
+  astmD4791FlatElongatedPercent: null, flatElongatedLimitPercent: null, astmD4791DimensionalRatio: '3:1', astmD5821FracturedParticlesPercent: null, fracturedParticlesMinPercent: null, fracturedFacesRequired: 1, shapeTextureEvidenceRef: null,
+  lossOnIgnitionPercent: null, activityIndexPercent: null, manufacturer: null, productCode: null,
+  sulfateResistanceClass: null, sulfateQualificationMethod: null, astmC1012Expansion6mPercent: null, astmC1012Expansion12mPercent: null, sulfatePerformanceEvidenceRef: null,
+  asrReactivityClass: 'unknown', asrQualificationMethod: null, astmC1260Expansion14dPercent: null, astmC1293Expansion1yPercent: null, astmC1567Expansion14dPercent: null, asrPerformanceEvidenceRef: null
 };
 
 export function MaterialsView(props: { mixDesignId: string | null }) {
-  const [material, setMaterial] = useState(initialMaterial);
-  const [materials, setMaterials] = useState<MaterialRecord[]>([]);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [message, setMessage] = useState('');
+  const [material, setMaterial] = useState(initialMaterial); const [materials, setMaterials] = useState<MaterialRecord[]>([]); const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle'); const [message, setMessage] = useState('');
   const isAggregate = material.materialType === 'fine_aggregate' || material.materialType === 'coarse_aggregate';
+  const isBinder = material.materialType === 'cement' || material.materialType === 'scm';
+  const isAdmixture = material.materialType === 'admixture'; const isFiber = material.materialType === 'fiber'; const isWater = material.materialType === 'water';
   const visibleRoles = aggregateRoles.filter(role => role.materialType === 'both' || role.materialType === material.materialType);
+  const visibleSubtypes = subtypes.filter(item => item.types.includes(material.materialType));
 
   async function saveMaterial() {
-    setStatus('saving');
-    setMessage('');
-
-    try {
-      if (!props.mixDesignId) throw new Error('ابتدا یک پروژه/طرح جدید ذخیره کنید تا مصالح به همان طرح متصل شود.');
-      if (!window.tolouMaterials) throw new Error('API مصالح در دسترس نیست. برنامه باید داخل Electron اجرا شود.');
-
-      const payload: MaterialInput = { ...material, mixDesignId: props.mixDesignId };
-      const result = await window.tolouMaterials.save(payload) as SaveMaterialResponse;
-      if (result.status !== 'pass') throw new Error(result.error ?? 'ذخیره مصالح ناموفق بود.');
-
-      const list = await window.tolouMaterials.listByMixDesign(props.mixDesignId) as { status: string; materials?: MaterialRecord[]; error?: string };
-      setMaterials(list.materials ?? []);
-      setStatus('saved');
-      setMessage('مصالح با موفقیت به طرح فعلی اضافه شد.');
-    } catch (error) {
-      setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره مصالح');
-    }
+    setStatus('saving'); setMessage('');
+    try { if (!props.mixDesignId) throw new Error('ابتدا یک پروژه/طرح جدید ذخیره کنید.'); if (!window.tolouMaterials) throw new Error('API مصالح در دسترس نیست.'); const result = await window.tolouMaterials.save({ ...material, mixDesignId: props.mixDesignId } as MaterialInput) as SaveMaterialResponse; if (result.status !== 'pass') throw new Error(result.error ?? 'ذخیره مصالح ناموفق بود.'); const list = await window.tolouMaterials.listByMixDesign(props.mixDesignId) as { status: string; materials?: MaterialRecord[] }; setMaterials(list.materials ?? []); setStatus('saved'); setMessage('مصالح با موفقیت به طرح فعلی اضافه شد.'); } catch (error) { setStatus('error'); setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره مصالح'); }
   }
-
-  function setValue(key: keyof typeof material, value: string | number | null) {
-    setMaterial(previous => ({ ...previous, [key]: value }));
+  function setValue(key: keyof typeof material, value: string | number | null) { setMaterial(previous => ({ ...previous, [key]: value })); }
+  function changeType(type: MaterialType) {
+    const defaultSubtype = subtypes.find(item => item.types.includes(type))?.value ?? null;
+    setMaterial(previous => ({ ...previous, materialType: type, aggregateRole: type === 'fine_aggregate' ? 'natural_sand' : type === 'coarse_aggregate' ? 'coarse_gravel' : null, materialSubtype: defaultSubtype, binderSharePercent: type === 'cement' ? 100 : null, waterSharePercent: type === 'water' ? 100 : null, waterSourceClass: type === 'water' ? 'potable' : null, specificGravity: type === 'cement' ? 3.15 : type === 'scm' ? 2.4 : previous.specificGravity, sulfateResistanceClass: type === 'cement' || type === 'scm' ? previous.sulfateResistanceClass : null, sulfateQualificationMethod: type === 'cement' || type === 'scm' ? previous.sulfateQualificationMethod : null, asrReactivityClass: type === 'fine_aggregate' || type === 'coarse_aggregate' ? (previous.asrReactivityClass ?? 'unknown') : null, asrQualificationMethod: type === 'fine_aggregate' || type === 'coarse_aggregate' || type === 'cement' || type === 'scm' ? previous.asrQualificationMethod : null, aggregateQualityStandard: type === 'fine_aggregate' || type === 'coarse_aggregate' ? (previous.aggregateQualityStandard ?? 'ASTM C33/C33M-24a') : null }));
   }
+  function useAggregatePreset(kind: 'sand' | 'pea' | 'coarse') { if (kind === 'sand') setMaterial(previous => ({ ...previous, materialType: 'fine_aggregate', aggregateRole: 'natural_sand', nominalSizeMm: 4.75, name: 'ماسه طبیعی 0-6', asrReactivityClass: 'unknown', aggregateQualityStandard: 'ASTM C33/C33M-24a' })); else if (kind === 'pea') setMaterial(previous => ({ ...previous, materialType: 'coarse_aggregate', aggregateRole: 'pea_gravel', nominalSizeMm: 12.5, name: 'شن نخودی', asrReactivityClass: 'unknown', aggregateQualityStandard: 'ASTM C33/C33M-24a' })); else setMaterial(previous => ({ ...previous, materialType: 'coarse_aggregate', aggregateRole: 'coarse_gravel', nominalSizeMm: 19, name: 'شن بادامی', asrReactivityClass: 'unknown', aggregateQualityStandard: 'ASTM C33/C33M-24a' })); }
+  function countByType(type: MaterialType) { return materials.filter(item => item.materialType === type).length; }
 
-  function useAggregatePreset(kind: 'sand' | 'pea' | 'coarse') {
-    if (kind === 'sand') {
-      setMaterial(previous => ({ ...previous, materialType: 'fine_aggregate', aggregateRole: 'natural_sand', nominalSizeMm: 4.75, name: 'ماسه طبیعی 0-6' }));
-      return;
-    }
-    if (kind === 'pea') {
-      setMaterial(previous => ({ ...previous, materialType: 'coarse_aggregate', aggregateRole: 'pea_gravel', nominalSizeMm: 12.5, name: 'شن نخودی' }));
-      return;
-    }
-    setMaterial(previous => ({ ...previous, materialType: 'coarse_aggregate', aggregateRole: 'coarse_gravel', nominalSizeMm: 19, name: 'شن بادامی' }));
-  }
-
-  function countByType(type: MaterialType) {
-    return materials.filter(item => item.materialType === type).length;
-  }
-
-  return (
-    <>
-      <section className="titlebar">
-        <div><h2>مصالح و منابع طرح اختلاط</h2><p>ثبت چند ماسه، چند شن و مصالح خاص با نام آزاد برای ترکیب‌های واقعی پروژه</p></div>
-        <div className="toolbar"><button className="btn success" disabled={status === 'saving'} onClick={saveMaterial}>{status === 'saving' ? 'در حال ذخیره...' : 'ذخیره مصالح'}</button></div>
-      </section>
-
-      {!props.mixDesignId && <div className="alert warn">برای ثبت مصالح، ابتدا از بخش «پروژه جدید» یک طرح را ذخیره کنید.</div>}
-      {message && <div className={`alert ${status === 'error' ? 'danger' : 'ok'}`}>{message}</div>}
-
-      <section className="content-grid">
-        <article className="panel wide-panel">
-          <div className="panel-head"><div><h3>فرم ورود مصالح</h3><span>نام‌گذاری آزاد مثل ماسه شکسته، نخودی، بادامی یا شن 19 برای گزارش و ترکیب نهایی</span></div><span className="badge blue">Multi Aggregate</span></div>
-          <div className="panel-body form-body">
-            <div className="quick-actions full">
-              <button className="btn ghost" type="button" onClick={() => useAggregatePreset('sand')}>افزودن ماسه</button>
-              <button className="btn ghost" type="button" onClick={() => useAggregatePreset('pea')}>افزودن نخودی</button>
-              <button className="btn ghost" type="button" onClick={() => useAggregatePreset('coarse')}>افزودن بادامی</button>
-            </div>
-            <label className="field"><span>نوع مصالح</span><select value={material.materialType} onChange={event => setValue('materialType', event.target.value as MaterialType)}>{materialTypes.map(type => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
-            {isAggregate && <label className="field"><span>نقش سنگدانه</span><select value={material.aggregateRole ?? 'custom'} onChange={event => setValue('aggregateRole', event.target.value as AggregateRole)}>{visibleRoles.map(role => <option value={role.value} key={role.value}>{role.label}</option>)}</select></label>}
-            <Field label="نام مصالح" value={material.name} onChange={value => setValue('name', value)} />
-            <Field label="منبع / معدن / کارخانه" value={material.source} onChange={value => setValue('source', value)} />
-            {isAggregate && <NumberField label="اندازه اسمی mm" value={material.nominalSizeMm} onChange={value => setValue('nominalSizeMm', value)} />}
-            {isAggregate && <NumberField label="درصد شکستگی %" value={material.fracturedFacePercent} onChange={value => setValue('fracturedFacePercent', value)} />}
-            {isAggregate && <label className="field"><span>وضعیت رطوبتی</span><select value={material.moistureCondition ?? 'stockpile'} onChange={event => setValue('moistureCondition', event.target.value as MoistureCondition)}>{moistureConditions.map(condition => <option value={condition.value} key={condition.value}>{condition.label}</option>)}</select></label>}
-            <NumberField label="وزن مخصوص SSD" value={material.specificGravity} onChange={value => setValue('specificGravity', value)} />
-            <NumberField label="جذب آب %" value={material.absorptionPercent} onChange={value => setValue('absorptionPercent', value)} />
-            <NumberField label="رطوبت فعلی %" value={material.moisturePercent} onChange={value => setValue('moisturePercent', value)} />
-            <NumberField label="وزن واحد kg/m³" value={material.unitWeightKgM3} onChange={value => setValue('unitWeightKgM3', value)} />
-            <label className="field full"><span>یادداشت فنی</span><textarea value={material.notes} onChange={event => setValue('notes', event.target.value)} /></label>
-          </div>
-        </article>
-
-        <article className="panel wide-panel">
-          <div className="panel-head"><div><h3>مصالح ثبت‌شده برای طرح فعلی</h3><span>ماسه‌ها: {countByType('fine_aggregate')} | شن‌ها: {countByType('coarse_aggregate')} | کل مصالح: {materials.length}</span></div></div>
-          <div className="panel-body tablewrap">
-            <table>
-              <thead><tr><th>نوع</th><th>نقش</th><th>نام</th><th>منبع</th><th>اندازه</th><th>شکستگی</th><th>رطوبت</th><th>وزن مخصوص</th><th>جذب</th></tr></thead>
-              <tbody>
-                {materials.length === 0 && <tr><td colSpan={9}>هنوز مصالحی برای طرح فعلی ثبت نشده است.</td></tr>}
-                {materials.map(item => <tr key={item.id}><td>{materialTypes.find(type => type.value === item.materialType)?.label ?? item.materialType}</td><td>{aggregateRoles.find(role => role.value === item.aggregateRole)?.label ?? '-'}</td><td>{item.name}</td><td>{item.source}</td><td>{item.nominalSizeMm ?? '-'}</td><td>{item.fracturedFacePercent ?? '-'}</td><td>{moistureConditions.find(condition => condition.value === item.moistureCondition)?.label ?? '-'}</td><td>{item.specificGravity ?? '-'}</td><td>{item.absorptionPercent ?? '-'}</td></tr>)}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </section>
-    </>
-  );
+  return <><section className="titlebar"><div><h2>مصالح و منابع طرح اختلاط</h2><p>بانک کامل سنگدانه، سیمان، SCM، آب، افزودنی و الیاف با ردیابی محصول و منبع</p></div><div className="toolbar"><button className="btn success" disabled={status === 'saving'} onClick={saveMaterial}>{status === 'saving' ? 'در حال ذخیره...' : 'ذخیره مصالح'}</button></div></section>
+    {!props.mixDesignId && <div className="alert warn">برای ثبت مصالح، ابتدا از بخش «پروژه جدید» یک طرح را ذخیره کنید.</div>}{message && <div className={`alert ${status === 'error' ? 'danger' : 'ok'}`}>{message}</div>}
+    <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>فرم مهندسی مصالح</h3><span>فیلدها متناسب با نوع ماده تغییر می‌کنند</span></div><span className="badge blue">Material System</span></div><div className="panel-body form-body">
+      <div className="quick-actions full"><button className="btn ghost" onClick={() => useAggregatePreset('sand')}>ماسه</button><button className="btn ghost" onClick={() => useAggregatePreset('pea')}>نخودی</button><button className="btn ghost" onClick={() => useAggregatePreset('coarse')}>بادامی</button></div>
+      <label className="field"><span>نوع مصالح</span><select value={material.materialType} onChange={event => changeType(event.target.value as MaterialType)}>{materialTypes.map(type => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
+      {isAggregate && <label className="field"><span>نقش سنگدانه</span><select value={material.aggregateRole ?? 'custom'} onChange={event => setValue('aggregateRole', event.target.value as AggregateRole)}>{visibleRoles.map(role => <option value={role.value} key={role.value}>{role.label}</option>)}</select></label>}
+      {!isAggregate && <label className="field"><span>زیرنوع ماده</span><select value={material.materialSubtype ?? visibleSubtypes[0]?.value ?? 'other'} onChange={event => setValue('materialSubtype', event.target.value as MaterialSubtype)}>{visibleSubtypes.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      <Field label="نام مصالح / محصول" value={material.name} onChange={value => setValue('name', value)} /><Field label="منبع / کارخانه" value={material.source} onChange={value => setValue('source', value)} />
+      {!isAggregate && <Field label="سازنده" value={material.manufacturer ?? ''} onChange={value => setValue('manufacturer', value)} />}{!isAggregate && <Field label="کد محصول" value={material.productCode ?? ''} onChange={value => setValue('productCode', value)} />}{!isAggregate && <Field label="استاندارد / Designation" value={material.standardDesignation ?? ''} onChange={value => setValue('standardDesignation', value)} />}
+      {isAggregate && <NumberField label="اندازه اسمی mm" value={material.nominalSizeMm} onChange={value => setValue('nominalSizeMm', value)} />}{isAggregate && <NumberField label="درصد شکستگی عمومی/قدیمی %" value={material.fracturedFacePercent} onChange={value => setValue('fracturedFacePercent', value)} />}{isAggregate && <label className="field"><span>وضعیت رطوبتی</span><select value={material.moistureCondition ?? 'stockpile'} onChange={event => setValue('moistureCondition', event.target.value as MoistureCondition)}>{moistureConditions.map(condition => <option value={condition.value} key={condition.value}>{condition.label}</option>)}</select></label>}
+      {(isAggregate || isBinder) && <NumberField label="وزن مخصوص" value={material.specificGravity} onChange={value => setValue('specificGravity', value)} />}{isAggregate && <NumberField label="جذب آب %" value={material.absorptionPercent} onChange={value => setValue('absorptionPercent', value)} />}{isAggregate && <NumberField label="رطوبت فعلی %" value={material.moisturePercent} onChange={value => setValue('moisturePercent', value)} />}{isAggregate && <NumberField label="وزن واحد kg/m³" value={material.unitWeightKgM3} onChange={value => setValue('unitWeightKgM3', value)} />}
+      {isAggregate && <div className="alert info full">کنترل کیفیت سنگدانه: C33/C33M-24a با C136/C136M، C117، C127/C128 و C29/C29M. کنترل پیشرفته نیز LA Abrasion، C88 Soundness، C142 و C123 را بدون ساختن حد پذیرش فرضی ارزیابی می‌کند.</div>}
+      {isAggregate && <Field label="استاندارد کیفیت سنگدانه" value={material.aggregateQualityStandard ?? 'ASTM C33/C33M-24a'} onChange={value => setValue('aggregateQualityStandard', value)} />}
+      {isAggregate && <NumberField label="ASTM C117 مواد ریزتر از 75 µm %" value={material.astmC117Finer75umPercent ?? null} onChange={value => setValue('astmC117Finer75umPercent', value)} />}
+      {isAggregate && <NumberField label="حد مجاز پروژه برای <75 µm %" value={material.finer75umLimitPercent ?? null} onChange={value => setValue('finer75umLimitPercent', value)} />}
+      {isAggregate && <NumberField label="SG SSD آزمایش C127/C128" value={material.astmC127C128SsdSpecificGravity ?? null} onChange={value => setValue('astmC127C128SsdSpecificGravity', value)} />}
+      {isAggregate && <NumberField label="جذب آب C127/C128 %" value={material.astmC127C128AbsorptionPercent ?? null} onChange={value => setValue('astmC127C128AbsorptionPercent', value)} />}
+      {isAggregate && <NumberField label="وزن واحد متراکم C29 kg/m³" value={material.astmC29RoddedUnitWeightKgM3 ?? null} onChange={value => setValue('astmC29RoddedUnitWeightKgM3', value)} />}
+      {isAggregate && <Field label="مرجع گزارش آزمون سنگدانه" value={material.aggregateTestEvidenceRef ?? ''} onChange={value => setValue('aggregateTestEvidenceRef', value)} />}
+      {isAggregate && <div className="alert info full">آزمون‌های پیشرفته: برای سنگدانه درشت LA Abrasion به‌عنوان داده اصلی کنترل می‌شود. C88، C142 و C123 در صورت ثبت نتیجه ارزیابی می‌شوند. هر نتیجه‌ای که حد پروژه نداشته باشد needs_review می‌ماند.</div>}
+      {material.materialType === 'coarse_aggregate' && <label className="field"><span>روش LA Abrasion</span><select value={material.laAbrasionMethod ?? ''} onChange={event => setValue('laAbrasionMethod', event.target.value ? event.target.value as LaAbrasionMethod : null)}><option value="">انتخاب نشده</option><option value="astm_c131">ASTM C131/C131M-20</option><option value="astm_c535">ASTM C535-16(2024)</option></select></label>}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="افت LA Abrasion %" value={material.laAbrasionLossPercent ?? null} onChange={value => setValue('laAbrasionLossPercent', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="حد مجاز پروژه LA Abrasion %" value={material.laAbrasionLimitPercent ?? null} onChange={value => setValue('laAbrasionLimitPercent', value)} />}
+      {isAggregate && <label className="field"><span>نمک آزمون ASTM C88</span><select value={material.soundnessSalt ?? ''} onChange={event => setValue('soundnessSalt', event.target.value ? event.target.value as SoundnessSalt : null)}><option value="">ثبت نشده</option><option value="sodium_sulfate">Sodium Sulfate</option><option value="magnesium_sulfate">Magnesium Sulfate</option></select></label>}
+      {isAggregate && <NumberField label="افت ASTM C88 Soundness %" value={material.astmC88SoundnessLossPercent ?? null} onChange={value => setValue('astmC88SoundnessLossPercent', value)} />}
+      {isAggregate && <NumberField label="حد مجاز پروژه Soundness %" value={material.soundnessLimitPercent ?? null} onChange={value => setValue('soundnessLimitPercent', value)} />}
+      {isAggregate && <NumberField label="ASTM C142 کلوخه رسی/ذرات سست %" value={material.astmC142ClayLumpsPercent ?? null} onChange={value => setValue('astmC142ClayLumpsPercent', value)} />}
+      {isAggregate && <NumberField label="حد مجاز پروژه C142 %" value={material.clayLumpsLimitPercent ?? null} onChange={value => setValue('clayLumpsLimitPercent', value)} />}
+      {isAggregate && <NumberField label="ASTM C123 ذرات سبک %" value={material.astmC123LightweightParticlesPercent ?? null} onChange={value => setValue('astmC123LightweightParticlesPercent', value)} />}
+      {isAggregate && <NumberField label="حد مجاز پروژه C123 %" value={material.lightweightParticlesLimitPercent ?? null} onChange={value => setValue('lightweightParticlesLimitPercent', value)} />}
+      {isAggregate && <Field label="مرجع گزارش کنترل پیشرفته سنگدانه" value={material.advancedAggregateEvidenceRef ?? ''} onChange={value => setValue('advancedAggregateEvidenceRef', value)} />}
+      {material.materialType === 'coarse_aggregate' && <div className="alert info full">شکل و بافت سنگدانه: ASTM D4791 برای ذرات تخت/کشیده و ASTM D5821 برای درصد ذرات شکسته. اثر بر کارایی و پمپاژ فقط به‌صورت advisory گزارش می‌شود؛ نرم‌افزار بدون حد پروژه و دانه‌بندی ترکیبی، اثر عددی ساختگی اعمال نمی‌کند.</div>}
+      {material.materialType === 'coarse_aggregate' && <Field label="نسبت ابعادی ASTM D4791 (مثلاً 3:1)" value={material.astmD4791DimensionalRatio ?? ''} onChange={value => setValue('astmD4791DimensionalRatio', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="ASTM D4791 ذرات تخت و کشیده %" value={material.astmD4791FlatElongatedPercent ?? null} onChange={value => setValue('astmD4791FlatElongatedPercent', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="حد مجاز پروژه D4791 %" value={material.flatElongatedLimitPercent ?? null} onChange={value => setValue('flatElongatedLimitPercent', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="ASTM D5821 ذرات شکسته %" value={material.astmD5821FracturedParticlesPercent ?? null} onChange={value => setValue('astmD5821FracturedParticlesPercent', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="حداقل پروژه برای ذرات شکسته %" value={material.fracturedParticlesMinPercent ?? null} onChange={value => setValue('fracturedParticlesMinPercent', value)} />}
+      {material.materialType === 'coarse_aggregate' && <NumberField label="تعداد وجوه شکسته موردنیاز" value={material.fracturedFacesRequired ?? null} onChange={value => setValue('fracturedFacesRequired', value)} />}
+      {material.materialType === 'coarse_aggregate' && <Field label="مرجع گزارش D4791 / D5821" value={material.shapeTextureEvidenceRef ?? ''} onChange={value => setValue('shapeTextureEvidenceRef', value)} />}
+      {isBinder && <NumberField label="سهم از کل مواد سیمانی %" value={material.binderSharePercent ?? null} onChange={value => setValue('binderSharePercent', value)} />}{isBinder && <NumberField label="Na₂Oeq ماده سیمانی % جرمی" value={material.alkaliPercent ?? null} onChange={value => setValue('alkaliPercent', value)} />}{material.materialType === 'scm' && <NumberField label="درصد جایگزینی %" value={material.replacementPercent ?? null} onChange={value => setValue('replacementPercent', value)} />}{material.materialType === 'scm' && <NumberField label="Activity Index %" value={material.activityIndexPercent ?? null} onChange={value => setValue('activityIndexPercent', value)} />}{material.materialType === 'scm' && <NumberField label="LOI %" value={material.lossOnIgnitionPercent ?? null} onChange={value => setValue('lossOnIgnitionPercent', value)} />}
+      {isBinder && <label className="field"><span>کلاس مقاومت سولفاتی</span><select value={material.sulfateResistanceClass ?? 'none'} onChange={event => setValue('sulfateResistanceClass', event.target.value as SulfateResistanceClass)}>{sulfateClasses.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {isBinder && <label className="field"><span>روش Qualification سولفاتی</span><select value={material.sulfateQualificationMethod ?? 'product_designation'} onChange={event => setValue('sulfateQualificationMethod', event.target.value as SulfateQualificationMethod)}>{sulfateMethods.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {isBinder && material.sulfateQualificationMethod === 'astm_c1012' && <NumberField label="ASTM C1012 انبساط 6 ماه %" value={material.astmC1012Expansion6mPercent ?? null} onChange={value => setValue('astmC1012Expansion6mPercent', value)} />}{isBinder && material.sulfateQualificationMethod === 'astm_c1012' && <NumberField label="ASTM C1012 انبساط 12 ماه %" value={material.astmC1012Expansion12mPercent ?? null} onChange={value => setValue('astmC1012Expansion12mPercent', value)} />}{isBinder && <Field label="مرجع مدرک عملکرد سولفات" value={material.sulfatePerformanceEvidenceRef ?? ''} onChange={value => setValue('sulfatePerformanceEvidenceRef', value)} />}
+      {isAggregate && <label className="field"><span>کلاس واکنش‌زایی ASR</span><select value={material.asrReactivityClass ?? 'unknown'} onChange={event => setValue('asrReactivityClass', event.target.value as AsrReactivityClass)}>{asrClasses.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {(isAggregate || isBinder) && <label className="field"><span>روش Qualification ASR</span><select value={material.asrQualificationMethod ?? ''} onChange={event => setValue('asrQualificationMethod', event.target.value ? event.target.value as AsrQualificationMethod : null)}><option value="">انتخاب نشده</option>{asrMethods.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {isAggregate && <NumberField label="ASTM C1260 انبساط 14 روز %" value={material.astmC1260Expansion14dPercent ?? null} onChange={value => setValue('astmC1260Expansion14dPercent', value)} />}{isAggregate && <NumberField label="ASTM C1293 انبساط 1 سال %" value={material.astmC1293Expansion1yPercent ?? null} onChange={value => setValue('astmC1293Expansion1yPercent', value)} />}
+      {isBinder && <NumberField label="ASTM C1567 انبساط 14 روز %" value={material.astmC1567Expansion14dPercent ?? null} onChange={value => setValue('astmC1567Expansion14dPercent', value)} />}{(isAggregate || isBinder) && <Field label="مرجع مدرک ASR / گزارش آزمایش" value={material.asrPerformanceEvidenceRef ?? ''} onChange={value => setValue('asrPerformanceEvidenceRef', value)} />}
+      {(isAggregate || isBinder || isAdmixture) && <NumberField label="کلراید ماده % جرمی" value={material.chloridePercent ?? null} onChange={value => setValue('chloridePercent', value)} />}
+      {(isAdmixture || isFiber) && <NumberField label="دوز مصرف" value={material.dosageValue ?? null} onChange={value => setValue('dosageValue', value)} />}{(isAdmixture || isFiber) && <Field label="واحد دوز (مثلاً kg/m³ یا %binder)" value={material.dosageUnit ?? ''} onChange={value => setValue('dosageUnit', value)} />}{isAdmixture && <NumberField label="درصد مواد جامد %" value={material.solidsPercent ?? null} onChange={value => setValue('solidsPercent', value)} />}{(isAdmixture || isWater) && <NumberField label="چگالی kg/m³" value={material.densityKgM3 ?? null} onChange={value => setValue('densityKgM3', value)} />}
+      {isWater && <div className="alert info full">ASTM C1602/C1602M-22: آب آشامیدنی بدون Qualification عملکردی قابل استفاده است؛ آب غیرآشامیدنی و آب حاصل از تولید بتن باید طبق Table 1 و فرکانس‌های پایش مربوط Qualification شوند.</div>}
+      {isWater && <label className="field"><span>کلاس منبع آب</span><select value={material.waterSourceClass ?? 'potable'} onChange={event => setValue('waterSourceClass', event.target.value as WaterSourceClass)}>{waterSourceClasses.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {isWater && <NumberField label="کلراید آب mg/L" value={material.chlorideMgL ?? null} onChange={value => setValue('chlorideMgL', value)} />}{isWater && <NumberField label="سولفات آب mg/L" value={material.sulfateMgL ?? null} onChange={value => setValue('sulfateMgL', value)} />}{isWater && <NumberField label="قلیایی آب Na₂Oeq mg/L" value={material.alkalisNa2oeqMgL ?? null} onChange={value => setValue('alkalisNa2oeqMgL', value)} />}{isWater && <NumberField label="Total Solids آب mg/L" value={material.totalSolidsMgL ?? null} onChange={value => setValue('totalSolidsMgL', value)} />}
+      {isWater && material.waterSourceClass !== 'potable' && <NumberField label="نسبت مقاومت 7روزه به کنترل %" value={material.c1602StrengthRatio7dPercent ?? null} onChange={value => setValue('c1602StrengthRatio7dPercent', value)} />}{isWater && material.waterSourceClass !== 'potable' && <NumberField label="انحراف زمان گیرش نسبت به کنترل min" value={material.c1602SettingTimeDeviationMin ?? null} onChange={value => setValue('c1602SettingTimeDeviationMin', value)} />}{isWater && <NumberField label="سهم این منبع آب %" value={material.waterSharePercent ?? null} onChange={value => setValue('waterSharePercent', value)} />}{isWater && material.waterSourceClass !== 'potable' && <Field label="مرجع گزارش Qualification ASTM C1602" value={material.c1602PerformanceEvidenceRef ?? ''} onChange={value => setValue('c1602PerformanceEvidenceRef', value)} />}
+      {isWater && material.waterSourceClass !== 'potable' && <DateField label="تاریخ آخرین Qualification عملکردی" value={material.c1602LastQualificationDate ?? ''} onChange={value => setValue('c1602LastQualificationDate', value || null)} />}
+      {isWater && material.waterSourceClass === 'concrete_production' && <label className="field"><span>روش پایش چگالی</span><select value={material.c1602DensityMonitoringMethod ?? ''} onChange={event => setValue('c1602DensityMonitoringMethod', event.target.value ? event.target.value as WaterDensityMonitoringMethod : null)}><option value="">انتخاب نشده</option>{waterMonitoringMethods.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>}
+      {isWater && material.waterSourceClass === 'concrete_production' && <DateField label="تاریخ آخرین کنترل چگالی" value={material.c1602LastDensityCheckDate ?? ''} onChange={value => setValue('c1602LastDensityCheckDate', value || null)} />}{isWater && material.waterSourceClass === 'concrete_production' && <Field label="مرجع پایش/کالیبراسیون چگالی" value={material.c1602MonitoringEvidenceRef ?? ''} onChange={value => setValue('c1602MonitoringEvidenceRef', value)} />}
+      {isWater && material.waterSourceClass === 'concrete_production' && <div className="alert warn full">آب حاصل از تولید بتن باید حداقل روزانه از نظر چگالی پایش شود. فرکانس Qualification عملکردی بر اساس چگالی ترکیبی تعیین می‌شود و موتور سررسید آن را کنترل می‌کند.</div>}
+      {material.materialSubtype === 'calcium_chloride_accelerator' && <div className="alert danger full">این محصول به‌صورت CaCl₂ معرفی شده است؛ موتور در S2/S3 و بتن پیش‌تنیده آن را رد خواهد کرد.</div>}
+      <label className="field full"><span>یادداشت فنی</span><textarea value={material.notes} onChange={event => setValue('notes', event.target.value)} /></label>
+    </div></article>
+    <article className="panel wide-panel"><div className="panel-head"><div><h3>مصالح ثبت‌شده</h3><span>ماسه {countByType('fine_aggregate')} | شن {countByType('coarse_aggregate')} | سیمان {countByType('cement')} | SCM {countByType('scm')} | افزودنی {countByType('admixture')} | آب {countByType('water')}</span></div></div><div className="panel-body tablewrap"><table><thead><tr><th>نوع</th><th>نام</th><th>زیرنوع/نقش</th><th>منبع</th><th>SG</th><th>سهم</th><th>کیفیت/شکل/ASR</th><th>کلراید</th><th>سولفات</th><th>استاندارد</th></tr></thead><tbody>{materials.length === 0 && <tr><td colSpan={10}>هنوز مصالحی ثبت نشده است.</td></tr>}{materials.map(item => <tr key={item.id}><td>{materialTypes.find(type => type.value === item.materialType)?.label ?? item.materialType}</td><td>{item.name}</td><td>{aggregateRoles.find(role => role.value === item.aggregateRole)?.label ?? subtypes.find(sub => sub.value === item.materialSubtype)?.label ?? '-'}</td><td>{item.source}</td><td>{item.specificGravity ?? '-'}</td><td>{item.binderSharePercent ?? item.waterSharePercent ?? '-'}</td><td>{isAggregateType(item.materialType) ? `C117 ${item.astmC117Finer75umPercent ?? '-'}% | LA ${item.laAbrasionLossPercent ?? '-'}% | D4791 ${item.astmD4791FlatElongatedPercent ?? '-'}% | D5821 ${item.astmD5821FracturedParticlesPercent ?? '-'}% | ${item.asrReactivityClass ?? 'unknown'}` : item.materialType === 'cement' || item.materialType === 'scm' ? `${item.alkaliPercent ?? '-'} % Na₂Oeq` : item.materialType === 'water' ? `${item.alkalisNa2oeqMgL ?? '-'} mg/L` : '-'}</td><td>{item.materialType === 'water' ? `${item.chlorideMgL ?? '-'} mg/L` : `${item.chloridePercent ?? '-'} %`}</td><td>{item.materialType === 'water' ? `${item.sulfateMgL ?? '-'} mg/L` : (item.sulfateResistanceClass ?? '-')}</td><td>{isAggregateType(item.materialType) ? (item.aggregateQualityStandard ?? 'ASTM C33/C33M-24a') : (item.standardDesignation ?? '-')}</td></tr>)}</tbody></table></div></article></section></>;
 }
-
-function Field(props: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{props.label}</span><input value={props.value} onChange={event => props.onChange(event.target.value)} /></label>;
-}
-
-function NumberField(props: { label: string; value: number | null; onChange: (value: number | null) => void }) {
-  return <label className="field"><span>{props.label}</span><input type="number" value={props.value ?? ''} onChange={event => props.onChange(event.target.value === '' ? null : Number(event.target.value))} /></label>;
-}
+function isAggregateType(type: MaterialType) { return type === 'fine_aggregate' || type === 'coarse_aggregate'; }
+function Field(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field"><span>{props.label}</span><input value={props.value} onChange={event => props.onChange(event.target.value)} /></label>; }
+function DateField(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field"><span>{props.label}</span><input type="date" value={props.value} onChange={event => props.onChange(event.target.value)} /></label>; }
+function NumberField(props: { label: string; value: number | null; onChange: (value: number | null) => void }) { return <label className="field"><span>{props.label}</span><input type="number" value={props.value ?? ''} onChange={event => props.onChange(event.target.value === '' ? null : Number(event.target.value))} /></label>; }

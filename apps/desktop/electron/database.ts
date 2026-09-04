@@ -12,182 +12,91 @@ type ProjectIntake = {
 };
 
 type MaterialInput = {
-  mixDesignId: string;
-  materialType: string;
-  aggregateRole: string | null;
-  nominalSizeMm: number | null;
-  fracturedFacePercent: number | null;
-  moistureCondition: string | null;
-  name: string;
-  source: string;
-  specificGravity: number | null;
-  absorptionPercent: number | null;
-  moisturePercent: number | null;
-  unitWeightKgM3: number | null;
-  notes: string;
+  mixDesignId: string; materialType: string; aggregateRole: string | null; nominalSizeMm: number | null; fracturedFacePercent: number | null; moistureCondition: string | null;
+  name: string; source: string; specificGravity: number | null; absorptionPercent: number | null; moisturePercent: number | null; unitWeightKgM3: number | null; notes: string;
+  materialSubtype?: string | null; standardDesignation?: string | null; densityKgM3?: number | null; dosageValue?: number | null; dosageUnit?: string | null;
+  binderSharePercent?: number | null; replacementPercent?: number | null; solidsPercent?: number | null; chloridePercent?: number | null; chlorideMgL?: number | null; waterSharePercent?: number | null; alkaliPercent?: number | null;
+  sulfateMgL?: number | null; totalSolidsMgL?: number | null; alkalisNa2oeqMgL?: number | null; c1602StrengthRatio7dPercent?: number | null; c1602SettingTimeDeviationMin?: number | null; c1602PerformanceEvidenceRef?: string | null;
+  waterSourceClass?: string | null; c1602LastQualificationDate?: string | null; c1602LastDensityCheckDate?: string | null; c1602DensityMonitoringMethod?: string | null; c1602MonitoringEvidenceRef?: string | null;
+  astmC117Finer75umPercent?: number | null; finer75umLimitPercent?: number | null; aggregateTestEvidenceRef?: string | null; astmC29RoddedUnitWeightKgM3?: number | null; astmC127C128SsdSpecificGravity?: number | null; astmC127C128AbsorptionPercent?: number | null; aggregateQualityStandard?: string | null;
+  laAbrasionMethod?: string | null; laAbrasionLossPercent?: number | null; laAbrasionLimitPercent?: number | null; soundnessSalt?: string | null; astmC88SoundnessLossPercent?: number | null; soundnessLimitPercent?: number | null; astmC142ClayLumpsPercent?: number | null; clayLumpsLimitPercent?: number | null; astmC123LightweightParticlesPercent?: number | null; lightweightParticlesLimitPercent?: number | null; advancedAggregateEvidenceRef?: string | null;
+  astmD4791FlatElongatedPercent?: number | null; flatElongatedLimitPercent?: number | null; astmD4791DimensionalRatio?: string | null; astmD5821FracturedParticlesPercent?: number | null; fracturedParticlesMinPercent?: number | null; fracturedFacesRequired?: number | null; shapeTextureEvidenceRef?: string | null;
+  lossOnIgnitionPercent?: number | null; activityIndexPercent?: number | null; manufacturer?: string | null; productCode?: string | null;
+  sulfateResistanceClass?: string | null; sulfateQualificationMethod?: string | null; astmC1012Expansion6mPercent?: number | null; astmC1012Expansion12mPercent?: number | null; sulfatePerformanceEvidenceRef?: string | null;
+  asrReactivityClass?: string | null; asrQualificationMethod?: string | null; astmC1260Expansion14dPercent?: number | null; astmC1293Expansion1yPercent?: number | null; astmC1567Expansion14dPercent?: number | null; asrPerformanceEvidenceRef?: string | null;
 };
 type SieveRow = { sieveSizeMm: number; label: string; percentPassing: number; standardMin: number | null; standardMax: number | null; status: 'pass' | 'low' | 'high' | 'not_checked'; };
 type AggregateBlendShare = { materialId: string; materialName: string; sharePercent: number; };
 type AggregateGradationInput = { materialId: string; manualLimitOverride: boolean; manualBlendEnabled: boolean; blendShares: AggregateBlendShare[]; rows: SieveRow[]; };
+type AggregateBlendConstraintInput = { materialId: string; minPercent: number | null; maxPercent: number | null; };
+type CombinedGradationLimitInput = { sieveSizeMm: number; lowerPercent: number | null; upperPercent: number | null; };
+type AggregateBlendOptimizerInput = { mixDesignId: string; enabled: boolean; stepPercent: number; fineShareMinPercent: number | null; fineShareMaxPercent: number | null; constraints: AggregateBlendConstraintInput[]; combinedGradationLimits: CombinedGradationLimitInput[]; };
 
 let db: Database.Database | null = null;
-
-export function getDatabasePath(): string {
-  const dir = path.join(app.getPath('userData'), 'data');
-  mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'tolou-concrete-mix.sqlite');
-}
-
-export function getDatabase(): Database.Database {
-  if (db) return db;
-  db = new Database(getDatabasePath());
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  runMigrations(db);
-  return db;
-}
+export function getDatabasePath(): string { const dir = path.join(app.getPath('userData'), 'data'); mkdirSync(dir, { recursive: true }); return path.join(dir, 'tolou-concrete-mix.sqlite'); }
+export function getDatabase(): Database.Database { if (db) return db; db = new Database(getDatabasePath()); db.pragma('journal_mode = WAL'); db.pragma('foreign_keys = ON'); runMigrations(db); return db; }
 
 export function saveProjectIntake(intake: ProjectIntake) {
-  validateProjectIntake(intake);
-  const database = getDatabase();
-  const now = new Date().toISOString();
-  const projectId = crypto.randomUUID();
-  const labId = crypto.randomUUID();
-  const designerId = crypto.randomUUID();
-  const mixDesignId = crypto.randomUUID();
+  validateProjectIntake(intake); const database = getDatabase(); const now = new Date().toISOString(); const projectId = crypto.randomUUID(); const labId = crypto.randomUUID(); const designerId = crypto.randomUUID(); const mixDesignId = crypto.randomUUID();
   database.transaction(() => {
     database.prepare(`INSERT INTO projects (id, project_name, city, location_description, structure_type, element_type, client_name, contractor_name, consultant_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(projectId, intake.project.projectName, intake.project.city, intake.project.locationDescription, intake.project.structureType, intake.project.elementType, intake.project.clientName, intake.project.contractorName, intake.project.consultantName, now, now);
     database.prepare(`INSERT INTO laboratories (id, lab_name, license_number, address, phone, logo_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(labId, intake.laboratory.labName, intake.laboratory.licenseNumber, intake.laboratory.address, intake.laboratory.phone, intake.laboratory.logoPath ?? '', now, now);
     database.prepare(`INSERT INTO designers (id, full_name, role, license_or_membership_number, phone, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(designerId, intake.designer.fullName, intake.designer.role, intake.designer.licenseOrMembershipNumber, intake.designer.phone, intake.designer.email, now, now);
-    database.prepare(`INSERT INTO mix_designs (id, project_id, laboratory_id, designer_id, concrete_type, target_strength_mpa, required_slump_mm, max_aggregate_size_mm, exposure_summary, status, engine_version, standards_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(mixDesignId, projectId, labId, designerId, intake.mixDesign.concreteType, intake.mixDesign.targetStrengthMpa, intake.mixDesign.requiredSlumpMm, intake.mixDesign.maxAggregateSizeMm, intake.mixDesign.exposureSummary, 'draft', '0.1.0', 'ACI/ASTM/EN/ISIRI registry draft', now, now);
-  })();
-  return { status: 'pass' as const, projectId, mixDesignId, databasePath: getDatabasePath() };
+    database.prepare(`INSERT INTO mix_designs (id, project_id, laboratory_id, designer_id, concrete_type, target_strength_mpa, required_slump_mm, max_aggregate_size_mm, exposure_summary, status, engine_version, standards_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(mixDesignId, projectId, labId, designerId, intake.mixDesign.concreteType, intake.mixDesign.targetStrengthMpa, intake.mixDesign.requiredSlumpMm, intake.mixDesign.maxAggregateSizeMm, intake.mixDesign.exposureSummary, 'draft', '0.3.0', 'ACI_CODE_318_25|ACI_PRC_211_1_22|ASTM', now, now);
+  })(); return { status: 'pass' as const, projectId, mixDesignId, databasePath: getDatabasePath() };
 }
 
 export function saveMaterial(input: MaterialInput) {
-  validateMaterial(input);
-  const database = getDatabase();
-  const materialId = crypto.randomUUID();
-  database.prepare(`INSERT INTO materials (id, mix_design_id, material_type, aggregate_role, nominal_size_mm, fractured_face_percent, moisture_condition, name, source, specific_gravity, absorption_percent, moisture_percent, unit_weight_kg_m3, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(materialId, input.mixDesignId, input.materialType, input.aggregateRole, input.nominalSizeMm, input.fracturedFacePercent, input.moistureCondition, input.name, input.source, input.specificGravity, input.absorptionPercent, input.moisturePercent, input.unitWeightKgM3, input.notes);
+  validateMaterial(input); const database = getDatabase(); const materialId = crypto.randomUUID();
+  database.prepare(`INSERT INTO materials (id, mix_design_id, material_type, aggregate_role, nominal_size_mm, fractured_face_percent, moisture_condition, name, source, specific_gravity, absorption_percent, moisture_percent, unit_weight_kg_m3, notes, material_subtype, standard_designation, density_kg_m3, dosage_value, dosage_unit, binder_share_percent, replacement_percent, solids_percent, chloride_percent, chloride_mg_l, water_share_percent, alkali_percent, sulfate_mg_l, total_solids_mg_l, alkalis_na2oeq_mg_l, c1602_strength_ratio_7d_percent, c1602_setting_time_deviation_min, c1602_performance_evidence_ref, water_source_class, c1602_last_qualification_date, c1602_last_density_check_date, c1602_density_monitoring_method, c1602_monitoring_evidence_ref, astm_c117_finer_75um_percent, finer_75um_limit_percent, aggregate_test_evidence_ref, astm_c29_rodded_unit_weight_kg_m3, astm_c127_c128_ssd_specific_gravity, astm_c127_c128_absorption_percent, aggregate_quality_standard, la_abrasion_method, la_abrasion_loss_percent, la_abrasion_limit_percent, soundness_salt, astm_c88_soundness_loss_percent, soundness_limit_percent, astm_c142_clay_lumps_percent, clay_lumps_limit_percent, astm_c123_lightweight_particles_percent, lightweight_particles_limit_percent, advanced_aggregate_evidence_ref, astm_d4791_flat_elongated_percent, flat_elongated_limit_percent, astm_d4791_dimensional_ratio, astm_d5821_fractured_particles_percent, fractured_particles_min_percent, fractured_faces_required, shape_texture_evidence_ref, loss_on_ignition_percent, activity_index_percent, manufacturer, product_code, sulfate_resistance_class, sulfate_qualification_method, astm_c1012_expansion_6m_percent, astm_c1012_expansion_12m_percent, sulfate_performance_evidence_ref, asr_reactivity_class, asr_qualification_method, astm_c1260_expansion_14d_percent, astm_c1293_expansion_1y_percent, astm_c1567_expansion_14d_percent, asr_performance_evidence_ref) VALUES (${Array.from({ length: 77 }, () => '?').join(', ')})`).run(materialId, input.mixDesignId, input.materialType, input.aggregateRole, input.nominalSizeMm, input.fracturedFacePercent, input.moistureCondition, input.name, input.source, input.specificGravity, input.absorptionPercent, input.moisturePercent, input.unitWeightKgM3, input.notes, input.materialSubtype ?? null, input.standardDesignation ?? null, input.densityKgM3 ?? null, input.dosageValue ?? null, input.dosageUnit ?? null, input.binderSharePercent ?? null, input.replacementPercent ?? null, input.solidsPercent ?? null, input.chloridePercent ?? null, input.chlorideMgL ?? null, input.waterSharePercent ?? null, input.alkaliPercent ?? null, input.sulfateMgL ?? null, input.totalSolidsMgL ?? null, input.alkalisNa2oeqMgL ?? null, input.c1602StrengthRatio7dPercent ?? null, input.c1602SettingTimeDeviationMin ?? null, input.c1602PerformanceEvidenceRef ?? null, input.waterSourceClass ?? null, input.c1602LastQualificationDate ?? null, input.c1602LastDensityCheckDate ?? null, input.c1602DensityMonitoringMethod ?? null, input.c1602MonitoringEvidenceRef ?? null, input.astmC117Finer75umPercent ?? null, input.finer75umLimitPercent ?? null, input.aggregateTestEvidenceRef ?? null, input.astmC29RoddedUnitWeightKgM3 ?? null, input.astmC127C128SsdSpecificGravity ?? null, input.astmC127C128AbsorptionPercent ?? null, input.aggregateQualityStandard ?? null, input.laAbrasionMethod ?? null, input.laAbrasionLossPercent ?? null, input.laAbrasionLimitPercent ?? null, input.soundnessSalt ?? null, input.astmC88SoundnessLossPercent ?? null, input.soundnessLimitPercent ?? null, input.astmC142ClayLumpsPercent ?? null, input.clayLumpsLimitPercent ?? null, input.astmC123LightweightParticlesPercent ?? null, input.lightweightParticlesLimitPercent ?? null, input.advancedAggregateEvidenceRef ?? null, input.astmD4791FlatElongatedPercent ?? null, input.flatElongatedLimitPercent ?? null, input.astmD4791DimensionalRatio ?? null, input.astmD5821FracturedParticlesPercent ?? null, input.fracturedParticlesMinPercent ?? null, input.fracturedFacesRequired ?? null, input.shapeTextureEvidenceRef ?? null, input.lossOnIgnitionPercent ?? null, input.activityIndexPercent ?? null, input.manufacturer ?? null, input.productCode ?? null, input.sulfateResistanceClass ?? null, input.sulfateQualificationMethod ?? null, input.astmC1012Expansion6mPercent ?? null, input.astmC1012Expansion12mPercent ?? null, input.sulfatePerformanceEvidenceRef ?? null, input.asrReactivityClass ?? null, input.asrQualificationMethod ?? null, input.astmC1260Expansion14dPercent ?? null, input.astmC1293Expansion1yPercent ?? null, input.astmC1567Expansion14dPercent ?? null, input.asrPerformanceEvidenceRef ?? null);
   return { status: 'pass' as const, materialId };
 }
 
 export function saveGradation(input: AggregateGradationInput) {
-  validateGradation(input);
-  const database = getDatabase();
-  const now = new Date().toISOString();
-  const classifiedRows = input.rows.map(row => ({ ...row, status: classifySieve(row) }));
-  const mixDesignId = getMixDesignIdForMaterial(database, input.materialId);
-
+  validateGradation(input); const database = getDatabase(); const now = new Date().toISOString(); const classifiedRows = input.rows.map(row => ({ ...row, status: classifySieve(row) })); const mixDesignId = getMixDesignIdForMaterial(database, input.materialId);
   database.transaction(() => {
-    database.prepare('DELETE FROM aggregate_sieve_results WHERE material_id = ?').run(input.materialId);
-    const insert = database.prepare(`INSERT INTO aggregate_sieve_results (id, material_id, sieve_size_mm, label, percent_passing, standard_min, standard_max, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-    for (const row of classifiedRows) insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.label, row.percentPassing, row.standardMin, row.standardMax, row.status);
-
+    database.prepare('DELETE FROM aggregate_sieve_results WHERE material_id = ?').run(input.materialId); const insert = database.prepare(`INSERT INTO aggregate_sieve_results (id, material_id, sieve_size_mm, label, percent_passing, standard_min, standard_max, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`); for (const row of classifiedRows) insert.run(crypto.randomUUID(), input.materialId, row.sieveSizeMm, row.label, row.percentPassing, row.standardMin, row.standardMax, row.status);
     database.prepare('INSERT OR REPLACE INTO aggregate_gradation_controls (material_id, manual_limit_override, manual_blend_enabled, updated_at) VALUES (?, ?, ?, ?)').run(input.materialId, input.manualLimitOverride ? 1 : 0, input.manualBlendEnabled ? 1 : 0, now);
+    if (mixDesignId) { database.prepare('DELETE FROM aggregate_blend_shares WHERE mix_design_id = ?').run(mixDesignId); const shareInsert = database.prepare('INSERT INTO aggregate_blend_shares (id, mix_design_id, material_id, material_name, share_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)'); for (const share of input.blendShares) shareInsert.run(crypto.randomUUID(), mixDesignId, share.materialId, share.materialName, share.sharePercent, now); }
+  })(); return { status: 'pass' as const, summary: summarizeGradation(classifiedRows, input.manualLimitOverride, input.manualBlendEnabled, input.blendShares) };
+}
 
-    if (mixDesignId) {
-      database.prepare('DELETE FROM aggregate_blend_shares WHERE mix_design_id = ?').run(mixDesignId);
-      const shareInsert = database.prepare('INSERT INTO aggregate_blend_shares (id, mix_design_id, material_id, material_name, share_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
-      for (const share of input.blendShares) shareInsert.run(crypto.randomUUID(), mixDesignId, share.materialId, share.materialName, share.sharePercent, now);
-    }
+export function saveAggregateBlendOptimizer(input: AggregateBlendOptimizerInput) {
+  validateAggregateBlendOptimizer(input); const database = getDatabase(); const now = new Date().toISOString();
+  const aggregateRows = database.prepare(`SELECT id FROM materials WHERE mix_design_id = ? AND material_type IN ('fine_aggregate', 'coarse_aggregate')`).all(input.mixDesignId) as Array<{ id: string }>;
+  const aggregateIds = new Set(aggregateRows.map(row => row.id));
+  for (const constraint of input.constraints) if (!aggregateIds.has(constraint.materialId)) throw new Error('محدودیت سهم برای سنگدانه‌ای ثبت شده که متعلق به این طرح اختلاط نیست.');
+  database.transaction(() => {
+    database.prepare(`INSERT INTO aggregate_blend_optimizer_settings (mix_design_id, enabled, step_percent, fine_share_min_percent, fine_share_max_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(mix_design_id) DO UPDATE SET enabled = excluded.enabled, step_percent = excluded.step_percent, fine_share_min_percent = excluded.fine_share_min_percent, fine_share_max_percent = excluded.fine_share_max_percent, updated_at = excluded.updated_at`).run(input.mixDesignId, input.enabled ? 1 : 0, input.stepPercent, input.fineShareMinPercent, input.fineShareMaxPercent, now);
+    database.prepare('DELETE FROM aggregate_blend_constraints WHERE mix_design_id = ?').run(input.mixDesignId);
+    const constraintInsert = database.prepare('INSERT INTO aggregate_blend_constraints (id, mix_design_id, material_id, min_percent, max_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const constraint of input.constraints) constraintInsert.run(crypto.randomUUID(), input.mixDesignId, constraint.materialId, constraint.minPercent, constraint.maxPercent, now);
+    database.prepare('DELETE FROM combined_gradation_limits WHERE mix_design_id = ?').run(input.mixDesignId);
+    const limitInsert = database.prepare('INSERT INTO combined_gradation_limits (id, mix_design_id, sieve_size_mm, lower_percent, upper_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const limit of input.combinedGradationLimits) limitInsert.run(crypto.randomUUID(), input.mixDesignId, limit.sieveSizeMm, limit.lowerPercent, limit.upperPercent, now);
   })();
-
-  return { status: 'pass' as const, summary: summarizeGradation(classifiedRows, input.manualLimitOverride, input.manualBlendEnabled, input.blendShares) };
+  return { status: 'pass' as const, mixDesignId: input.mixDesignId };
 }
 
-export function listGradationByMaterial(materialId: string) {
-  if (!materialId.trim()) return [];
-  const database = getDatabase();
-  return database.prepare(`SELECT sieve_size_mm AS sieveSizeMm, COALESCE(label, sieve_size_mm || ' mm') AS label, percent_passing AS percentPassing, standard_min AS standardMin, standard_max AS standardMax, status FROM aggregate_sieve_results WHERE material_id = ? ORDER BY sieve_size_mm DESC`).all(materialId);
+export function getAggregateBlendOptimizer(mixDesignId: string) {
+  if (!mixDesignId.trim()) return null; const database = getDatabase();
+  const settings = database.prepare(`SELECT enabled, step_percent AS stepPercent, fine_share_min_percent AS fineShareMinPercent, fine_share_max_percent AS fineShareMaxPercent FROM aggregate_blend_optimizer_settings WHERE mix_design_id = ?`).get(mixDesignId) as { enabled: number; stepPercent: number; fineShareMinPercent: number | null; fineShareMaxPercent: number | null } | undefined;
+  if (!settings) return null;
+  const constraints = database.prepare(`SELECT material_id AS materialId, min_percent AS minPercent, max_percent AS maxPercent FROM aggregate_blend_constraints WHERE mix_design_id = ? ORDER BY rowid`).all(mixDesignId);
+  const combinedGradationLimits = database.prepare(`SELECT sieve_size_mm AS sieveSizeMm, lower_percent AS lowerPercent, upper_percent AS upperPercent FROM combined_gradation_limits WHERE mix_design_id = ? ORDER BY sieve_size_mm DESC`).all(mixDesignId);
+  return { enabled: Boolean(settings.enabled), stepPercent: settings.stepPercent, fineShareMinPercent: settings.fineShareMinPercent, fineShareMaxPercent: settings.fineShareMaxPercent, constraints, combinedGradationLimits };
 }
 
-export function listMaterialsByMixDesign(mixDesignId: string) {
-  if (!mixDesignId.trim()) return [];
-  const database = getDatabase();
-  return database.prepare(`SELECT id, mix_design_id AS mixDesignId, material_type AS materialType, aggregate_role AS aggregateRole, nominal_size_mm AS nominalSizeMm, fractured_face_percent AS fracturedFacePercent, moisture_condition AS moistureCondition, name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, moisture_percent AS moisturePercent, unit_weight_kg_m3 AS unitWeightKgM3, notes FROM materials WHERE mix_design_id = ? ORDER BY rowid DESC`).all(mixDesignId);
-}
-
-export function listRecentProjects() {
-  const database = getDatabase();
-  return database.prepare(`SELECT projects.id, projects.project_name AS projectName, projects.city, mix_designs.id AS mixDesignId, mix_designs.concrete_type AS concreteType, mix_designs.target_strength_mpa AS targetStrengthMpa, mix_designs.status, mix_designs.created_at AS createdAt FROM projects INNER JOIN mix_designs ON mix_designs.project_id = projects.id ORDER BY mix_designs.created_at DESC LIMIT 20`).all();
-}
-
-function getMixDesignIdForMaterial(database: Database.Database, materialId: string): string | null {
-  const row = database.prepare('SELECT mix_design_id AS mixDesignId FROM materials WHERE id = ?').get(materialId) as { mixDesignId?: string } | undefined;
-  return row?.mixDesignId ?? null;
-}
-
-function classifySieve(row: SieveRow): SieveRow['status'] {
-  if (row.standardMin === null || row.standardMax === null) return 'not_checked';
-  if (row.percentPassing < row.standardMin) return 'low';
-  if (row.percentPassing > row.standardMax) return 'high';
-  return 'pass';
-}
-
-function summarizeGradation(rows: SieveRow[], manualLimitOverride: boolean, manualBlendEnabled: boolean, blendShares: AggregateBlendShare[]) {
-  const warningRows = rows.filter(row => row.status === 'low' || row.status === 'high');
-  const passedCount = rows.filter(row => row.status === 'pass').length;
-  const retainedSum = rows.reduce((sum, row) => sum + (100 - row.percentPassing), 0);
-  const finenessModulus = rows.length ? Math.round((retainedSum / 100) * 100) / 100 : null;
-  const correctionHints = buildCorrectionHints(warningRows);
-  const manualNotes = buildManualNotes(manualLimitOverride, manualBlendEnabled, blendShares);
-  const recommendation = warningRows.length === 0 ? 'منحنی دانه‌بندی در محدوده‌های واردشده قرار دارد؛ کنترل نهایی با استاندارد انتخابی پروژه انجام شود.' : 'منحنی دانه‌بندی نیاز به اصلاح دارد. پیشنهادهای اولیه زیر باید با ترکیب منابع سنگدانه و بچ آزمایشی کنترل شوند.';
-  return { finenessModulus, passedCount, warningCount: warningRows.length, recommendation, correctionHints, manualNotes };
-}
-
-function buildCorrectionHints(warningRows: SieveRow[]) {
-  if (!warningRows.length) return ['نیاز فوری به اصلاح دانه‌بندی دیده نشد؛ کنترل ریزدانه عبوری از الک 75 میکرون در مرحله بعد اضافه شود.'];
-  return warningRows.map(row => row.status === 'high' ? `عبوری الک ${row.label} بالاتر از محدوده است؛ مصالح در این بازه ریزتر از هدف است و باید سهم ذرات درشت‌تر یا منبع درشت‌تر بررسی شود.` : `عبوری الک ${row.label} پایین‌تر از محدوده است؛ مصالح در این بازه درشت‌تر از هدف است و باید سهم ذرات ریزتر یا منبع اصلاحی بررسی شود.`);
-}
-
-function buildManualNotes(manualLimitOverride: boolean, manualBlendEnabled: boolean, blendShares: AggregateBlendShare[]) {
-  const notes: string[] = [];
-  if (manualLimitOverride) notes.push('حدود بالا و پایین دانه‌بندی با تصمیم دستی مهندس تغییر داده شده و باید در گزارش نهایی نمایش داده شود.');
-  if (manualBlendEnabled) {
-    const total = blendShares.reduce((sum, share) => sum + share.sharePercent, 0);
-    notes.push(`حالت سهم دستی سنگدانه فعال است. جمع سهم‌های واردشده: ${Math.round(total * 100) / 100}٪.`);
-  }
-  if (!notes.length) notes.push('کنترل دانه‌بندی با محدوده فعلی و بدون ثبت override دستی انجام شد.');
-  return notes;
-}
-
-function runMigrations(database: Database.Database) {
-  database.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);`);
-  const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels'];
-  for (const migrationId of migrations) {
-    const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId);
-    if (applied) continue;
-    const migrationPath = path.join(process.cwd(), `database/migrations/${migrationId}.sql`);
-    const sql = readFileSync(migrationPath, 'utf-8');
-    database.exec(sql);
-    database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run(migrationId, new Date().toISOString());
-  }
-}
-
-function validateProjectIntake(intake: ProjectIntake) {
-  if (!intake.project.projectName.trim()) throw new Error('نام پروژه الزامی است.');
-  if (!intake.laboratory.labName.trim()) throw new Error('نام آزمایشگاه الزامی است.');
-  if (!intake.designer.fullName.trim()) throw new Error('نام طراح طرح اختلاط الزامی است.');
-  if (!Number.isFinite(intake.mixDesign.targetStrengthMpa) || intake.mixDesign.targetStrengthMpa <= 0) throw new Error('مقاومت هدف باید عدد مثبت باشد.');
-}
-
-function validateMaterial(input: MaterialInput) {
-  if (!input.mixDesignId.trim()) throw new Error('برای ثبت مصالح، ابتدا باید یک طرح اختلاط ذخیره شود.');
-  if (!input.name.trim()) throw new Error('نام مصالح الزامی است.');
-  if (!input.materialType.trim()) throw new Error('نوع مصالح الزامی است.');
-  if ((input.materialType === 'fine_aggregate' || input.materialType === 'coarse_aggregate') && !input.aggregateRole) throw new Error('برای سنگدانه، نقش سنگدانه باید مشخص شود.');
-  if (input.fracturedFacePercent !== null && (input.fracturedFacePercent < 0 || input.fracturedFacePercent > 100)) throw new Error('درصد شکستگی باید بین ۰ تا ۱۰۰ باشد.');
-}
-
-function validateGradation(input: AggregateGradationInput) {
-  if (!input.materialId.trim()) throw new Error('برای ثبت دانه‌بندی، ابتدا باید یک سنگدانه انتخاب شود.');
-  if (!input.rows.length) throw new Error('حداقل یک ردیف الک باید وارد شود.');
-  for (const row of input.rows) {
-    if (!Number.isFinite(row.percentPassing) || row.percentPassing < 0 || row.percentPassing > 100) throw new Error('درصد عبوری هر الک باید بین ۰ تا ۱۰۰ باشد.');
-  }
-  if (input.manualBlendEnabled) {
-    const total = input.blendShares.reduce((sum, share) => sum + share.sharePercent, 0);
-    if (Math.abs(total - 100) > 0.01) throw new Error('در حالت سهم دستی، جمع درصد سنگدانه‌ها باید دقیقاً ۱۰۰٪ باشد.');
-  }
-}
+export function listGradationByMaterial(materialId: string) { if (!materialId.trim()) return []; return getDatabase().prepare(`SELECT sieve_size_mm AS sieveSizeMm, COALESCE(label, sieve_size_mm || ' mm') AS label, percent_passing AS percentPassing, standard_min AS standardMin, standard_max AS standardMax, status FROM aggregate_sieve_results WHERE material_id = ? ORDER BY sieve_size_mm DESC`).all(materialId); }
+export function listMaterialsByMixDesign(mixDesignId: string) { if (!mixDesignId.trim()) return []; return getDatabase().prepare(`SELECT id, mix_design_id AS mixDesignId, material_type AS materialType, aggregate_role AS aggregateRole, nominal_size_mm AS nominalSizeMm, fractured_face_percent AS fracturedFacePercent, moisture_condition AS moistureCondition, name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, moisture_percent AS moisturePercent, unit_weight_kg_m3 AS unitWeightKgM3, notes, material_subtype AS materialSubtype, standard_designation AS standardDesignation, density_kg_m3 AS densityKgM3, dosage_value AS dosageValue, dosage_unit AS dosageUnit, binder_share_percent AS binderSharePercent, replacement_percent AS replacementPercent, solids_percent AS solidsPercent, chloride_percent AS chloridePercent, chloride_mg_l AS chlorideMgL, water_share_percent AS waterSharePercent, alkali_percent AS alkaliPercent, sulfate_mg_l AS sulfateMgL, total_solids_mg_l AS totalSolidsMgL, alkalis_na2oeq_mg_l AS alkalisNa2oeqMgL, c1602_strength_ratio_7d_percent AS c1602StrengthRatio7dPercent, c1602_setting_time_deviation_min AS c1602SettingTimeDeviationMin, c1602_performance_evidence_ref AS c1602PerformanceEvidenceRef, water_source_class AS waterSourceClass, c1602_last_qualification_date AS c1602LastQualificationDate, c1602_last_density_check_date AS c1602LastDensityCheckDate, c1602_density_monitoring_method AS c1602DensityMonitoringMethod, c1602_monitoring_evidence_ref AS c1602MonitoringEvidenceRef, astm_c117_finer_75um_percent AS astmC117Finer75umPercent, finer_75um_limit_percent AS finer75umLimitPercent, aggregate_test_evidence_ref AS aggregateTestEvidenceRef, astm_c29_rodded_unit_weight_kg_m3 AS astmC29RoddedUnitWeightKgM3, astm_c127_c128_ssd_specific_gravity AS astmC127C128SsdSpecificGravity, astm_c127_c128_absorption_percent AS astmC127C128AbsorptionPercent, aggregate_quality_standard AS aggregateQualityStandard, la_abrasion_method AS laAbrasionMethod, la_abrasion_loss_percent AS laAbrasionLossPercent, la_abrasion_limit_percent AS laAbrasionLimitPercent, soundness_salt AS soundnessSalt, astm_c88_soundness_loss_percent AS astmC88SoundnessLossPercent, soundness_limit_percent AS soundnessLimitPercent, astm_c142_clay_lumps_percent AS astmC142ClayLumpsPercent, clay_lumps_limit_percent AS clayLumpsLimitPercent, astm_c123_lightweight_particles_percent AS astmC123LightweightParticlesPercent, lightweight_particles_limit_percent AS lightweightParticlesLimitPercent, advanced_aggregate_evidence_ref AS advancedAggregateEvidenceRef, astm_d4791_flat_elongated_percent AS astmD4791FlatElongatedPercent, flat_elongated_limit_percent AS flatElongatedLimitPercent, astm_d4791_dimensional_ratio AS astmD4791DimensionalRatio, astm_d5821_fractured_particles_percent AS astmD5821FracturedParticlesPercent, fractured_particles_min_percent AS fracturedParticlesMinPercent, fractured_faces_required AS fracturedFacesRequired, shape_texture_evidence_ref AS shapeTextureEvidenceRef, loss_on_ignition_percent AS lossOnIgnitionPercent, activity_index_percent AS activityIndexPercent, manufacturer, product_code AS productCode, sulfate_resistance_class AS sulfateResistanceClass, sulfate_qualification_method AS sulfateQualificationMethod, astm_c1012_expansion_6m_percent AS astmC1012Expansion6mPercent, astm_c1012_expansion_12m_percent AS astmC1012Expansion12mPercent, sulfate_performance_evidence_ref AS sulfatePerformanceEvidenceRef, asr_reactivity_class AS asrReactivityClass, asr_qualification_method AS asrQualificationMethod, astm_c1260_expansion_14d_percent AS astmC1260Expansion14dPercent, astm_c1293_expansion_1y_percent AS astmC1293Expansion1yPercent, astm_c1567_expansion_14d_percent AS astmC1567Expansion14dPercent, asr_performance_evidence_ref AS asrPerformanceEvidenceRef FROM materials WHERE mix_design_id = ? ORDER BY rowid DESC`).all(mixDesignId); }
+export function listRecentProjects() { return getDatabase().prepare(`SELECT projects.id, projects.project_name AS projectName, projects.city, mix_designs.id AS mixDesignId, mix_designs.concrete_type AS concreteType, mix_designs.target_strength_mpa AS targetStrengthMpa, mix_designs.status, mix_designs.created_at AS createdAt FROM projects INNER JOIN mix_designs ON mix_designs.project_id = projects.id ORDER BY mix_designs.created_at DESC LIMIT 20`).all(); }
+function getMixDesignIdForMaterial(database: Database.Database, materialId: string): string | null { const row = database.prepare('SELECT mix_design_id AS mixDesignId FROM materials WHERE id = ?').get(materialId) as { mixDesignId?: string } | undefined; return row?.mixDesignId ?? null; }
+function classifySieve(row: SieveRow): SieveRow['status'] { if (row.standardMin === null || row.standardMax === null) return 'not_checked'; if (row.percentPassing < row.standardMin) return 'low'; if (row.percentPassing > row.standardMax) return 'high'; return 'pass'; }
+function summarizeGradation(rows: SieveRow[], manualLimitOverride: boolean, manualBlendEnabled: boolean, blendShares: AggregateBlendShare[]) { const warningRows = rows.filter(row => row.status === 'low' || row.status === 'high'); const passedCount = rows.filter(row => row.status === 'pass').length; const retainedSum = rows.reduce((sum, row) => sum + (100 - row.percentPassing), 0); const finenessModulus = rows.length ? Math.round((retainedSum / 100) * 100) / 100 : null; return { finenessModulus, passedCount, warningCount: warningRows.length, recommendation: warningRows.length === 0 ? 'منحنی دانه‌بندی در محدوده‌های واردشده قرار دارد؛ کنترل نهایی با استاندارد انتخابی پروژه انجام شود.' : 'منحنی دانه‌بندی نیاز به اصلاح دارد.', correctionHints: buildCorrectionHints(warningRows), manualNotes: buildManualNotes(manualLimitOverride, manualBlendEnabled, blendShares) }; }
+function buildCorrectionHints(warningRows: SieveRow[]) { if (!warningRows.length) return ['نیاز فوری به اصلاح دانه‌بندی دیده نشد؛ کنترل ASTM C117 و خواص فیزیکی منبع نیز بررسی شود.']; return warningRows.map(row => row.status === 'high' ? `عبوری الک ${row.label} بالاتر از محدوده است؛ مصالح در این بازه ریزتر از هدف است.` : `عبوری الک ${row.label} پایین‌تر از محدوده است؛ مصالح در این بازه درشت‌تر از هدف است.`); }
+function buildManualNotes(manualLimitOverride: boolean, manualBlendEnabled: boolean, blendShares: AggregateBlendShare[]) { const notes: string[] = []; if (manualLimitOverride) notes.push('حدود دانه‌بندی با تصمیم دستی مهندس تغییر داده شده است.'); if (manualBlendEnabled) notes.push(`حالت سهم دستی سنگدانه فعال است. جمع سهم‌ها: ${Math.round(blendShares.reduce((sum, share) => sum + share.sharePercent, 0) * 100) / 100}٪.`); if (!notes.length) notes.push('کنترل دانه‌بندی بدون override دستی انجام شد.'); return notes; }
+function runMigrations(database: Database.Database) { database.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);`); const migrations = ['001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels', '005_durability_inputs', '006_cementitious_material_fields', '007_full_chloride_inputs', '008_sulfate_cementitious_compliance', '009_asr_alkali_inputs', '010_mixing_water_c1602', '011_recycled_water_monitoring', '012_aggregate_quality_inputs', '013_advanced_aggregate_quality', '014_aggregate_shape_texture', '015_aggregate_blend_optimizer_criteria']; for (const migrationId of migrations) { const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId); if (applied) continue; const migrationPath = path.join(process.cwd(), `database/migrations/${migrationId}.sql`); database.exec(readFileSync(migrationPath, 'utf-8')); database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run(migrationId, new Date().toISOString()); } }
+function validateProjectIntake(intake: ProjectIntake) { if (!intake.project.projectName.trim()) throw new Error('نام پروژه الزامی است.'); if (!intake.laboratory.labName.trim()) throw new Error('نام آزمایشگاه الزامی است.'); if (!intake.designer.fullName.trim()) throw new Error('نام طراح طرح اختلاط الزامی است.'); if (!Number.isFinite(intake.mixDesign.targetStrengthMpa) || intake.mixDesign.targetStrengthMpa <= 0) throw new Error('مقاومت هدف باید عدد مثبت باشد.'); }
+function validateMaterial(input: MaterialInput) { if (!input.mixDesignId.trim()) throw new Error('برای ثبت مصالح، ابتدا باید یک طرح اختلاط ذخیره شود.'); if (!input.name.trim()) throw new Error('نام مصالح الزامی است.'); if (!input.materialType.trim()) throw new Error('نوع مصالح الزامی است.'); if ((input.materialType === 'fine_aggregate' || input.materialType === 'coarse_aggregate') && !input.aggregateRole) throw new Error('برای سنگدانه، نقش سنگدانه باید مشخص شود.'); for (const value of [input.fracturedFacePercent, input.binderSharePercent, input.replacementPercent, input.solidsPercent, input.chloridePercent, input.waterSharePercent, input.alkaliPercent, input.lossOnIgnitionPercent, input.activityIndexPercent, input.astmC1012Expansion6mPercent, input.astmC1012Expansion12mPercent, input.astmC1260Expansion14dPercent, input.astmC1293Expansion1yPercent, input.astmC1567Expansion14dPercent, input.sulfateMgL, input.totalSolidsMgL, input.alkalisNa2oeqMgL, input.c1602StrengthRatio7dPercent, input.astmC117Finer75umPercent, input.finer75umLimitPercent, input.astmC29RoddedUnitWeightKgM3, input.astmC127C128SsdSpecificGravity, input.astmC127C128AbsorptionPercent, input.laAbrasionLossPercent, input.laAbrasionLimitPercent, input.astmC88SoundnessLossPercent, input.soundnessLimitPercent, input.astmC142ClayLumpsPercent, input.clayLumpsLimitPercent, input.astmC123LightweightParticlesPercent, input.lightweightParticlesLimitPercent, input.astmD4791FlatElongatedPercent, input.flatElongatedLimitPercent, input.astmD5821FracturedParticlesPercent, input.fracturedParticlesMinPercent]) if (value !== null && value !== undefined && (!Number.isFinite(value) || value < 0)) throw new Error('مقادیر درصدی/غلظتی/آزمایشگاهی مصالح باید عدد نامنفی باشند.'); for (const value of [input.fracturedFacePercent, input.astmC117Finer75umPercent, input.finer75umLimitPercent, input.laAbrasionLossPercent, input.laAbrasionLimitPercent, input.astmC88SoundnessLossPercent, input.soundnessLimitPercent, input.astmC142ClayLumpsPercent, input.clayLumpsLimitPercent, input.astmC123LightweightParticlesPercent, input.lightweightParticlesLimitPercent, input.astmD4791FlatElongatedPercent, input.flatElongatedLimitPercent, input.astmD5821FracturedParticlesPercent, input.fracturedParticlesMinPercent]) if (value !== null && value !== undefined && value > 100) throw new Error('مقادیر درصدی کیفیت سنگدانه باید بین ۰ تا ۱۰۰٪ باشند.'); if (input.fracturedFacesRequired !== null && input.fracturedFacesRequired !== undefined && (!Number.isInteger(input.fracturedFacesRequired) || input.fracturedFacesRequired < 1)) throw new Error('تعداد وجوه شکسته موردنیاز باید عدد صحیح مثبت باشد.'); if (input.c1602SettingTimeDeviationMin !== null && input.c1602SettingTimeDeviationMin !== undefined && !Number.isFinite(input.c1602SettingTimeDeviationMin)) throw new Error('انحراف زمان گیرش باید عدد معتبر بر حسب دقیقه باشد.'); if (input.binderSharePercent !== null && input.binderSharePercent !== undefined && input.binderSharePercent > 100) throw new Error('سهم ماده سیمانی باید بین ۰ تا ۱۰۰٪ باشد.'); if (input.waterSharePercent !== null && input.waterSharePercent !== undefined && input.waterSharePercent > 100) throw new Error('سهم منبع آب باید بین ۰ تا ۱۰۰٪ باشد.'); if (input.chlorideMgL !== null && input.chlorideMgL !== undefined && (!Number.isFinite(input.chlorideMgL) || input.chlorideMgL < 0)) throw new Error('کلراید آب باید عدد نامنفی بر حسب mg/L باشد.'); if (input.laAbrasionMethod && !['astm_c131', 'astm_c535'].includes(input.laAbrasionMethod)) throw new Error('روش آزمون LA Abrasion نامعتبر است.'); if (input.soundnessSalt && !['sodium_sulfate', 'magnesium_sulfate'].includes(input.soundnessSalt)) throw new Error('نوع محلول ASTM C88 نامعتبر است.'); if (input.waterSourceClass && !['potable', 'nonpotable', 'concrete_production'].includes(input.waterSourceClass)) throw new Error('کلاس منبع آب نامعتبر است.'); if (input.c1602DensityMonitoringMethod && !['astm_c1603', 'verified_hydrometer', 'automated_density_system'].includes(input.c1602DensityMonitoringMethod)) throw new Error('روش پایش چگالی آب نامعتبر است.'); if (input.sulfateResistanceClass && !['none', 'MS', 'HS', 'qualified_combination'].includes(input.sulfateResistanceClass)) throw new Error('کلاس مقاومت سولفاتی نامعتبر است.'); if (input.sulfateQualificationMethod && !['product_designation', 'astm_c1012', 'documented_service_record', 'engineer_approved_combination'].includes(input.sulfateQualificationMethod)) throw new Error('روش Qualification سولفاتی نامعتبر است.'); if (input.asrReactivityClass && !['unknown', 'nonreactive', 'potentially_reactive', 'reactive'].includes(input.asrReactivityClass)) throw new Error('کلاس واکنش‌زایی ASR نامعتبر است.'); if (input.asrQualificationMethod && !['none', 'astm_c1260', 'astm_c1293', 'astm_c1567', 'documented_service_record', 'engineer_approved_mitigation'].includes(input.asrQualificationMethod)) throw new Error('روش Qualification مربوط به ASR نامعتبر است.'); }
+function validateGradation(input: AggregateGradationInput) { if (!input.materialId.trim()) throw new Error('برای ثبت دانه‌بندی، ابتدا باید یک سنگدانه انتخاب شود.'); if (!input.rows.length) throw new Error('حداقل یک ردیف الک باید وارد شود.'); for (const row of input.rows) if (!Number.isFinite(row.percentPassing) || row.percentPassing < 0 || row.percentPassing > 100) throw new Error('درصد عبوری هر الک باید بین ۰ تا ۱۰۰ باشد.'); if (input.manualBlendEnabled) { const total = input.blendShares.reduce((sum, share) => sum + share.sharePercent, 0); if (Math.abs(total - 100) > 0.01) throw new Error('در حالت سهم دستی، جمع درصد سنگدانه‌ها باید دقیقاً ۱۰۰٪ باشد.'); } }
+function validateAggregateBlendOptimizer(input: AggregateBlendOptimizerInput) { if (!input.mixDesignId.trim()) throw new Error('شناسه طرح اختلاط برای تنظیم Optimizer الزامی است.'); if (!Number.isFinite(input.stepPercent) || input.stepPercent < 0.5 || input.stepPercent > 25) throw new Error('گام Optimizer باید بین ۰٫۵ تا ۲۵ درصد باشد.'); const stepCount = 100 / input.stepPercent; if (Math.abs(stepCount - Math.round(stepCount)) > 1e-9) throw new Error('گام Optimizer باید ۱۰۰ را بدون باقیمانده تقسیم کند.'); const fineValues = [input.fineShareMinPercent, input.fineShareMaxPercent]; for (const value of fineValues) if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) throw new Error('محدوده سهم Fine Aggregate باید بین ۰ تا ۱۰۰٪ باشد.'); if (input.fineShareMinPercent !== null && input.fineShareMaxPercent !== null && input.fineShareMinPercent > input.fineShareMaxPercent) throw new Error('حداقل سهم Fine Aggregate نمی‌تواند از حداکثر بیشتر باشد.'); const materialIds = new Set<string>(); for (const constraint of input.constraints) { if (!constraint.materialId.trim()) throw new Error('شناسه سنگدانه در محدودیت سهم الزامی است.'); if (materialIds.has(constraint.materialId)) throw new Error('برای هر سنگدانه فقط یک محدودیت Min/Max مجاز است.'); materialIds.add(constraint.materialId); for (const value of [constraint.minPercent, constraint.maxPercent]) if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) throw new Error('Min/Max سهم هر سنگدانه باید بین ۰ تا ۱۰۰٪ باشد.'); if (constraint.minPercent !== null && constraint.maxPercent !== null && constraint.minPercent > constraint.maxPercent) throw new Error('حداقل سهم سنگدانه نمی‌تواند از حداکثر بیشتر باشد.'); } const sieveKeys = new Set<string>(); for (const limit of input.combinedGradationLimits) { if (!Number.isFinite(limit.sieveSizeMm) || limit.sieveSizeMm <= 0) throw new Error('اندازه الک در Envelope ترکیبی باید عدد مثبت باشد.'); const key = limit.sieveSizeMm.toFixed(3); if (sieveKeys.has(key)) throw new Error('برای هر الک فقط یک محدوده Combined Gradation مجاز است.'); sieveKeys.add(key); for (const value of [limit.lowerPercent, limit.upperPercent]) if (value !== null && (!Number.isFinite(value) || value < 0 || value > 100)) throw new Error('حدود Combined Gradation باید بین ۰ تا ۱۰۰٪ باشند.'); if (limit.lowerPercent !== null && limit.upperPercent !== null && limit.lowerPercent > limit.upperPercent) throw new Error('حد پایین Combined Gradation نمی‌تواند از حد بالا بیشتر باشد.'); } }

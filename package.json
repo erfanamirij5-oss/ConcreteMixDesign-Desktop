@@ -1,6 +1,6 @@
 {
   "name": "concrete-mix-design-desktop",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Tolou Concrete Mix Design Desktop - professional concrete mix design software for Windows.",
   "main": "dist/electron/main.js",
@@ -9,24 +9,26 @@
     "build:ui": "vite build --config apps/desktop/vite.config.ts",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:ui && npm run build:electron",
+    "build:engine:win": "python -m pip install -e \"engine/python[build]\" && python -m PyInstaller --noconfirm --clean --onefile --name tolou-mix-engine --distpath dist-engine --workpath build-engine --specpath build-engine --paths engine/python/src engine/python/src/tolou_mix_engine/cli.py",
     "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test:engine": "cd engine/python && python -m pytest",
-    "dist:win": "npm run build && electron-builder --config electron-builder.json --win"
+    "test:sqlite-material": "npm run build:electron && node dist/electron/materialPersistenceSmoke.js",
+    "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "electron": "latest",
-    "electron-builder": "latest",
-    "cross-env": "latest",
     "echarts": "latest",
     "better-sqlite3": "latest"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "cross-env": "latest",
     "@types/better-sqlite3": "latest",
     "@types/node": "latest",
     "@types/react": "latest",

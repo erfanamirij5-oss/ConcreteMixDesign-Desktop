@@ -1,12 +1,13 @@
 [project]
 name = "tolou-mix-engine"
-version = "0.1.0"
+version = "0.3.0"
 description = "Python engineering engine for Tolou Concrete Mix Design Desktop."
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0", "ruff>=0.5.0"]
+build = ["pyinstaller>=6.0.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

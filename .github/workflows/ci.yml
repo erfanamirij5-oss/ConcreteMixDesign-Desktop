@@ -1,0 +1,103 @@
+name: CI Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Desktop typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install dependencies for static validation
+        run: npm install --ignore-scripts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build desktop application
+        run: npm run build
+
+      - name: SQLite material persistence smoke test
+        run: node dist/electron/materialPersistenceSmoke.js
+
+  python-engine:
+    name: Python engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: engine/python/pyproject.toml
+
+      - name: Install engine and test dependencies
+        working-directory: engine/python
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run Ruff
+        working-directory: engine/python
+        run: python -m ruff check .
+
+      - name: Run pytest
+        working-directory: engine/python
+        run: python -m pytest
+
+  windows-package:
+    name: Windows installer packaging gate
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install desktop dependencies
+        run: npm install
+
+      - name: Build NSIS x64 installer
+        run: npm run dist:win
+
+      - name: Verify packaged runtime resources
+        shell: pwsh
+        run: |
+          $engine = 'release/win-unpacked/resources/engine/tolou-mix-engine.exe'
+          $migration = 'release/win-unpacked/database/migrations/015_aggregate_blend_optimizer_criteria.sql'
+          if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
+          if (-not (Test-Path $migration)) { throw 'Database migrations are missing from the packaged application.' }
+          $health = '{}' | & $engine health
+          $parsed = $health | ConvertFrom-Json
+          if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
+          Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
+
+      - name: Verify installer artifact
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer artifact was not produced.' }
+          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes)"
