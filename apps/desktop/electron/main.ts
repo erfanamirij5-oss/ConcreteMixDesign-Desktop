@@ -33,11 +33,11 @@ function createWindow() {
 ipcMain.handle('management:get-summary', async () => safeCall(() => getManagementSummary(), 'خطا در خواندن خلاصه مدیریتی'));
 ipcMain.handle('management:get-activity', async () => safeCall(() => getRecentManagementActivity(), 'خطا در خواندن فعالیت‌های مدیریتی'));
 
-ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: string) => safeCall(() => getMixDesignManagementRecord(mixDesignId), 'خطا در خواندن پرونده مدیریتی طرح اختلاط'));
+ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, record: getMixDesignManagementRecord(mixDesignId) }), 'خطا در خواندن پرونده مدیریتی طرح اختلاط'));
 ipcMain.handle('mix-design:update-basics', async (_event, payload) => safeCall(() => updateMixDesignBasics(payload), 'خطا در ویرایش اطلاعات طرح اختلاط'));
 ipcMain.handle('mix-design:create-revision', async (_event, payload) => safeCall(() => createNewMixDesignRevision(payload), 'خطا در ایجاد Revision جدید'));
-ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => listMixDesignRevisionHistory(mixDesignId), 'خطا در خواندن تاریخچه Revision'));
-ipcMain.handle('mix-design:allowed-statuses', async (_event, mixDesignId: string) => safeCall(() => getAllowedNextStatuses(mixDesignId), 'خطا در خواندن وضعیت‌های مجاز'));
+ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, history: listMixDesignRevisionHistory(mixDesignId) }), 'خطا در خواندن تاریخچه Revision'));
+ipcMain.handle('mix-design:allowed-statuses', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, ...getAllowedNextStatuses(mixDesignId) }), 'خطا در خواندن وضعیت‌های مجاز'));
 ipcMain.handle('mix-design:transition-status', async (_event, payload) => safeCall(() => transitionMixDesignStatus(payload), 'خطا در تغییر وضعیت طرح اختلاط'));
 ipcMain.handle('mix-design:duplicate', async (_event, payload) => safeCall(() => duplicateMixDesign(payload), 'خطا در Duplicate طرح اختلاط'));
 ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => archiveMixDesign(mixDesignId, actorName), 'خطا در بایگانی طرح اختلاط'));
