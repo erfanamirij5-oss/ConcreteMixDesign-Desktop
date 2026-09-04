@@ -40,6 +40,9 @@ jobs:
       - name: Management workflow regression smoke test
         run: node dist/electron/managementWorkflowSmoke.js
 
+      - name: Duplicate engineering contract smoke test
+        run: node dist/electron/duplicateContractSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
