@@ -18,6 +18,7 @@ export type PersistedCalculationInput = {
   standard_references?: string[];
   assumptions?: string[];
   limitations?: string[];
+  [key: string]: unknown;
 };
 
 export type PersistedCalculationRecord = {
@@ -44,7 +45,8 @@ export function persistCalculatedMixResult(database: Database.Database, mixDesig
     standardReferences: result.standard_references ?? [],
     warnings: result.warnings ?? [],
     assumptions: result.assumptions ?? [],
-    limitations: result.limitations ?? []
+    limitations: result.limitations ?? [],
+    engineeringOutput: result
   };
 
   database.transaction(() => {
