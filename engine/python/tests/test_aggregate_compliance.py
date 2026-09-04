@@ -85,3 +85,31 @@ def test_c123_lightweight_particles_without_limit_needs_review_when_supplied():
     result = evaluate_aggregate_compliance({"aggregates": [aggregate(astm_c123_lightweight_particles_percent=0.4)]})
     assert result["status"] == "needs_review"
     assert any(w["code"] == "C123_PROJECT_LIMIT_MISSING" for w in result["warnings"])
+
+
+def test_d4791_flat_elongated_over_project_limit_fails():
+    result = evaluate_aggregate_compliance({"aggregates": [aggregate(astm_d4791_flat_elongated_percent=18.0, flat_elongated_limit_percent=15.0, astm_d4791_dimensional_ratio="3:1")]})
+    assert result["status"] == "fail"
+    assert result["sources"][0]["shape_texture"]["flat_elongated"]["status"] == "fail"
+    assert any(w["code"] == "D4791_FLAT_ELONGATED_EXCEEDS_LIMIT" for w in result["warnings"])
+
+
+def test_d4791_without_project_limit_needs_review_when_supplied():
+    result = evaluate_aggregate_compliance({"aggregates": [aggregate(astm_d4791_flat_elongated_percent=8.0, astm_d4791_dimensional_ratio="3:1")]})
+    assert result["status"] == "needs_review"
+    assert any(w["code"] == "D4791_PROJECT_LIMIT_MISSING" for w in result["warnings"])
+
+
+def test_d5821_below_project_minimum_fails():
+    result = evaluate_aggregate_compliance({"aggregates": [aggregate(astm_d5821_fractured_particles_percent=70.0, fractured_particles_min_percent=80.0, fractured_faces_required=1)]})
+    assert result["status"] == "fail"
+    assert result["sources"][0]["shape_texture"]["fractured_particles"]["status"] == "fail"
+    assert any(w["code"] == "D5821_FRACTURED_PARTICLES_BELOW_MINIMUM" for w in result["warnings"])
+
+
+def test_shape_checks_pass_but_pumpability_stays_advisory():
+    result = evaluate_aggregate_compliance({"aggregates": [aggregate(astm_d4791_flat_elongated_percent=8.0, flat_elongated_limit_percent=15.0, astm_d4791_dimensional_ratio="3:1", astm_d5821_fractured_particles_percent=90.0, fractured_particles_min_percent=80.0, fractured_faces_required=1)]})
+    source = result["sources"][0]
+    assert source["shape_texture"]["status"] == "pass"
+    assert source["shape_texture"]["placement_advisory"]["status"] == "acceptable_input"
+    assert "پمپاژ" in source["shape_texture"]["placement_advisory"]["message"]
