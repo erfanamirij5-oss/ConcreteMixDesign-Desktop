@@ -9,7 +9,7 @@ export async function exportReportSnapshotPdf(snapshotId: string) {
   const html = renderReportHtml(record.snapshot);
   const window = await loadReportWindow(html);
   try {
-    const buffer = await window.webContents.printToPDF({ printBackground: true, pageSize: 'A4', margins: { marginType: 'custom', top: 0, bottom: 0, left: 0, right: 0 } });
+    const buffer = await window.webContents.printToPDF({ printBackground: true, pageSize: 'A4', margins: { top: 0, bottom: 0, left: 0, right: 0 } });
     const defaultPath = `Tolou-${record.reportType ?? 'Report'}-R${record.revisionNumber ?? 0}.pdf`;
     const selected = await dialog.showSaveDialog({ title: 'ذخیره PDF گزارش', defaultPath, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
     if (selected.canceled || !selected.filePath) return { status: 'cancelled' as const };
