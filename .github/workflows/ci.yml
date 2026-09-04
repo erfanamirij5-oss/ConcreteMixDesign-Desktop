@@ -83,6 +83,18 @@ jobs:
       - name: Build NSIS x64 installer
         run: npm run dist:win
 
+      - name: Verify packaged runtime resources
+        shell: pwsh
+        run: |
+          $engine = 'release/win-unpacked/resources/engine/tolou-mix-engine.exe'
+          $migration = 'release/win-unpacked/database/migrations/015_aggregate_blend_optimizer_criteria.sql'
+          if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
+          if (-not (Test-Path $migration)) { throw 'Database migrations are missing from the packaged application.' }
+          $health = '{}' | & $engine health
+          $parsed = $health | ConvertFrom-Json
+          if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
+          Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
+
       - name: Verify installer artifact
         shell: pwsh
         run: |
