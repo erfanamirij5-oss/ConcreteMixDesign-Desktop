@@ -15,6 +15,7 @@
     "test:engine": "cd engine/python && python -m pytest",
     "test:sqlite-material": "npm run build:electron && node dist/electron/materialPersistenceSmoke.js",
     "test:management-migrations": "npm run build:electron && node dist/electron/managementMigrationSmoke.js",
+    "test:management-workflow": "npm run build:electron && node dist/electron/managementWorkflowSmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
