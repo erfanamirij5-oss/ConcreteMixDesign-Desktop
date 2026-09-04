@@ -16,7 +16,7 @@ type FullChloride = {
 };
 type Props = {
   cementitiousSystem?: { weighted_specific_gravity?: number; absolute_volume_m3?: number; components?: BinderComponent[]; };
-  admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; compliance?: Compliance; };
+  admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; compliance?: Compliance; chloride_compliance?: FullChloride; };
   admixtureCompliance?: Compliance;
   chlorideCompliance?: FullChloride;
   waterToAddKgM3?: number | null;
@@ -28,7 +28,7 @@ export function EngineeringSystemsResults(props: Props) {
   const totals = props.admixtureSystem?.totals;
   const compliance = props.admixtureCompliance ?? props.admixtureSystem?.compliance;
   const checks = compliance?.standard_checks ?? [];
-  const full = props.chlorideCompliance;
+  const full = props.chlorideCompliance ?? props.admixtureSystem?.chloride_compliance;
   const sources = full?.source_breakdown ?? [];
 
   return <>
