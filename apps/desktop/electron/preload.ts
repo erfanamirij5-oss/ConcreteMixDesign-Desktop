@@ -17,7 +17,11 @@ contextBridge.exposeInMainWorld('tolouMixDesigns', {
   updateBasics: (payload: unknown) => ipcRenderer.invoke('mix-design:update-basics', payload),
   createRevision: (payload: unknown) => ipcRenderer.invoke('mix-design:create-revision', payload),
   listRevisions: (mixDesignId: string) => ipcRenderer.invoke('mix-design:list-revisions', mixDesignId),
-  archive: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:archive', mixDesignId, actorName)
+  allowedStatuses: (mixDesignId: string) => ipcRenderer.invoke('mix-design:allowed-statuses', mixDesignId),
+  transitionStatus: (payload: unknown) => ipcRenderer.invoke('mix-design:transition-status', payload),
+  duplicate: (payload: unknown) => ipcRenderer.invoke('mix-design:duplicate', payload),
+  archive: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:archive', mixDesignId, actorName),
+  restore: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:restore', mixDesignId, actorName)
 });
 
 contextBridge.exposeInMainWorld('tolouMaterials', {
