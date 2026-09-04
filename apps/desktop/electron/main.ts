@@ -8,6 +8,7 @@ import { buildNormalMixPayload } from './enginePayload';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
+type EngineLaunch = { executable: string; prefixArgs: string[] };
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -70,31 +71,38 @@ function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 
   }
 }
 
-function getEnginePath(): string {
-  const candidates = [
+function getEngineLaunch(): EngineLaunch {
+  const bundledExecutable = path.join(process.resourcesPath, 'engine/tolou-mix-engine.exe');
+  if (app.isPackaged && existsSync(bundledExecutable)) {
+    return { executable: bundledExecutable, prefixArgs: [] };
+  }
+
+  const sourceCandidates = [
     path.join(process.cwd(), 'engine/python/src/tolou_mix_engine/cli.py'),
     path.join(app.getAppPath(), 'engine/python/src/tolou_mix_engine/cli.py'),
     path.join(process.resourcesPath, 'engine/python/src/tolou_mix_engine/cli.py')
   ];
-  const found = candidates.find(candidate => existsSync(candidate));
-  if (!found) throw new Error(`Python engine CLI was not found. Checked: ${candidates.join(' | ')}`);
-  return found;
+  const sourcePath = sourceCandidates.find(candidate => existsSync(candidate));
+  if (!sourcePath) {
+    throw new Error(`Engineering engine was not found. Checked bundled executable and: ${sourceCandidates.join(' | ')}`);
+  }
+  return { executable: 'python', prefixArgs: [sourcePath] };
 }
 
 function runPythonCommand(command: string, payload?: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    let enginePath: string;
-    try { enginePath = getEnginePath(); } catch (error) { reject(error); return; }
+    let launch: EngineLaunch;
+    try { launch = getEngineLaunch(); } catch (error) { reject(error); return; }
 
-    const child = spawn('python', [enginePath, command], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(launch.executable, [...launch.prefixArgs, command], { stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
     child.on('error', reject);
     child.on('close', code => {
-      if (code !== 0) { reject(new Error(stderr || `Python engine exited with code ${code}`)); return; }
-      try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Python engine returned invalid JSON')); }
+      if (code !== 0) { reject(new Error(stderr || `Engineering engine exited with code ${code}`)); return; }
+      try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Engineering engine returned invalid JSON')); }
     });
     child.stdin.write(JSON.stringify(payload ?? {}));
     child.stdin.end();
@@ -102,6 +110,7 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
 }
 
 app.whenReady().then(() => {
+  if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
