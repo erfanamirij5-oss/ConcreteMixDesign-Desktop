@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+contextBridge.exposeInMainWorld('tolouSecurity', {
+  status: () => ipcRenderer.invoke('security:status'),
+  bootstrap: (payload: unknown) => ipcRenderer.invoke('security:bootstrap', payload),
+  login: (payload: unknown) => ipcRenderer.invoke('security:login', payload),
+  logout: () => ipcRenderer.invoke('security:logout'),
+  listUsers: () => ipcRenderer.invoke('security:list-users'),
+  createUser: (payload: unknown) => ipcRenderer.invoke('security:create-user', payload),
+  setUserActive: (payload: unknown) => ipcRenderer.invoke('security:set-user-active', payload),
+  assignRole: (payload: unknown) => ipcRenderer.invoke('security:assign-role', payload),
+  listAudit: (limit?: number) => ipcRenderer.invoke('security:list-audit', limit)
+});
+
 contextBridge.exposeInMainWorld('tolouEngine', {
   health: () => ipcRenderer.invoke('engine:health'),
   calculateNormalMix: (payload: unknown) => ipcRenderer.invoke('engine:calculate-normal-mix', payload),
