@@ -58,6 +58,8 @@ jobs:
         run: node dist/electron/reportCenterSmoke.js
       - name: Report Center renderer contract smoke test
         run: node dist/electron/reportRendererSmoke.js
+      - name: Backup restore destructive safety smoke test
+        run: node dist/electron/backupRestoreSmoke.js
 
   python-engine:
     name: Python engine tests
