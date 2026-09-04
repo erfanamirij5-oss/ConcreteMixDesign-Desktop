@@ -14,7 +14,7 @@ import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterial
 import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
 import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
-import { initializeSecurityRuntime } from './securityRuntime';
+import { initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 import { registerSecurityIpc } from './securityIpc';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -39,35 +39,32 @@ function createWindow() {
   else mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 }
 
-function requireAuditActor(actorName?: string) {
-  if (!actorName?.trim()) throw new Error('نام مسئول عملیات برای Audit Trail الزامی است.');
-}
-
 function requireTransitionReason(reason?: string) {
   if (!reason?.trim()) throw new Error('دلیل تغییر وضعیت باید برای Audit Trail ثبت شود.');
 }
 
-ipcMain.handle('management:get-summary', async () => safeCall(() => getManagementSummary(), 'خطا در خواندن خلاصه مدیریتی'));
-ipcMain.handle('management:get-activity', async () => safeCall(() => getRecentManagementActivity(), 'خطا در خواندن فعالیت‌های مدیریتی'));
+ipcMain.handle('management:get-summary', async event => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return getManagementSummary(); }, 'خطا در خواندن خلاصه مدیریتی'));
+ipcMain.handle('management:get-activity', async event => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return getRecentManagementActivity(); }, 'خطا در خواندن فعالیت‌های مدیریتی'));
 
-ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, record: getMixDesignManagementRecord(mixDesignId) }), 'خطا در خواندن پرونده مدیریتی طرح اختلاط'));
-ipcMain.handle('mix-design:update-basics', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return updateMixDesignBasics(payload); }, 'خطا در ویرایش اطلاعات طرح اختلاط'));
-ipcMain.handle('mix-design:create-revision', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return createNewMixDesignRevision(payload); }, 'خطا در ایجاد Revision جدید'));
-ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, history: listMixDesignRevisionHistory(mixDesignId) }), 'خطا در خواندن تاریخچه Revision'));
-ipcMain.handle('mix-design:allowed-statuses', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, ...getAllowedNextStatuses(mixDesignId) }), 'خطا در خواندن وضعیت‌های مجاز'));
-ipcMain.handle('mix-design:transition-status', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); requireTransitionReason(payload?.reason); return transitionMixDesignStatus(payload); }, 'خطا در تغییر وضعیت طرح اختلاط'));
-ipcMain.handle('mix-design:duplicate', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return duplicateMixDesign(payload); }, 'خطا در Duplicate طرح اختلاط'));
-ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return archiveMixDesign(mixDesignId, actorName); }, 'خطا در بایگانی طرح اختلاط'));
-ipcMain.handle('mix-design:restore', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return restoreMixDesign(mixDesignId, actorName); }, 'خطا در بازیابی طرح اختلاط'));
+ipcMain.handle('mix-design:get-management-record', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, record: getMixDesignManagementRecord(mixDesignId) }; }, 'خطا در خواندن پرونده مدیریتی طرح اختلاط'));
+ipcMain.handle('mix-design:update-basics', async (event, payload) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); return updateMixDesignBasics({ ...payload, actorName: actor.displayName }); }, 'خطا در ویرایش اطلاعات طرح اختلاط'));
+ipcMain.handle('mix-design:create-revision', async (event, payload) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); return createNewMixDesignRevision({ ...payload, actorName: actor.displayName }); }, 'خطا در ایجاد Revision جدید'));
+ipcMain.handle('mix-design:list-revisions', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, history: listMixDesignRevisionHistory(mixDesignId) }; }, 'خطا در خواندن تاریخچه Revision'));
+ipcMain.handle('mix-design:allowed-statuses', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, ...getAllowedNextStatuses(mixDesignId) }; }, 'خطا در خواندن وضعیت‌های مجاز'));
+ipcMain.handle('mix-design:transition-status', async (event, payload) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); requireTransitionReason(payload?.reason); return transitionMixDesignStatus({ ...payload, actorName: actor.displayName }); }, 'خطا در تغییر وضعیت طرح اختلاط'));
+ipcMain.handle('mix-design:duplicate', async (event, payload) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); return duplicateMixDesign({ ...payload, actorName: actor.displayName }); }, 'خطا در Duplicate طرح اختلاط'));
+ipcMain.handle('mix-design:archive', async (event, mixDesignId: string) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); return archiveMixDesign(mixDesignId, actor.displayName); }, 'خطا در بایگانی طرح اختلاط'));
+ipcMain.handle('mix-design:restore', async (event, mixDesignId: string) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.write'); return restoreMixDesign(mixDesignId, actor.displayName); }, 'خطا در بازیابی طرح اختلاط'));
 
-ipcMain.handle('trial-mix:save', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return saveTrialMixRecord(payload); }, 'خطا در ثبت Trial Mix'));
-ipcMain.handle('trial-mix:list', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, records: listTrialMixRecords(mixDesignId) }), 'خطا در خواندن Trial Mix'));
-ipcMain.handle('trial-mix:has-completed', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, completed: hasCompletedTrialMixRecord(mixDesignId) }), 'خطا در بررسی تکمیل Trial Mix'));
+ipcMain.handle('trial-mix:save', async (event, payload) => safeCall(() => { const actor = requireRendererPermission(event.sender, 'engineering.trial.manage'); return saveTrialMixRecord({ ...payload, actorName: actor.displayName }); }, 'خطا در ثبت Trial Mix'));
+ipcMain.handle('trial-mix:list', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, records: listTrialMixRecords(mixDesignId) }; }, 'خطا در خواندن Trial Mix'));
+ipcMain.handle('trial-mix:has-completed', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, completed: hasCompletedTrialMixRecord(mixDesignId) }; }, 'خطا در بررسی تکمیل Trial Mix'));
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
-ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));
-ipcMain.handle('engine:evaluate-durability', async (_event, payload: DurabilityEvaluationPayload) => {
+ipcMain.handle('engine:calculate-normal-mix', async (event, payload) => { requireRendererPermission(event.sender, 'engineering.calculate'); return runPythonCommand('calculate-normal-mix', payload); });
+ipcMain.handle('engine:evaluate-durability', async (event, payload: DurabilityEvaluationPayload) => {
   try {
+    requireRendererPermission(event.sender, 'engineering.calculate');
     const normalized: DurabilityEvaluationPayload = { ...(payload ?? {}) };
     const mixDesignId = typeof normalized.mix_design_id === 'string' ? normalized.mix_design_id.trim() : '';
     if (mixDesignId) {
@@ -79,8 +76,9 @@ ipcMain.handle('engine:evaluate-durability', async (_event, payload: DurabilityE
     return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در تحلیل دوام طرح ذخیره‌شده' };
   }
 });
-ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string) => {
+ipcMain.handle('engine:calculate-saved-mix', async (event, mixDesignId: string) => {
   try {
+    requireRendererPermission(event.sender, 'engineering.calculate');
     requireEditableMixDesign(mixDesignId);
     const payload = buildNormalMixPayload(mixDesignId);
     const result = await runPythonCommand('calculate-normal-mix', payload) as PersistedCalculationInput;
@@ -90,12 +88,13 @@ ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string)
     return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده' };
   }
 });
-ipcMain.handle('engine:get-saved-result', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, result: loadCalculatedMixResult(mixDesignId) }), 'خطا در خواندن آخرین نتیجه ذخیره‌شده'));
+ipcMain.handle('engine:get-saved-result', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, result: loadCalculatedMixResult(mixDesignId) }; }, 'خطا در خواندن آخرین نتیجه ذخیره‌شده'));
 
-ipcMain.handle('projects:save-intake', async (_event, payload) => safeCall(() => saveProjectIntake(payload), 'خطای ناشناخته در ذخیره پروژه'));
-ipcMain.handle('projects:list-recent', async () => safeCall(() => ({ status: 'pass', projects: listRecentProjects() }), 'خطای ناشناخته در خواندن پروژه‌ها'));
-ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => { requireEditableMixDesign(payload?.mixDesignId); return saveMaterial(payload); }, 'خطای ناشناخته در ذخیره مصالح'));
-ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => {
+ipcMain.handle('projects:save-intake', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); return saveProjectIntake(payload); }, 'خطای ناشناخته در ذخیره پروژه'));
+ipcMain.handle('projects:list-recent', async event => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass', projects: listRecentProjects() }; }, 'خطای ناشناخته در خواندن پروژه‌ها'));
+ipcMain.handle('materials:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMixDesign(payload?.mixDesignId); return saveMaterial(payload); }, 'خطای ناشناخته در ذخیره مصالح'));
+ipcMain.handle('materials:list-by-mix-design', async (event, mixDesignId: string) => safeCall(() => {
+  requireRendererPermission(event.sender, 'engineering.read');
   const provenance = new Map(listMaterialProvenance(mixDesignId).map(item => [item.id, item]));
   const materials = (listMaterialsByMixDesign(mixDesignId) as Array<Record<string, unknown>>).map(item => {
     const identity = provenance.get(String(item.id));
@@ -107,17 +106,17 @@ ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: strin
   });
   return { status: 'pass', materials };
 }, 'خطای ناشناخته در خواندن مصالح'));
-ipcMain.handle('material-library:save', async (_event, payload) => safeCall(() => ({ status: 'pass' as const, record: saveLibraryMaterial(payload) }), 'خطا در ذخیره رکورد کتابخانه مصالح'));
-ipcMain.handle('material-library:list', async (_event, materialType?: Parameters<typeof listLibraryMaterials>[0]) => safeCall(() => ({ status: 'pass' as const, materials: listLibraryMaterials(materialType) }), 'خطا در خواندن کتابخانه مصالح'));
-ipcMain.handle('material-library:attach', async (_event, mixDesignId: string, libraryMaterialId: string) => safeCall(() => { requireEditableMixDesign(mixDesignId); return attachLibraryMaterial(mixDesignId, libraryMaterialId); }, 'خطا در افزودن ماده Library به طرح اختلاط'));
-ipcMain.handle('material-library:set-status', async (_event, id: string, status) => safeCall(() => ({ status: 'pass' as const, record: changeLibraryMaterialStatus(id, status) }), 'خطا در تغییر وضعیت رکورد کتابخانه مصالح'));
-ipcMain.handle('material-library:list-provenance', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, materials: listMaterialProvenance(mixDesignId) }), 'خطا در خواندن منشأ مصالح طرح اختلاط'));
-ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => { requireEditableMaterial(payload?.materialId); return saveGradation(payload); }, 'خطای ناشناخته در ذخیره دانه‌بندی'));
-ipcMain.handle('gradation:list-by-material', async (_event, materialId: string) => safeCall(() => ({ status: 'pass', rows: listGradationByMaterial(materialId) }), 'خطای ناشناخته در خواندن دانه‌بندی'));
-ipcMain.handle('blend-optimizer:save', async (_event, payload) => safeCall(() => { requireEditableMixDesign(payload?.mixDesignId); return saveAggregateBlendOptimizer(payload); }, 'خطای ناشناخته در ذخیره تنظیمات Blend Optimizer'));
-ipcMain.handle('blend-optimizer:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getAggregateBlendOptimizer(mixDesignId) }), 'خطای ناشناخته در خواندن تنظیمات Blend Optimizer'));
-ipcMain.handle('durability:save', async (_event, payload) => safeCall(() => { requireEditableMixDesign(payload?.mixDesignId); return saveDurabilityInput(payload); }, 'خطای ناشناخته در ذخیره دوام'));
-ipcMain.handle('durability:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getDurabilityInput(mixDesignId) }), 'خطای ناشناخته در خواندن دوام'));
+ipcMain.handle('material-library:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); return { status: 'pass' as const, record: saveLibraryMaterial(payload) }; }, 'خطا در ذخیره رکورد کتابخانه مصالح'));
+ipcMain.handle('material-library:list', async (event, materialType?: Parameters<typeof listLibraryMaterials>[0]) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, materials: listLibraryMaterials(materialType) }; }, 'خطا در خواندن کتابخانه مصالح'));
+ipcMain.handle('material-library:attach', async (event, mixDesignId: string, libraryMaterialId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMixDesign(mixDesignId); return attachLibraryMaterial(mixDesignId, libraryMaterialId); }, 'خطا در افزودن ماده Library به طرح اختلاط'));
+ipcMain.handle('material-library:set-status', async (event, id: string, status) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); return { status: 'pass' as const, record: changeLibraryMaterialStatus(id, status) }; }, 'خطا در تغییر وضعیت رکورد کتابخانه مصالح'));
+ipcMain.handle('material-library:list-provenance', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, materials: listMaterialProvenance(mixDesignId) }; }, 'خطا در خواندن منشأ مصالح طرح اختلاط'));
+ipcMain.handle('gradation:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMaterial(payload?.materialId); return saveGradation(payload); }, 'خطای ناشناخته در ذخیره دانه‌بندی'));
+ipcMain.handle('gradation:list-by-material', async (event, materialId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass', rows: listGradationByMaterial(materialId) }; }, 'خطای ناشناخته در خواندن دانه‌بندی'));
+ipcMain.handle('blend-optimizer:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMixDesign(payload?.mixDesignId); return saveAggregateBlendOptimizer(payload); }, 'خطای ناشناخته در ذخیره تنظیمات Blend Optimizer'));
+ipcMain.handle('blend-optimizer:get', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass', input: getAggregateBlendOptimizer(mixDesignId) }; }, 'خطای ناشناخته در خواندن تنظیمات Blend Optimizer'));
+ipcMain.handle('durability:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMixDesign(payload?.mixDesignId); return saveDurabilityInput(payload); }, 'خطای ناشناخته در ذخیره دوام'));
+ipcMain.handle('durability:get', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass', input: getDurabilityInput(mixDesignId) }; }, 'خطای ناشناخته در خواندن دوام'));
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
