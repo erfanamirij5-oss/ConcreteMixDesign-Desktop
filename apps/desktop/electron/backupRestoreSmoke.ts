@@ -20,14 +20,28 @@ const migrationIds = [
   '001_initial_schema','002_manual_gradation_controls','003_aggregate_material_fields','004_sieve_labels','005_durability_inputs','006_cementitious_material_fields','007_full_chloride_inputs','008_sulfate_cementitious_compliance','009_asr_alkali_inputs','010_mixing_water_c1602','011_recycled_water_monitoring','012_aggregate_quality_inputs','013_advanced_aggregate_quality','014_aggregate_shape_texture','015_aggregate_blend_optimizer_criteria','016_mix_design_revision_control','017_mix_design_management_workflow','018_mix_design_engineering_identity','019_professional_material_library','020_minimum_trial_mix','021_report_center_snapshots'
 ];
 
+const representativeTables = ['materials', 'gradations', 'durability_inputs', 'calculation_results', 'trial_mix_records', 'report_snapshots'] as const;
+
 function seedCurrentSchema(database: Database.Database) {
   database.exec(`
     PRAGMA foreign_keys = ON;
     CREATE TABLE schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);
     CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    CREATE TABLE materials (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    CREATE TABLE gradations (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    CREATE TABLE durability_inputs (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    CREATE TABLE calculation_results (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    CREATE TABLE trial_mix_records (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    CREATE TABLE report_snapshots (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
   `);
   const insert = database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)');
   for (const id of migrationIds) insert.run(id, new Date().toISOString());
+}
+
+function seedRepresentativeData(database: Database.Database) {
+  for (const table of representativeTables) {
+    database.prepare(`INSERT INTO ${table} (id, payload) VALUES (?, ?)`).run(`${table}-before`, JSON.stringify({ table, marker: 'before-backup' }));
+  }
 }
 
 function cloneBackup(source: string, destination: string) {
@@ -45,15 +59,32 @@ function assertProject(databasePath: string, expectedId: string) {
   }
 }
 
+function assertRepresentativeData(databasePath: string) {
+  const database = new Database(databasePath, { readonly: true });
+  try {
+    for (const table of representativeTables) {
+      const row = database.prepare(`SELECT id, payload FROM ${table}`).get() as { id: string; payload: string };
+      assert.equal(row.id, `${table}-before`, `${table} row must survive backup/restore`);
+      assert.equal(JSON.parse(row.payload).marker, 'before-backup', `${table} payload must survive backup/restore`);
+    }
+    assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
+    assert.deepEqual(database.pragma('foreign_key_check'), []);
+  } finally {
+    database.close();
+  }
+}
+
 async function run() {
   try {
     const active = new Database(activePath);
     active.pragma('journal_mode = WAL');
     seedCurrentSchema(active);
     active.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run('project-before', 'Before restore');
+    seedRepresentativeData(active);
 
     const manifest = await createValidatedBackup(active, backupPath);
     assert.equal(manifest.formatVersion, 1);
+    assert.equal(manifest.sourceDatabasePath, path.resolve(activePath));
     assert.equal(manifest.schemaMigrations.at(-1), '021_report_center_snapshots');
     assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
     assert.ok(manifest.sizeBytes > 0);
@@ -61,11 +92,13 @@ async function run() {
 
     active.prepare('DELETE FROM projects').run();
     active.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run('project-after', 'After backup');
+    for (const table of representativeTables) active.prepare(`UPDATE ${table} SET payload = ?`).run(JSON.stringify({ table, marker: 'after-backup' }));
 
     const restored = await restoreValidatedBackup(backupPath, activePath, active);
     assert.ok(restored.recoveryPath.includes('.pre-restore-'));
     assert.throws(() => active.prepare('SELECT 1').get(), /closed|not open/i, 'Restore must close the active SQLite connection before file replacement');
     assertProject(activePath, 'project-before');
+    assertRepresentativeData(activePath);
     assertProject(restored.recoveryPath, 'project-after');
 
     const activeBeforeRejectedRestore = readFileSync(activePath);
@@ -82,6 +115,13 @@ async function run() {
     const missingManifestPath = path.join(tempDir, 'missing-manifest.sqlite');
     copyFileSync(backupPath, missingManifestPath);
     assert.throws(() => validateBackupCandidate(missingManifestPath), /manifest is missing/i);
+
+    const missingSourcePath = path.join(tempDir, 'missing-source.sqlite');
+    cloneBackup(backupPath, missingSourcePath);
+    const missingSourceManifest = JSON.parse(readFileSync(`${missingSourcePath}.manifest.json`, 'utf8')) as { sourceDatabasePath?: string };
+    delete missingSourceManifest.sourceDatabasePath;
+    writeFileSync(`${missingSourcePath}.manifest.json`, JSON.stringify(missingSourceManifest, null, 2));
+    assert.throws(() => validateBackupCandidate(missingSourcePath), /source database path/i);
 
     const futureSchemaPath = path.join(tempDir, 'future-schema.sqlite');
     cloneBackup(backupPath, futureSchemaPath);
@@ -158,7 +198,7 @@ async function run() {
     writeFileSync(backupPath, tampered);
     assert.throws(() => validateBackupCandidate(backupPath), /digest|database|malformed|disk image/i);
 
-    console.log('Backup/restore destructive safety smoke passed: WAL roundtrip, manifest integrity, schema/FK rejection, rollback and repeated cycles verified.');
+    console.log('Backup/restore destructive safety smoke passed: representative data, WAL roundtrip, provenance, manifest integrity, schema/FK rejection, rollback and repeated cycles verified.');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
