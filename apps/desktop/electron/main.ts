@@ -10,7 +10,7 @@ import { buildNormalMixPayload } from './enginePayload';
 import { getManagementSummary, getRecentManagementActivity } from './managementAnalytics';
 import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalculationInput } from './calculationResultStore';
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
-import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, saveLibraryMaterial } from './materialLibraryStore';
+import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMixDesignMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -91,6 +91,7 @@ ipcMain.handle('material-library:save', async (_event, payload) => safeCall(() =
 ipcMain.handle('material-library:list', async (_event, materialType?: Parameters<typeof listLibraryMaterials>[0]) => safeCall(() => ({ status: 'pass' as const, materials: listLibraryMaterials(materialType) }), 'خطا در خواندن کتابخانه مصالح'));
 ipcMain.handle('material-library:attach', async (_event, mixDesignId: string, libraryMaterialId: string) => safeCall(() => { requireEditableMixDesign(mixDesignId); return attachLibraryMaterial(mixDesignId, libraryMaterialId); }, 'خطا در افزودن ماده Library به طرح اختلاط'));
 ipcMain.handle('material-library:set-status', async (_event, id: string, status) => safeCall(() => ({ status: 'pass' as const, record: changeLibraryMaterialStatus(id, status) }), 'خطا در تغییر وضعیت رکورد کتابخانه مصالح'));
+ipcMain.handle('material-library:list-provenance', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, materials: listMixDesignMaterialProvenance(mixDesignId) }), 'خطا در خواندن منشأ مصالح طرح اختلاط'));
 ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => { requireEditableMaterial(payload?.materialId); return saveGradation(payload); }, 'خطای ناشناخته در ذخیره دانه‌بندی'));
 ipcMain.handle('gradation:list-by-material', async (_event, materialId: string) => safeCall(() => ({ status: 'pass', rows: listGradationByMaterial(materialId) }), 'خطای ناشناخته در خواندن دانه‌بندی'));
 ipcMain.handle('blend-optimizer:save', async (_event, payload) => safeCall(() => { requireEditableMixDesign(payload?.mixDesignId); return saveAggregateBlendOptimizer(payload); }, 'خطای ناشناخته در ذخیره تنظیمات Blend Optimizer'));
