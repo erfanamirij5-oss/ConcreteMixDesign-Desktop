@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
 
@@ -15,6 +17,17 @@ type TrialMixInput = {
   notes?: string;
   actorName?: string;
 };
+
+export function ensureTrialMixMigration(database: Database.Database) {
+  database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);');
+  const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get('020_minimum_trial_mix');
+  if (applied) return;
+  const migrationPath = path.join(process.cwd(), 'database/migrations/020_minimum_trial_mix.sql');
+  database.transaction(() => {
+    database.exec(readFileSync(migrationPath, 'utf-8'));
+    database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run('020_minimum_trial_mix', new Date().toISOString());
+  })();
+}
 
 export function saveTrialMixRecordToDatabase(database: Database.Database, input: TrialMixInput) {
   validateTrialMixInput(input);
