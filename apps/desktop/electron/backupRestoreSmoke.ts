@@ -60,7 +60,8 @@ async function run() {
     assert.throws(() => validateBackupCandidate(corruptPath));
     await assert.rejects(() => restoreValidatedBackup(corruptPath, activePath, activeForRejectedRestore));
     assert.deepEqual(readFileSync(activePath), activeBeforeRejectedRestore, 'Rejected restore must not modify active DB bytes');
-    assert.equal(activeForRejectedRestore.prepare('SELECT 1 AS value').get().value, 1, 'Pre-validation failure must leave active connection open');
+    const healthRow = activeForRejectedRestore.prepare('SELECT 1 AS value').get() as { value: number };
+    assert.equal(healthRow.value, 1, 'Pre-validation failure must leave active connection open');
     activeForRejectedRestore.close();
 
     const originalBackup = readFileSync(backupPath);
