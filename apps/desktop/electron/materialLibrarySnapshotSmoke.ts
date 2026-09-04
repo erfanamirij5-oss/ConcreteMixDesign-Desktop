@@ -6,53 +6,19 @@ database.pragma('foreign_keys = ON');
 database.exec(`
   CREATE TABLE mix_designs (id TEXT PRIMARY KEY, status TEXT NOT NULL);
   CREATE TABLE material_library (
-    id TEXT PRIMARY KEY,
-    material_type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    material_subtype TEXT,
-    manufacturer TEXT,
-    source TEXT,
-    product_code TEXT,
-    standard_designation TEXT,
-    status TEXT NOT NULL,
-    test_date TEXT,
-    valid_until TEXT,
-    laboratory_name TEXT,
-    laboratory_report_number TEXT,
-    properties_json TEXT NOT NULL,
-    notes TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    id TEXT PRIMARY KEY, material_type TEXT NOT NULL, name TEXT NOT NULL, material_subtype TEXT,
+    manufacturer TEXT, source TEXT, product_code TEXT, standard_designation TEXT, status TEXT NOT NULL,
+    test_date TEXT, valid_until TEXT, laboratory_name TEXT, laboratory_report_number TEXT,
+    properties_json TEXT NOT NULL, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
   );
   CREATE TABLE materials (
-    id TEXT PRIMARY KEY,
-    mix_design_id TEXT NOT NULL,
-    material_type TEXT NOT NULL,
-    aggregate_role TEXT,
-    nominal_size_mm REAL,
-    moisture_condition TEXT,
-    name TEXT NOT NULL,
-    source TEXT,
-    specific_gravity REAL,
-    absorption_percent REAL,
-    moisture_percent REAL,
-    unit_weight_kg_m3 REAL,
-    notes TEXT,
-    material_subtype TEXT,
-    standard_designation TEXT,
-    density_kg_m3 REAL,
-    dosage_value REAL,
-    dosage_unit TEXT,
-    binder_share_percent REAL,
-    replacement_percent REAL,
-    solids_percent REAL,
-    chloride_percent REAL,
-    alkali_percent REAL,
-    manufacturer TEXT,
-    product_code TEXT,
-    library_material_id TEXT,
-    library_snapshot_json TEXT,
-    library_snapshot_at TEXT,
+    id TEXT PRIMARY KEY, mix_design_id TEXT NOT NULL, material_type TEXT NOT NULL, aggregate_role TEXT,
+    nominal_size_mm REAL, moisture_condition TEXT, name TEXT NOT NULL, source TEXT, specific_gravity REAL,
+    absorption_percent REAL, moisture_percent REAL, unit_weight_kg_m3 REAL, notes TEXT, material_subtype TEXT,
+    standard_designation TEXT, density_kg_m3 REAL, dosage_value REAL, dosage_unit TEXT,
+    binder_share_percent REAL, replacement_percent REAL, solids_percent REAL, chloride_percent REAL,
+    alkali_percent REAL, manufacturer TEXT, product_code TEXT, library_material_id TEXT,
+    library_snapshot_json TEXT, library_snapshot_at TEXT,
     FOREIGN KEY (mix_design_id) REFERENCES mix_designs(id),
     FOREIGN KEY (library_material_id) REFERENCES material_library(id) ON DELETE SET NULL
   );
@@ -93,6 +59,24 @@ const preservedSnapshot = JSON.parse(afterLibraryEdit.snapshotJson) as { source?
 if (afterLibraryEdit.source !== 'Yazd Quarry A' || afterLibraryEdit.specificGravity !== 2.65 || afterLibraryEdit.absorptionPercent !== 1.8) throw new Error('Editing the reusable Library mutated an existing mix-design material.');
 if (preservedSnapshot.source !== 'Yazd Quarry A' || preservedSnapshot.properties?.specificGravity !== 2.65 || preservedSnapshot.status !== 'active') throw new Error('Historical material snapshot changed after Library edit/status change.');
 
+let invalidAggregateRejected = false;
+try {
+  saveMaterialLibraryRecord(database, { materialType: 'fine_aggregate', name: 'Invalid Sand', properties: { specificGravity: 2.65, absorptionPercent: 35 } });
+} catch { invalidAggregateRejected = true; }
+if (!invalidAggregateRejected) throw new Error('Out-of-range aggregate absorption was accepted by Master Record validation.');
+
+let missingCementSgRejected = false;
+try {
+  saveMaterialLibraryRecord(database, { materialType: 'cement', name: 'Invalid Cement', properties: { alkaliPercent: 0.6 } });
+} catch { missingCementSgRejected = true; }
+if (!missingCementSgRejected) throw new Error('Cement Master Record without specific gravity was accepted.');
+
+let invalidAdmixtureRejected = false;
+try {
+  saveMaterialLibraryRecord(database, { materialType: 'admixture', name: 'Invalid Admixture', properties: { densityKgM3: 1100, solidsPercent: 130 } });
+} catch { invalidAdmixtureRejected = true; }
+if (!invalidAdmixtureRejected) throw new Error('Out-of-range admixture solids content was accepted.');
+
 saveMaterialLibraryRecord(database, { id: 'lib-expired', materialType: 'cement', name: 'Expired Cement', status: 'active', validUntil: '2020-01-01', properties: { specificGravity: 3.15 } });
 let expiredRejected = false;
 try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-expired'); } catch { expiredRejected = true; }
@@ -105,4 +89,4 @@ try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand'); } catch {
 if (!lockedRejected) throw new Error('Approved revision accepted a new Library material.');
 
 database.close();
-console.log('Material Library snapshot smoke passed: master edits preserve identity and never mutate historical mix-design snapshots.');
+console.log('Material Library snapshot smoke passed: master validation and snapshot immutability contracts are enforced.');
