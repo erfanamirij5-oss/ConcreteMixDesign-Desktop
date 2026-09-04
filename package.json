@@ -12,6 +12,7 @@
     "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test:engine": "cd engine/python && python -m pytest",
+    "test:sqlite-material": "npm run build:electron && node dist/electron/materialPersistenceSmoke.js",
     "dist:win": "npm run build && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
