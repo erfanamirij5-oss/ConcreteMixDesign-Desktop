@@ -12,6 +12,24 @@ const databasePath = path.join(tempDir, 'security.sqlite');
 try {
   const database = new Database(databasePath);
   database.pragma('foreign_keys = ON');
+  // Security is migration 022 and therefore runs after the Gate 08 runtime schema.
+  // This smoke intentionally supplies the minimum Gate 08 dependency required by
+  // migrations 020/021 instead of pretending that migration 022 upgrades an empty DB.
+  database.exec(`
+    CREATE TABLE mix_designs (
+      id TEXT PRIMARY KEY,
+      revision_number INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'draft'
+    );
+    CREATE TABLE audit_logs (
+      id TEXT PRIMARY KEY,
+      mix_design_id TEXT,
+      action TEXT NOT NULL,
+      details_json TEXT,
+      actor_name TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
   const security = new SecurityService(database);
 
   assert.equal((database.prepare('SELECT COUNT(*) AS count FROM schema_migrations WHERE id = ?').get(SECURITY_MIGRATION_ID) as { count: number }).count, 1);
@@ -82,7 +100,7 @@ try {
   assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
   assert.equal((database.pragma('foreign_key_check') as unknown[]).length, 0);
   database.close();
-  console.log('Gate 09 security smoke passed: bootstrap, scrypt credentials, RBAC, disabled-user enforcement, last-admin protection, live role checks and append-only audit traceability verified.');
+  console.log('Gate 09 security smoke passed: Gate08-dependent migration chain, bootstrap, scrypt credentials, RBAC, disabled-user enforcement, last-admin protection, live role checks and append-only audit traceability verified.');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
