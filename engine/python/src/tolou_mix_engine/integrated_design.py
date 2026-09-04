@@ -5,13 +5,14 @@ from copy import deepcopy
 from tolou_mix_engine.admixture_compliance import evaluate_admixture_compliance
 from tolou_mix_engine.admixtures import apply_admixtures
 from tolou_mix_engine.cementitious import allocate_cementitious
+from tolou_mix_engine.cementitious_compliance import evaluate_cementitious_compliance
 from tolou_mix_engine.chloride_compliance import evaluate_full_chloride_compliance
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mix
 
 
 def calculate_integrated_normal_mix(payload: dict) -> dict:
-    """Run durability, binder allocation, proportioning, admixture correction and compliance."""
+    """Run durability, binder allocation, proportioning and material compliance checks."""
     source = deepcopy(payload if isinstance(payload, dict) else {})
     requirements = source.setdefault("requirements", {})
     materials = source.setdefault("materials", {})
@@ -32,7 +33,8 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         requirements["air_entrained"] = True
         requirements["air_content_percent"] = float(durability_target_air)
 
-    binder_preview = allocate_cementitious(list(materials.get("cementitious") or []), 100.0)
+    raw_cementitious = list(materials.get("cementitious") or [])
+    binder_preview = allocate_cementitious(raw_cementitious, 100.0)
     materials["cement_specific_gravity"] = binder_preview["weighted_specific_gravity"]
 
     result = calculate_normal_weight_mix(source)
@@ -41,8 +43,12 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
 
     mix = result.setdefault("mix_proportions", {})
     cementitious_total = float(mix.get("cementitious_kg_m3") or 0)
-    binder = allocate_cementitious(list(materials.get("cementitious") or []), cementitious_total)
+    binder = allocate_cementitious(raw_cementitious, cementitious_total)
     warnings.extend(binder.get("warnings", []))
+
+    cementitious_compliance = evaluate_cementitious_compliance(raw_cementitious, durability)
+    warnings.extend(cementitious_compliance.get("warnings", []))
+    binder["durability_compliance"] = cementitious_compliance
 
     raw_admixtures = list(materials.get("admixtures") or [])
     admixture_system = apply_admixtures(
@@ -84,6 +90,8 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["durability_min_strength_mpa"] = durability_min_strength_mpa
     mix["durability_target_air_percent"] = durability_target_air
     mix["cementitious_weighted_specific_gravity"] = binder.get("weighted_specific_gravity")
+    mix["sulfate_exposure_class"] = cementitious_compliance.get("sulfate_exposure_class")
+    mix["cementitious_sulfate_compliance_status"] = cementitious_compliance.get("status")
     mix["admixture_chloride_kg_m3"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_kg_m3")
     mix["admixture_chloride_percent_binder"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_percent_by_mass_cementitious")
     mix["aci_chloride_limit_percent_binder"] = full_chloride.get("aci_limit_percent_by_mass_cementitious")
@@ -92,6 +100,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
 
     result["durability"] = durability
     result["cementitious_system"] = binder
+    result["cementitious_compliance"] = cementitious_compliance
     result["admixture_system"] = admixture_system
     result["admixture_compliance"] = admixture_compliance
     result["chloride_compliance"] = full_chloride
@@ -99,6 +108,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["engineering_notes"] = list(result.get("engineering_notes", [])) + [
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
+        "انطباق سیستم سیمانی با کلاس سولفات S0/S1/S2/S3 بر اساس Designation محصول و مدارک Qualification کنترل شد؛ S3 بدون انتخاب صریح مهندس pass کامل نمی‌گیرد.",
         "آب حامل افزودنی‌های مایع از آب قابل افزودن به بچ کسر و حجم غیرآبی افزودنی در موازنه حجم سنگدانه اعمال شد.",
         "کلراید آب، مواد سیمانی، سنگدانه و افزودنی‌ها تجمیع و با حد حاکم ACI مقایسه شد؛ فقط در صورت کامل بودن داده همه منابع، pass کامل صادر می‌شود.",
         "وجود CaCl2 در شرایط منع‌شده مانند S2/S3 یا بتن پیش‌تنیده موجب fail می‌شود.",
@@ -106,7 +116,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     ]
 
     references = list(result.get("standard_references", []))
-    for group in (admixture_compliance, full_chloride):
+    for group in (cementitious_compliance, admixture_compliance, full_chloride):
         for reference in group.get("references", []):
             if reference not in references:
                 references.append(reference)
@@ -118,6 +128,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["calculation_pipeline"] = [
         "ACI_318_25_durability",
         "cementitious_multi_binder_allocation",
+        "ACI_318_25_sulfate_cementitious_compliance",
         "ACI_PRC_211_1_22_proportioning",
         "chemical_admixture_batch_water_and_volume_correction",
         "ASTM_C494_C260_admixture_compliance",
