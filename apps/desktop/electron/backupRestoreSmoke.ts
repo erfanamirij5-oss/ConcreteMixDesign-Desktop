@@ -42,7 +42,7 @@ async function run() {
 
     const restored = await restoreValidatedBackup(backupPath, activePath, active);
     assert.ok(restored.recoveryPath.includes('.pre-restore-'));
-    assert.throws(() => active.prepare('SELECT 1').get(), /closed/i, 'Restore must close the active SQLite connection before file replacement');
+    assert.throws(() => active.prepare('SELECT 1').get(), /closed|not open/i, 'Restore must close the active SQLite connection before file replacement');
 
     const reopened = new Database(activePath, { readonly: true });
     assert.equal((reopened.prepare('SELECT id FROM projects').get() as { id: string }).id, 'project-before');
