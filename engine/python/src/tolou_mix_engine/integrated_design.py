@@ -6,6 +6,7 @@ from tolou_mix_engine.admixture_compliance import evaluate_admixture_compliance
 from tolou_mix_engine.admixtures import apply_admixtures
 from tolou_mix_engine.aggregate_compliance import evaluate_aggregate_compliance
 from tolou_mix_engine.asr_compliance import evaluate_asr_compliance
+from tolou_mix_engine.blend_optimizer import optimize_aggregate_blend
 from tolou_mix_engine.cementitious import allocate_cementitious
 from tolou_mix_engine.cementitious_compliance import evaluate_cementitious_compliance
 from tolou_mix_engine.chloride_compliance import evaluate_full_chloride_compliance
@@ -51,6 +52,9 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     combined_aggregate = evaluate_combined_aggregate_system(materials, result, source.get("concrete_type"))
     warnings.extend(combined_aggregate.get("warnings", []))
 
+    blend_optimizer = optimize_aggregate_blend(materials, options)
+    warnings.extend(blend_optimizer.get("warnings", []))
+
     mix = result.setdefault("mix_proportions", {})
     cementitious_total = float(mix.get("cementitious_kg_m3") or 0)
     binder = allocate_cementitious(raw_cementitious, cementitious_total)
@@ -86,14 +90,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     warnings.extend(admixture_compliance.get("warnings", []))
     admixture_system["compliance"] = admixture_compliance
 
-    full_chloride = evaluate_full_chloride_compliance(
-        result,
-        binder,
-        admixture_compliance,
-        materials,
-        durability,
-        durability_conditions,
-    )
+    full_chloride = evaluate_full_chloride_compliance(result, binder, admixture_compliance, materials, durability, durability_conditions)
     warnings.extend(full_chloride.get("warnings", []))
     admixture_system["chloride_compliance"] = full_chloride
 
@@ -108,6 +105,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["durability_target_air_percent"] = durability_target_air
     mix["aggregate_compliance_status"] = aggregate_compliance.get("status")
     mix["combined_aggregate_status"] = combined_aggregate.get("status")
+    mix["blend_optimizer_status"] = blend_optimizer.get("status")
     mix["fine_aggregate_share_percent"] = combined_aggregate.get("fine_aggregate_share_percent")
     mix["coarse_aggregate_share_percent"] = combined_aggregate.get("coarse_aggregate_share_percent")
     mix["cementitious_weighted_specific_gravity"] = binder.get("weighted_specific_gravity")
@@ -125,6 +123,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["durability"] = durability
     result["aggregate_compliance"] = aggregate_compliance
     result["combined_aggregate_system"] = combined_aggregate
+    result["aggregate_blend_optimizer"] = blend_optimizer
     result["cementitious_system"] = binder
     result["cementitious_compliance"] = cementitious_compliance
     result["asr_compliance"] = asr_compliance
@@ -137,6 +136,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
         "دانه‌بندی، ASTM C117، خواص فیزیکی، LA Abrasion، ASTM C88 Soundness، مواد زیان‌آور C142/C123 و شکل/بافت سنگدانه با ASTM D4791/D5821 کنترل شد؛ حدود پذیرش وابسته به کاربرد فقط از Specification ثبت‌شده پروژه اعمال می‌شوند و نرم‌افزار حد را حدس نمی‌زند.",
         "اسکلت ترکیبی سنگدانه بر اساس سهم واقعی هر منبع ساخته شد؛ منحنی ترکیبی فقط در الک‌های مشترک محاسبه می‌شود و interpolation پنهانی انجام نمی‌شود.",
+        "Blend Optimizer ترکیب‌های 100٪ را با محدودیت‌های صریح منبع، حدود منحنی ترکیبی و پیوستگی دانه‌بندی رتبه‌بندی می‌کند؛ Score صرفاً مقایسه‌ای است و جایگزین Packing Test یا Trial Mix نیست.",
         "شاخص‌های Fine/Coarse، پیوستگی منحنی و Gap Grading برای Pumpability به‌صورت advisory گزارش می‌شوند؛ Packing Density واقعی بدون آزمون یا Calibration مخلوط سنگدانه ادعا نمی‌شود.",
         "اثر D4791/D5821 بر کارایی و قابلیت پمپاژ فقط به‌صورت advisory گزارش می‌شود؛ تصحیح عددی آب، خمیر یا سهم سنگدانه بدون مدل کالیبره و آزمون مخلوط اعمال نمی‌شود.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
@@ -150,7 +150,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     ]
 
     references = list(result.get("standard_references", []))
-    for group in (aggregate_compliance, combined_aggregate, cementitious_compliance, asr_compliance, water_compliance, admixture_compliance, full_chloride):
+    for group in (aggregate_compliance, combined_aggregate, blend_optimizer, cementitious_compliance, asr_compliance, water_compliance, admixture_compliance, full_chloride):
         for reference in group.get("references", []):
             if reference not in references:
                 references.append(reference)
@@ -163,6 +163,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         "ACI_318_25_durability",
         "ASTM_C33_C136_C117_C127_C128_C29_C131_C535_C88_C142_C123_D4791_D5821_aggregate_compliance",
         "combined_aggregate_skeleton_and_pumpability_advisory",
+        "constrained_ranked_aggregate_blend_optimizer",
         "cementitious_multi_binder_allocation",
         "ACI_318_25_sulfate_cementitious_compliance",
         "ASTM_C1778_ASR_alkali_compliance",
