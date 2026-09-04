@@ -20,11 +20,11 @@ export function AggregateBlendOptimizerView({ mixDesignId }: { mixDesignId: stri
     if (!mixDesignId) { setMaterials([]); setState(emptyState); return; }
     setStatus('loading'); setMessage('');
     try {
-      if (!window.tolouMaterials || !window.tolouAggregateBlendOptimizer) throw new Error('API تنظیمات Blend Optimizer در Electron در دسترس نیست.');
+      if (!window.tolouMaterials || !window.tolouBlendOptimizer) throw new Error('API تنظیمات Blend Optimizer در Electron در دسترس نیست.');
       const materialResponse = await window.tolouMaterials.listByMixDesign(mixDesignId) as { status: string; materials?: Material[]; error?: string };
       if (materialResponse.status === 'fail') throw new Error(materialResponse.error ?? 'خواندن مصالح ناموفق بود.');
       const aggregateMaterials = (materialResponse.materials ?? []).filter(item => item.materialType === 'fine_aggregate' || item.materialType === 'coarse_aggregate');
-      const optimizerResponse = await window.tolouAggregateBlendOptimizer.get(mixDesignId) as { status: string; input?: OptimizerState | null; error?: string };
+      const optimizerResponse = await window.tolouBlendOptimizer.get(mixDesignId) as { status: string; input?: OptimizerState | null; error?: string };
       if (optimizerResponse.status === 'fail') throw new Error(optimizerResponse.error ?? 'خواندن تنظیمات Optimizer ناموفق بود.');
       const stored = optimizerResponse.input;
       setMaterials(aggregateMaterials);
@@ -60,8 +60,8 @@ export function AggregateBlendOptimizerView({ mixDesignId }: { mixDesignId: stri
     if (!mixDesignId) { setStatus('error'); setMessage('ابتدا یک طرح اختلاط ذخیره‌شده را انتخاب کنید.'); return; }
     setStatus('saving'); setMessage('');
     try {
-      if (!window.tolouAggregateBlendOptimizer) throw new Error('API ذخیره Blend Optimizer در دسترس نیست.');
-      const result = await window.tolouAggregateBlendOptimizer.save({ mixDesignId, ...state }) as { status: string; error?: string };
+      if (!window.tolouBlendOptimizer) throw new Error('API ذخیره Blend Optimizer در دسترس نیست.');
+      const result = await window.tolouBlendOptimizer.save({ mixDesignId, ...state }) as { status: string; error?: string };
       if (result.status !== 'pass') throw new Error(result.error ?? 'ذخیره تنظیمات ناموفق بود.');
       setStatus('saved'); setMessage('تنظیمات Blend Optimizer ذخیره شد و در محاسبه بعدی طرح اعمال می‌شود.');
     } catch (error) { setStatus('error'); setMessage(error instanceof Error ? error.message : 'خطای ناشناخته'); }
