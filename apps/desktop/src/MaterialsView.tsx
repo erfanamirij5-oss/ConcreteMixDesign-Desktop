@@ -20,7 +20,7 @@ const asrClasses: Array<{ value: AsrReactivityClass; label: string }> = [
   { value: 'unknown', label: 'نامشخص' }, { value: 'nonreactive', label: 'غیرفعال / Nonreactive' }, { value: 'potentially_reactive', label: 'بالقوه واکنش‌زا' }, { value: 'reactive', label: 'واکنش‌زا' }
 ];
 const asrMethods: Array<{ value: AsrQualificationMethod; label: string }> = [
-  { value: 'astm_c1260', label: 'ASTM C1260 - Mortar Bar' }, { value: 'astm_c1293', label: 'ASTM C1293 - Concrete Prism' }, { value: 'astm_c1567', label: 'ASTM C1567 - Mitigation' }, { value: 'documented_service_record', label: 'سابقه عملکرد مستند' }, { value: 'petrographic_assessment', label: 'ارزیابی پتروگرافی' }, { value: 'engineer_approved', label: 'تأیید مهندس' }
+  { value: 'astm_c1260', label: 'ASTM C1260 - Mortar Bar' }, { value: 'astm_c1293', label: 'ASTM C1293 - Concrete Prism' }, { value: 'astm_c1567', label: 'ASTM C1567 - Mitigation' }, { value: 'documented_service_record', label: 'سابقه عملکرد مستند' }, { value: 'engineer_approved_mitigation', label: 'Mitigation تأییدشده توسط مهندس' }
 ];
 const subtypes: Array<{ value: MaterialSubtype; label: string; types: MaterialType[] }> = [
   { value: 'portland_cement', label: 'سیمان پرتلند', types: ['cement'] }, { value: 'blended_cement', label: 'سیمان آمیخته', types: ['cement'] },
