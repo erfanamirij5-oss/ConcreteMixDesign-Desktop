@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AggregateBlendOptimizerView } from './AggregateBlendOptimizerView';
 import { AggregateBlendResults } from './AggregateBlendResults';
+import { DashboardHome } from './DashboardHome';
 import { DurabilityView } from './DurabilityView';
 import { EngineeringSystemsResults } from './EngineeringSystemsResults';
 import { GradationView } from './GradationView';
@@ -45,8 +46,7 @@ const initialProject: ProjectIntake = {
   mixDesign: { concreteType: 'normal_weight', targetStrengthMpa: 35, requiredSlumpMm: 100, maxAggregateSizeMm: 19, exposureSummary: 'شرایط دوام با ماژول ACI 318-25 تکمیل شود.' }
 };
 
-const modules = ['مشخصات پروژه', 'آزمایشگاه و طراح', 'انتخاب نوع بتن', 'مصالح و منابع', 'دانه‌بندی سنگدانه', 'بهینه‌سازی ترکیب سنگدانه', 'دوام و پایایی', 'محاسبات طرح اختلاط', 'گزارش و مگاپرامپت'];
-const standards = ['ACI PRC-211.1-22 - تناسب اجزای بتن', 'ACI CODE-318-25 - دوام و کلاس مواجهه', 'ACI 201.2R - دوام بتن', 'ACI 301 - الزامات اجرایی', 'ASTM C33 / C136 - سنگدانه و دانه‌بندی'];
+const modules = ['داشبورد مدیریت', 'ثبت طرح جدید', 'مصالح و منابع', 'دانه‌بندی سنگدانه', 'بهینه‌سازی ترکیب سنگدانه', 'دوام و پایایی', 'محاسبات طرح اختلاط', 'Trial Mix (بعدی)', 'گزارش (بعدی)'];
 
 export function App() {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
@@ -61,21 +61,30 @@ export function App() {
   const [saveMessage, setSaveMessage] = useState('');
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
-  const kpis = useMemo(() => [
-    { label: 'طرح‌های ذخیره‌شده', value: String(recentProjects.length), hint: 'آرشیو محلی SQLite', tone: 'blue' },
-    { label: 'وضعیت موتور مهندسی', value: engineState === 'ready' ? 'متصل' : engineState === 'error' ? 'خطا' : 'آماده تست', hint: 'Python Engine', tone: engineState === 'error' ? 'red' : 'green' },
-    { label: 'استانداردهای فعال', value: 'ACI', hint: '211.1-22 + 318-25', tone: 'orange' },
-    { label: 'طرح فعال', value: activeMixDesignId ? 'انتخاب شد' : 'ندارد', hint: 'برای مصالح، دوام و محاسبه لازم است', tone: activeMixDesignId ? 'purple' : 'red' }
-  ], [activeMixDesignId, engineState, recentProjects.length]);
+  useEffect(() => {
+    void refreshProjects();
+  }, []);
+
+  async function refreshProjects() {
+    try {
+      if (!window.tolouProjects?.listRecent) return;
+      const recent = await window.tolouProjects.listRecent() as { status: string; projects?: RecentProject[] };
+      if (recent.status === 'pass') setRecentProjects(recent.projects ?? []);
+    } catch {
+      // Dashboard stays usable even if project listing cannot be loaded yet.
+    }
+  }
 
   async function checkEngine() {
     setEngineState('checking'); setEngineError(null);
     try {
       if (!window.tolouEngine) throw new Error('Electron preload API در دسترس نیست. برنامه باید داخل Electron اجرا شود.');
       const health = await window.tolouEngine.health() as EngineResult;
-      const sampleMix = await window.tolouEngine.calculateNormalMix({ requirements: { target_strength_mpa: projectIntake.mixDesign.targetStrengthMpa, slump_mm: projectIntake.mixDesign.requiredSlumpMm, max_aggregate_size_mm: projectIntake.mixDesign.maxAggregateSizeMm, w_cm_ratio: 0.45 } }) as EngineResult;
-      setEngineResult({ ...sampleMix, engine: health.engine, version: health.version, message: health.message }); setEngineState('ready');
-    } catch (error) { setEngineError(error instanceof Error ? error.message : 'خطای ناشناخته در ارتباط با موتور Python'); setEngineState('error'); }
+      setEngineResult(health); setEngineState('ready');
+    } catch (error) {
+      setEngineError(error instanceof Error ? error.message : 'خطای ناشناخته در ارتباط با موتور Python');
+      setEngineState('error');
+    }
   }
 
   async function calculateSavedMix() {
@@ -85,7 +94,10 @@ export function App() {
       if (!window.tolouEngine?.calculateSavedMix) throw new Error('مسیر محاسبه طرح ذخیره‌شده در Electron در دسترس نیست.');
       const result = await window.tolouEngine.calculateSavedMix(activeMixDesignId) as EngineResult;
       setEngineResult(result); setCalculationState('done'); setEngineState('ready');
-    } catch (error) { setCalculationError(error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده'); setCalculationState('error'); }
+    } catch (error) {
+      setCalculationError(error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده');
+      setCalculationState('error');
+    }
   }
 
   async function saveProject() {
@@ -94,25 +106,65 @@ export function App() {
       if (!window.tolouProjects) throw new Error('API ذخیره پروژه در دسترس نیست. برنامه باید داخل Electron اجرا شود.');
       const result = await window.tolouProjects.saveIntake(projectIntake) as SaveProjectResponse;
       if (result.status !== 'pass' || !result.mixDesignId) throw new Error(result.error ?? 'ذخیره پروژه ناموفق بود.');
-      const recent = await window.tolouProjects.listRecent() as { status: string; projects?: RecentProject[] };
-      setRecentProjects(recent.projects ?? []); setActiveMixDesignId(result.mixDesignId); setEngineResult(null); setCalculationState('idle'); setSaveStatus('saved'); setSaveMessage(`پروژه ذخیره شد. کد طرح: ${result.mixDesignId}`); setActiveView('materials');
-    } catch (error) { setSaveStatus('error'); setSaveMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره پروژه'); }
+      await refreshProjects();
+      setActiveMixDesignId(result.mixDesignId); setEngineResult(null); setCalculationState('idle'); setSaveStatus('saved');
+      setSaveMessage(`پروژه ذخیره شد. کد طرح: ${result.mixDesignId}`); setActiveView('materials');
+    } catch (error) {
+      setSaveStatus('error'); setSaveMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ذخیره پروژه');
+    }
   }
 
-  function updateProject<K extends keyof ProjectIntake>(section: K, key: keyof ProjectIntake[K], value: string | number) { setProjectIntake(previous => ({ ...previous, [section]: { ...previous[section], [key]: value } })); }
+  function openProject(id: string) {
+    setActiveMixDesignId(id); setEngineResult(null); setCalculationState('idle'); setActiveView('materials');
+  }
+
+  function updateProject<K extends keyof ProjectIntake>(section: K, key: keyof ProjectIntake[K], value: string | number) {
+    setProjectIntake(previous => ({ ...previous, [section]: { ...previous[section], [key]: value } }));
+  }
 
   return <div className="app-shell">
-    <header className="header"><div className="header-top"><div className="brand"><div className="brand-icon">ط</div><div><strong>طلوع بتن</strong><small>TOLOU CONCRETE MIX DESIGN</small></div></div><div className="module-title"><h1>نرم‌افزار جامع طرح اختلاط انواع بتن</h1><p>طراحی، کنترل دوام، تحلیل دانه‌بندی، گزارش PDF و مگاپرامپت مهندسی</p></div><div className="header-actions"><button>راهنما</button><button>گزارش</button></div></div><div className="header-bottom"><span>ConcreteMixDesign-Desktop / فاز اجرایی اولیه</span><div className="badges"><span className="badge green">Python Engine</span><span className="badge blue">SQLite</span><span className="badge orange">Engine 0.3.0</span></div></div></header>
-    <nav className="top-nav"><button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button><button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>پروژه جدید</button><button className={activeView === 'materials' ? 'active' : ''} onClick={() => setActiveView('materials')}>مصالح</button><button className={activeView === 'gradation' ? 'active' : ''} onClick={() => setActiveView('gradation')}>دانه‌بندی</button><button className={activeView === 'aggregate-blend' ? 'active' : ''} onClick={() => setActiveView('aggregate-blend')}>Blend Optimizer</button><button className={activeView === 'durability' ? 'active' : ''} onClick={() => setActiveView('durability')}>دوام</button><button className={activeView === 'results' ? 'active' : ''} onClick={() => setActiveView('results')}>نتایج</button><button>گزارش</button></nav>
-    <div className="page-grid"><aside className="sidebar"><div className="sidebar-title">ساختار نرم‌افزار</div>{modules.map((item, index) => <button className={sidebarClass(index, activeView)} key={item}><span><b className="ico">{index + 1}</b>{item}</span><span>›</span></button>)}<div className="note"><b>اصل مهندسی</b><br />هیچ خروجی بدون استاندارد، فرضیه، هشدار و قابلیت ردیابی معتبر نیست.</div></aside>
-      <main className="workspace">{activeView === 'dashboard' && <Dashboard kpis={kpis} engineState={engineState} engineResult={engineResult} engineError={engineError} recentProjects={recentProjects} onCheckEngine={checkEngine} onNewProject={() => setActiveView('new-project')} onSelectProject={(id) => { setActiveMixDesignId(id); setEngineResult(null); setCalculationState('idle'); setActiveView('materials'); }} />}{activeView === 'new-project' && <ProjectForm projectIntake={projectIntake} saveStatus={saveStatus} saveMessage={saveMessage} onUpdate={updateProject} onSave={saveProject} />}{activeView === 'materials' && <MaterialsView mixDesignId={activeMixDesignId} />}{activeView === 'gradation' && <GradationView mixDesignId={activeMixDesignId} />}{activeView === 'aggregate-blend' && <AggregateBlendOptimizerView mixDesignId={activeMixDesignId} />}{activeView === 'durability' && <DurabilityView mixDesignId={activeMixDesignId} maxAggregateSizeMm={projectIntake.mixDesign.maxAggregateSizeMm} />}{activeView === 'results' && <ResultsView mixDesignId={activeMixDesignId} result={engineResult} state={calculationState} error={calculationError} onCalculate={calculateSavedMix} />}</main>
+    <header className="header">
+      <div className="header-top">
+        <div className="brand"><div className="brand-icon">ط</div><div><strong>طلوع بتن</strong><small>TOLOU CONCRETE MIX DESIGN</small></div></div>
+        <div className="module-title"><h1>سامانه مهندسی و مدیریت طرح اختلاط بتن</h1><p>مدیریت پرونده طرح، مصالح، دوام، محاسبات و کنترل مهندسی</p></div>
+        <div className="header-actions"><button disabled>راهنما — در دست توسعه</button></div>
+      </div>
+      <div className="header-bottom"><span>ConcreteMixDesign-Desktop / Management v0.4 Development</span><div className="badges"><span className="badge green">Python Engine</span><span className="badge blue">SQLite</span><span className="badge orange">Core 0.3.0</span></div></div>
+    </header>
+    <nav className="top-nav">
+      <button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button>
+      <button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>ثبت طرح جدید</button>
+      <button className={activeView === 'materials' ? 'active' : ''} onClick={() => setActiveView('materials')}>مصالح</button>
+      <button className={activeView === 'gradation' ? 'active' : ''} onClick={() => setActiveView('gradation')}>دانه‌بندی</button>
+      <button className={activeView === 'aggregate-blend' ? 'active' : ''} onClick={() => setActiveView('aggregate-blend')}>Blend Optimizer</button>
+      <button className={activeView === 'durability' ? 'active' : ''} onClick={() => setActiveView('durability')}>دوام</button>
+      <button className={activeView === 'results' ? 'active' : ''} onClick={() => setActiveView('results')}>نتایج</button>
+    </nav>
+    <div className="page-grid">
+      <aside className="sidebar"><div className="sidebar-title">مرکز عملیات</div>{modules.map((item, index) => <button className={sidebarClass(index, activeView)} key={item}><span><b className="ico">{index + 1}</b>{item}</span><span>›</span></button>)}<div className="note"><b>اصل مهندسی</b><br />هیچ خروجی بدون استاندارد، فرضیه، هشدار و قابلیت ردیابی معتبر نیست.</div></aside>
+      <main className="workspace">
+        {activeView === 'dashboard' && <DashboardHome projects={recentProjects} engineState={engineState} activeMixDesignId={activeMixDesignId} onCheckEngine={checkEngine} onNewProject={() => setActiveView('new-project')} onOpenProject={openProject} />}
+        {activeView === 'new-project' && <ProjectForm projectIntake={projectIntake} saveStatus={saveStatus} saveMessage={saveMessage} onUpdate={updateProject} onSave={saveProject} />}
+        {activeView === 'materials' && <MaterialsView mixDesignId={activeMixDesignId} />}
+        {activeView === 'gradation' && <GradationView mixDesignId={activeMixDesignId} />}
+        {activeView === 'aggregate-blend' && <AggregateBlendOptimizerView mixDesignId={activeMixDesignId} />}
+        {activeView === 'durability' && <DurabilityView mixDesignId={activeMixDesignId} maxAggregateSizeMm={projectIntake.mixDesign.maxAggregateSizeMm} />}
+        {activeView === 'results' && <ResultsView mixDesignId={activeMixDesignId} result={engineResult} state={calculationState} error={calculationError} onCalculate={calculateSavedMix} />}
+      </main>
     </div>
   </div>;
 }
 
-function sidebarClass(index: number, activeView: ActiveView) { if (activeView === 'materials' && index === 3) return 'side active'; if (activeView === 'gradation' && index === 4) return 'side active'; if (activeView === 'aggregate-blend' && index === 5) return 'side active'; if (activeView === 'durability' && index === 6) return 'side active'; if (activeView === 'results' && index === 7) return 'side active'; if ((activeView === 'dashboard' || activeView === 'new-project') && index === 0) return 'side active'; return 'side'; }
-
-function Dashboard(props: { kpis: Array<{ label: string; value: string; hint: string; tone: string }>; engineState: EngineState; engineResult: EngineResult | null; engineError: string | null; recentProjects: RecentProject[]; onCheckEngine: () => void; onNewProject: () => void; onSelectProject: (mixDesignId: string) => void; }) { return <><section className="titlebar"><div><h2>داشبورد مدیریتی طرح‌های اختلاط</h2><p>مدیریت پروژه‌ها، وضعیت محاسبات، دوام، گزارش‌ها و موتور مهندسی</p></div><div className="toolbar"><button className="btn primary" onClick={props.onNewProject}>طرح جدید</button><button className="btn success" disabled={props.engineState === 'checking'} onClick={props.onCheckEngine}>{props.engineState === 'checking' ? 'در حال تست...' : 'تست موتور Python'}</button></div></section><section className="kpis">{props.kpis.map(kpi => <article className={`kpi ${kpi.tone}`} key={kpi.label}><label>{kpi.label}</label><strong>{kpi.value}</strong><small>{kpi.hint}</small></article>)}</section><section className="content-grid"><article className="panel"><div className="panel-head"><div><h3>استانداردهای هسته اولیه</h3><span>قابل توسعه و قابل ردیابی</span></div></div><div className="panel-body standards-list">{standards.map(item => <div key={item}>✓ {item}</div>)}</div></article><article className="panel"><div className="panel-head"><div><h3>آخرین پروژه‌های ذخیره‌شده</h3><span>برای افزودن مصالح روی پروژه کلیک کنید</span></div></div><div className="panel-body standards-list">{props.recentProjects.length === 0 && <div>هنوز پروژه‌ای ذخیره نشده است.</div>}{props.recentProjects.map(project => <button className="list-button" key={project.mixDesignId} onClick={() => props.onSelectProject(project.mixDesignId)}>✓ {project.projectName} - {project.city} - {project.targetStrengthMpa} MPa</button>)}</div></article><article className="panel wide-panel"><div className="panel-head"><div><h3>وضعیت اتصال به موتور Python</h3><span>خروجی واقعی از IPC و Engine</span></div><span className={`badge ${props.engineState === 'ready' ? 'green' : props.engineState === 'error' ? 'red' : 'orange'}`}>{props.engineState === 'ready' ? 'Connected' : props.engineState === 'error' ? 'Error' : 'Ready to test'}</span></div><div className="panel-body alerts">{props.engineError && <div className="alert danger">{props.engineError}</div>}{!props.engineResult && !props.engineError && <div className="alert info">برای تست ارتباط، روی دکمه «تست موتور Python» کلیک کنید.</div>}{props.engineResult && <><div className="alert ok">{props.engineResult.message ?? 'موتور Python پاسخ معتبر داد.'}</div><div className="result-grid"><div><label>آب تخمینی</label><strong>{displayValue(props.engineResult.mix_proportions?.water_kg_m3)} kg/m³</strong></div><div><label>مواد سیمانی</label><strong>{displayValue(props.engineResult.mix_proportions?.cementitious_kg_m3)} kg/m³</strong></div><div><label>w/cm</label><strong>{displayValue(props.engineResult.mix_proportions?.w_cm_ratio)}</strong></div></div><div className="alert warn">این بخش فقط تست اتصال موتور است؛ محاسبه پروژه واقعی از صفحه «نتایج» انجام می‌شود.</div></>}</div></article></section></>; }
+function sidebarClass(index: number, activeView: ActiveView) {
+  if (activeView === 'dashboard' && index === 0) return 'side active';
+  if (activeView === 'new-project' && index === 1) return 'side active';
+  if (activeView === 'materials' && index === 2) return 'side active';
+  if (activeView === 'gradation' && index === 3) return 'side active';
+  if (activeView === 'aggregate-blend' && index === 4) return 'side active';
+  if (activeView === 'durability' && index === 5) return 'side active';
+  if (activeView === 'results' && index === 6) return 'side active';
+  return 'side';
+}
 
 function ResultsView(props: { mixDesignId: string | null; result: EngineResult | null; state: CalculationState; error: string | null; onCalculate: () => void; }) {
   const mix = props.result?.mix_proportions; const warnings = props.result?.warnings ?? []; const aggregateRows = props.result?.aggregate_analysis ?? []; const exposure = props.result?.durability?.exposure_classes;
@@ -129,10 +181,13 @@ function ResultsView(props: { mixDesignId: string | null; result: EngineResult |
   </>;
 }
 
-function ProjectForm(props: { projectIntake: ProjectIntake; saveStatus: 'idle' | 'saving' | 'saved' | 'error'; saveMessage: string; onUpdate: <K extends keyof ProjectIntake>(section: K, key: keyof ProjectIntake[K], value: string | number) => void; onSave: () => void; }) { const { projectIntake, onUpdate } = props; return <><section className="titlebar"><div><h2>پروژه جدید طرح اختلاط</h2><p>ثبت اطلاعات پایه‌ای که در تمام محاسبات، گزارش PDF و آرشیو پروژه استفاده می‌شود</p></div><div className="toolbar"><button className="btn success" disabled={props.saveStatus === 'saving'} onClick={props.onSave}>{props.saveStatus === 'saving' ? 'در حال ذخیره...' : 'ذخیره و رفتن به مصالح'}</button></div></section>{props.saveMessage && <div className={`alert ${props.saveStatus === 'error' ? 'danger' : 'ok'}`}>{props.saveMessage}</div>}<section className="form-grid"><FormPanel title="مشخصات پروژه" subtitle="اطلاعات اجرایی و قراردادی پروژه"><Field label="نام پروژه" value={projectIntake.project.projectName} onChange={value => onUpdate('project', 'projectName', value)} /><Field label="شهر" value={projectIntake.project.city} onChange={value => onUpdate('project', 'city', value)} /><Field label="نوع سازه" value={projectIntake.project.structureType} onChange={value => onUpdate('project', 'structureType', value)} /><Field label="عضو بتنی" value={projectIntake.project.elementType} onChange={value => onUpdate('project', 'elementType', value)} /><Field label="کارفرما" value={projectIntake.project.clientName} onChange={value => onUpdate('project', 'clientName', value)} /><Field label="پیمانکار" value={projectIntake.project.contractorName} onChange={value => onUpdate('project', 'contractorName', value)} /><Field label="مشاور" value={projectIntake.project.consultantName} onChange={value => onUpdate('project', 'consultantName', value)} /><TextArea label="توضیحات موقعیت و شرایط پروژه" value={projectIntake.project.locationDescription} onChange={value => onUpdate('project', 'locationDescription', value)} /></FormPanel><FormPanel title="آزمایشگاه و طراح" subtitle="برای امضا، گزارش و ردیابی مسئولیت فنی"><Field label="نام آزمایشگاه" value={projectIntake.laboratory.labName} onChange={value => onUpdate('laboratory', 'labName', value)} /><Field label="شماره مجوز آزمایشگاه" value={projectIntake.laboratory.licenseNumber} onChange={value => onUpdate('laboratory', 'licenseNumber', value)} /><Field label="آدرس آزمایشگاه" value={projectIntake.laboratory.address} onChange={value => onUpdate('laboratory', 'address', value)} /><Field label="تلفن آزمایشگاه" value={projectIntake.laboratory.phone} onChange={value => onUpdate('laboratory', 'phone', value)} /><Field label="نام طراح" value={projectIntake.designer.fullName} onChange={value => onUpdate('designer', 'fullName', value)} /><Field label="سمت طراح" value={projectIntake.designer.role} onChange={value => onUpdate('designer', 'role', value)} /><Field label="شماره نظام/عضویت" value={projectIntake.designer.licenseOrMembershipNumber} onChange={value => onUpdate('designer', 'licenseOrMembershipNumber', value)} /><Field label="موبایل طراح" value={projectIntake.designer.phone} onChange={value => onUpdate('designer', 'phone', value)} /></FormPanel><FormPanel title="مشخصات اولیه طرح" subtitle="ورودی‌های پایه برای موتور محاسبات"><SelectField label="نوع بتن" value={projectIntake.mixDesign.concreteType} onChange={value => onUpdate('mixDesign', 'concreteType', value)} /><NumberField label="مقاومت هدف MPa" value={projectIntake.mixDesign.targetStrengthMpa} onChange={value => onUpdate('mixDesign', 'targetStrengthMpa', value)} /><NumberField label="اسلامپ مورد نیاز mm" value={projectIntake.mixDesign.requiredSlumpMm} onChange={value => onUpdate('mixDesign', 'requiredSlumpMm', value)} /><NumberField label="حداکثر اندازه سنگدانه mm" value={projectIntake.mixDesign.maxAggregateSizeMm} onChange={value => onUpdate('mixDesign', 'maxAggregateSizeMm', value)} /><TextArea label="خلاصه شرایط دوام و مواجهه" value={projectIntake.mixDesign.exposureSummary} onChange={value => onUpdate('mixDesign', 'exposureSummary', value)} /></FormPanel></section></>; }
+function ProjectForm(props: { projectIntake: ProjectIntake; saveStatus: 'idle' | 'saving' | 'saved' | 'error'; saveMessage: string; onUpdate: <K extends keyof ProjectIntake>(section: K, key: keyof ProjectIntake[K], value: string | number) => void; onSave: () => void; }) {
+  const { projectIntake, onUpdate } = props;
+  return <><section className="titlebar"><div><h2>ثبت طرح اختلاط جدید</h2><p>ایجاد پرونده پایه؛ پس از ذخیره، مصالح، دانه‌بندی، دوام و محاسبات همین طرح تکمیل می‌شود.</p></div><div className="toolbar"><button className="btn success" disabled={props.saveStatus === 'saving'} onClick={props.onSave}>{props.saveStatus === 'saving' ? 'در حال ذخیره...' : 'ذخیره و رفتن به مصالح'}</button></div></section>{props.saveMessage && <div className={`alert ${props.saveStatus === 'error' ? 'danger' : 'ok'}`}>{props.saveMessage}</div>}<section className="form-grid"><FormPanel title="مشخصات پروژه" subtitle="اطلاعات اجرایی و قراردادی پروژه"><Field label="نام پروژه" value={projectIntake.project.projectName} onChange={value => onUpdate('project', 'projectName', value)} /><Field label="شهر" value={projectIntake.project.city} onChange={value => onUpdate('project', 'city', value)} /><Field label="نوع سازه" value={projectIntake.project.structureType} onChange={value => onUpdate('project', 'structureType', value)} /><Field label="عضو بتنی" value={projectIntake.project.elementType} onChange={value => onUpdate('project', 'elementType', value)} /><Field label="کارفرما" value={projectIntake.project.clientName} onChange={value => onUpdate('project', 'clientName', value)} /><Field label="پیمانکار" value={projectIntake.project.contractorName} onChange={value => onUpdate('project', 'contractorName', value)} /><Field label="مشاور" value={projectIntake.project.consultantName} onChange={value => onUpdate('project', 'consultantName', value)} /><TextArea label="توضیحات موقعیت و شرایط پروژه" value={projectIntake.project.locationDescription} onChange={value => onUpdate('project', 'locationDescription', value)} /></FormPanel><FormPanel title="آزمایشگاه و طراح" subtitle="برای ردیابی مسئولیت فنی"><Field label="نام آزمایشگاه" value={projectIntake.laboratory.labName} onChange={value => onUpdate('laboratory', 'labName', value)} /><Field label="شماره مجوز آزمایشگاه" value={projectIntake.laboratory.licenseNumber} onChange={value => onUpdate('laboratory', 'licenseNumber', value)} /><Field label="آدرس آزمایشگاه" value={projectIntake.laboratory.address} onChange={value => onUpdate('laboratory', 'address', value)} /><Field label="تلفن آزمایشگاه" value={projectIntake.laboratory.phone} onChange={value => onUpdate('laboratory', 'phone', value)} /><Field label="نام طراح" value={projectIntake.designer.fullName} onChange={value => onUpdate('designer', 'fullName', value)} /><Field label="سمت طراح" value={projectIntake.designer.role} onChange={value => onUpdate('designer', 'role', value)} /><Field label="شماره نظام/عضویت" value={projectIntake.designer.licenseOrMembershipNumber} onChange={value => onUpdate('designer', 'licenseOrMembershipNumber', value)} /><Field label="موبایل طراح" value={projectIntake.designer.phone} onChange={value => onUpdate('designer', 'phone', value)} /></FormPanel><FormPanel title="مشخصات اولیه طرح" subtitle="ورودی‌های پایه برای موتور محاسبات"><SelectField label="نوع بتن" value={projectIntake.mixDesign.concreteType} onChange={value => onUpdate('mixDesign', 'concreteType', value)} /><NumberField label="مقاومت هدف MPa" value={projectIntake.mixDesign.targetStrengthMpa} onChange={value => onUpdate('mixDesign', 'targetStrengthMpa', value)} /><NumberField label="اسلامپ مورد نیاز mm" value={projectIntake.mixDesign.requiredSlumpMm} onChange={value => onUpdate('mixDesign', 'requiredSlumpMm', value)} /><NumberField label="حداکثر اندازه سنگدانه mm" value={projectIntake.mixDesign.maxAggregateSizeMm} onChange={value => onUpdate('mixDesign', 'maxAggregateSizeMm', value)} /><TextArea label="خلاصه شرایط دوام و مواجهه" value={projectIntake.mixDesign.exposureSummary} onChange={value => onUpdate('mixDesign', 'exposureSummary', value)} /></FormPanel></section></>;
+}
 function FormPanel(props: { title: string; subtitle: string; children: ReactNode }) { return <article className="panel form-panel"><div className="panel-head"><div><h3>{props.title}</h3><span>{props.subtitle}</span></div></div><div className="panel-body form-body">{props.children}</div></article>; }
 function Field(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field"><span>{props.label}</span><input value={props.value} onChange={event => props.onChange(event.target.value)} /></label>; }
 function NumberField(props: { label: string; value: number; onChange: (value: number) => void }) { return <label className="field"><span>{props.label}</span><input type="number" value={props.value} onChange={event => props.onChange(Number(event.target.value))} /></label>; }
 function TextArea(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field full"><span>{props.label}</span><textarea value={props.value} onChange={event => props.onChange(event.target.value)} /></label>; }
-function SelectField(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field"><span>{props.label}</span><select value={props.value} onChange={event => props.onChange(event.target.value)}><option value="normal_weight">بتن معمولی</option><option value="high_strength">بتن پرمقاومت</option><option value="self_consolidating">بتن خودتراکم</option><option value="mass_concrete">بتن حجیم</option><option value="lightweight">بتن سبک</option><option value="heavyweight">بتن سنگین</option><option value="fiber_reinforced">بتن الیافی</option><option value="pumped">بتن پمپی</option></select></label>; }
+function SelectField(props: { label: string; value: string; onChange: (value: string) => void }) { return <label className="field"><span>{props.label}</span><select value={props.value} onChange={event => props.onChange(event.target.value)}><option value="normal_weight">بتن معمولی</option><option value="pumped">بتن پمپی</option><option disabled>— انواع تخصصی در نسخه‌های بعد —</option><option value="high_strength" disabled>بتن پرمقاومت — در دست توسعه</option><option value="self_consolidating" disabled>بتن خودتراکم — در دست توسعه</option><option value="mass_concrete" disabled>بتن حجیم — در دست توسعه</option><option value="lightweight" disabled>بتن سبک — در دست توسعه</option><option value="heavyweight" disabled>بتن سنگین — در دست توسعه</option><option value="fiber_reinforced" disabled>بتن الیافی — در دست توسعه</option></select></label>; }
 function displayValue(value: number | null | undefined) { return value === null || value === undefined ? '-' : String(value); }
