@@ -73,6 +73,9 @@ jobs:
       - name: Trial completion workflow database gate smoke test
         run: node dist/electron/trialWorkflowSmoke.js
 
+      - name: Report Center snapshot immutability smoke test
+        run: node dist/electron/reportCenterSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
@@ -132,15 +135,16 @@ jobs:
           $migration018 = 'release/win-unpacked/database/migrations/018_mix_design_engineering_identity.sql'
           $migration019 = 'release/win-unpacked/database/migrations/019_professional_material_library.sql'
           $migration020 = 'release/win-unpacked/database/migrations/020_minimum_trial_mix.sql'
+          $migration021 = 'release/win-unpacked/database/migrations/021_report_center_snapshots.sql'
           if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
-          foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019, $migration020)) {
+          foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019, $migration020, $migration021)) {
             if (-not (Test-Path $migration)) { throw "Required database migration is missing from packaged application: $migration" }
           }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
-          Write-Host 'Packaged migration chain verified through migration 020.'
+          Write-Host 'Packaged migration chain verified through migration 021.'
 
       - name: Verify installer artifact
         shell: pwsh
