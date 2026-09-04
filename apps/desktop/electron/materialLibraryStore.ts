@@ -60,6 +60,15 @@ export function saveMaterialLibraryRecord(database: Database.Database, input: Ma
   return getMaterialLibraryRecord(database, id);
 }
 
+export function setMaterialLibraryStatus(database: Database.Database, id: string, status: MaterialLibraryStatus) {
+  if (!id.trim()) throw new Error('شناسه رکورد Library الزامی است.');
+  if (!['active', 'expired', 'inactive'].includes(status)) throw new Error('وضعیت Library معتبر نیست.');
+  const existing = database.prepare('SELECT id FROM material_library WHERE id = ?').get(id);
+  if (!existing) throw new Error('رکورد کتابخانه مصالح پیدا نشد.');
+  database.prepare('UPDATE material_library SET status = ?, updated_at = ? WHERE id = ?').run(status, new Date().toISOString(), id);
+  return getMaterialLibraryRecord(database, id);
+}
+
 export function listMaterialLibraryRecords(database: Database.Database, materialType?: MaterialLibraryType) {
   const rows = materialType
     ? database.prepare('SELECT * FROM material_library WHERE material_type = ? ORDER BY name').all(materialType)
@@ -116,6 +125,10 @@ export function saveLibraryMaterial(input: MaterialLibraryInput) {
   return saveMaterialLibraryRecord(getDatabase(), input);
 }
 
+export function changeLibraryMaterialStatus(id: string, status: MaterialLibraryStatus) {
+  return setMaterialLibraryStatus(getDatabase(), id, status);
+}
+
 export function listLibraryMaterials(materialType?: MaterialLibraryType) {
   return listMaterialLibraryRecords(getDatabase(), materialType);
 }
@@ -128,6 +141,7 @@ function validateLibraryInput(input: MaterialLibraryInput) {
   const allowed = new Set<MaterialLibraryType>(['cement', 'scm', 'fine_aggregate', 'coarse_aggregate', 'water', 'admixture']);
   if (!allowed.has(input.materialType)) throw new Error('نوع ماده Library معتبر نیست.');
   if (!input.name?.trim()) throw new Error('نام ماده در Library الزامی است.');
+  if (input.status && !['active', 'expired', 'inactive'].includes(input.status)) throw new Error('وضعیت Library معتبر نیست.');
   if (input.testDate && Number.isNaN(Date.parse(input.testDate))) throw new Error('تاریخ آزمایش معتبر نیست.');
   if (input.validUntil && Number.isNaN(Date.parse(input.validUntil))) throw new Error('تاریخ اعتبار معتبر نیست.');
   if (input.testDate && input.validUntil && Date.parse(input.validUntil) < Date.parse(input.testDate)) throw new Error('تاریخ پایان اعتبار نمی‌تواند قبل از تاریخ آزمایش باشد.');
