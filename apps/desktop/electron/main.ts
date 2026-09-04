@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
-import { archiveMixDesign, createNewMixDesignRevision, getMixDesignManagementRecord, listMixDesignRevisionHistory, updateMixDesignBasics } from './mixDesignRevisionStore';
+import { archiveMixDesign, createNewMixDesignRevision, duplicateMixDesign, getAllowedNextStatuses, getMixDesignManagementRecord, listMixDesignRevisionHistory, restoreMixDesign, transitionMixDesignStatus, updateMixDesignBasics } from './mixDesignRevisionStore';
 import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
 
@@ -18,13 +18,8 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 760,
     title: 'طلوع بتن | نرم‌افزار جامع طرح اختلاط',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
-
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 }
@@ -35,22 +30,13 @@ ipcMain.handle('engine:evaluate-durability', async (_event, payload: DurabilityE
   try {
     const normalized: DurabilityEvaluationPayload = { ...(payload ?? {}) };
     const mixDesignId = typeof normalized.mix_design_id === 'string' ? normalized.mix_design_id.trim() : '';
-    if (mixDesignId) {
-      const savedPayload = buildNormalMixPayload(mixDesignId);
-      normalized.max_aggregate_size_mm = savedPayload.requirements.max_aggregate_size_mm;
-    }
+    if (mixDesignId) normalized.max_aggregate_size_mm = buildNormalMixPayload(mixDesignId).requirements.max_aggregate_size_mm;
     return await runPythonCommand('evaluate-durability', normalized);
-  } catch (error) {
-    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در تحلیل دوام طرح ذخیره‌شده' };
-  }
+  } catch (error) { return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در تحلیل دوام طرح ذخیره‌شده' }; }
 });
 ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string) => {
-  try {
-    const payload = buildNormalMixPayload(mixDesignId);
-    return await runPythonCommand('calculate-normal-mix', payload);
-  } catch (error) {
-    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده' };
-  }
+  try { return await runPythonCommand('calculate-normal-mix', buildNormalMixPayload(mixDesignId)); }
+  catch (error) { return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در محاسبه طرح ذخیره‌شده' }; }
 });
 
 ipcMain.handle('projects:save-intake', async (_event, payload) => safeCall(() => saveProjectIntake(payload), 'خطای ناشناخته در ذخیره پروژه'));
@@ -59,7 +45,11 @@ ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: s
 ipcMain.handle('mix-design:update-basics', async (_event, payload) => safeCall(() => updateMixDesignBasics(payload), 'خطای ناشناخته در ویرایش مشخصات طرح'));
 ipcMain.handle('mix-design:create-revision', async (_event, payload) => safeCall(() => createNewMixDesignRevision(payload), 'خطای ناشناخته در ایجاد Revision'));
 ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', history: listMixDesignRevisionHistory(mixDesignId) }), 'خطای ناشناخته در خواندن تاریخچه Revision'));
+ipcMain.handle('mix-design:allowed-statuses', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', workflow: getAllowedNextStatuses(mixDesignId) }), 'خطای ناشناخته در خواندن گردش وضعیت'));
+ipcMain.handle('mix-design:transition-status', async (_event, payload) => safeCall(() => transitionMixDesignStatus(payload), 'خطای ناشناخته در تغییر وضعیت طرح'));
+ipcMain.handle('mix-design:duplicate', async (_event, payload) => safeCall(() => duplicateMixDesign(payload), 'خطای ناشناخته در Duplicate طرح'));
 ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => archiveMixDesign(mixDesignId, actorName), 'خطای ناشناخته در بایگانی طرح'));
+ipcMain.handle('mix-design:restore', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => restoreMixDesign(mixDesignId, actorName), 'خطای ناشناخته در بازیابی طرح از بایگانی'));
 ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => saveMaterial(payload), 'خطای ناشناخته در ذخیره مصالح'));
 ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) }), 'خطای ناشناخته در خواندن مصالح'));
 ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => saveGradation(payload), 'خطای ناشناخته در ذخیره دانه‌بندی'));
@@ -70,28 +60,15 @@ ipcMain.handle('durability:save', async (_event, payload) => safeCall(() => save
 ipcMain.handle('durability:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getDurabilityInput(mixDesignId) }), 'خطای ناشناخته در خواندن دوام'));
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
-  try {
-    return callback();
-  } catch (error) {
-    return { status: 'fail', error: error instanceof Error ? error.message : fallbackMessage };
-  }
+  try { return callback(); } catch (error) { return { status: 'fail', error: error instanceof Error ? error.message : fallbackMessage }; }
 }
 
 function getEngineLaunch(): EngineLaunch {
   const bundledExecutable = path.join(process.resourcesPath, 'engine/tolou-mix-engine.exe');
-  if (app.isPackaged && existsSync(bundledExecutable)) {
-    return { executable: bundledExecutable, prefixArgs: [] };
-  }
-
-  const sourceCandidates = [
-    path.join(process.cwd(), 'engine/python/src/tolou_mix_engine/cli.py'),
-    path.join(app.getAppPath(), 'engine/python/src/tolou_mix_engine/cli.py'),
-    path.join(process.resourcesPath, 'engine/python/src/tolou_mix_engine/cli.py')
-  ];
+  if (app.isPackaged && existsSync(bundledExecutable)) return { executable: bundledExecutable, prefixArgs: [] };
+  const sourceCandidates = [path.join(process.cwd(), 'engine/python/src/tolou_mix_engine/cli.py'), path.join(app.getAppPath(), 'engine/python/src/tolou_mix_engine/cli.py'), path.join(process.resourcesPath, 'engine/python/src/tolou_mix_engine/cli.py')];
   const sourcePath = sourceCandidates.find(candidate => existsSync(candidate));
-  if (!sourcePath) {
-    throw new Error(`Engineering engine was not found. Checked bundled executable and: ${sourceCandidates.join(' | ')}`);
-  }
+  if (!sourcePath) throw new Error(`Engineering engine was not found. Checked bundled executable and: ${sourceCandidates.join(' | ')}`);
   return { executable: 'python', prefixArgs: [sourcePath] };
 }
 
@@ -99,26 +76,15 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
   return new Promise((resolve, reject) => {
     let launch: EngineLaunch;
     try { launch = getEngineLaunch(); } catch (error) { reject(error); return; }
-
     const child = spawn(launch.executable, [...launch.prefixArgs, command], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
+    let stdout = ''; let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
     child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) { reject(new Error(stderr || `Engineering engine exited with code ${code}`)); return; }
-      try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Engineering engine returned invalid JSON')); }
-    });
-    child.stdin.write(JSON.stringify(payload ?? {}));
-    child.stdin.end();
+    child.on('close', code => { if (code !== 0) { reject(new Error(stderr || `Engineering engine exited with code ${code}`)); return; } try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Engineering engine returned invalid JSON')); } });
+    child.stdin.write(JSON.stringify(payload ?? {})); child.stdin.end();
   });
 }
 
-app.whenReady().then(() => {
-  if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
-  createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-});
-
+app.whenReady().then(() => { if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe'))); createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
