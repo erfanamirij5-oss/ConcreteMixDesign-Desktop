@@ -14,6 +14,8 @@ import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterial
 import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
 import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
+import { initializeSecurityRuntime } from './securityRuntime';
+import { registerSecurityIpc } from './securityIpc';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -167,6 +169,8 @@ app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   const database = getDatabase();
   ensureTrialMixMigration(database);
+  initializeSecurityRuntime(database);
+  registerSecurityIpc();
   registerReportCenterIpc();
   registerBackupRestoreIpc();
   assertDatabaseReadyForRuntime(database);
