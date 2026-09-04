@@ -19,6 +19,8 @@ type ManagementRecord = {
   requiredSlumpMm: number;
   maxAggregateSizeMm: number;
   exposureSummary: string;
+  designStandard?: string;
+  engineerNotes?: string;
   status: string;
   revisionNumber: number;
   engineVersion?: string;
@@ -96,6 +98,8 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     requiredSlumpMm: 0,
     maxAggregateSizeMm: 0,
     exposureSummary: '',
+    designStandard: '',
+    engineerNotes: '',
     status: project.status,
     revisionNumber: 0
   };
@@ -128,7 +132,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
       if (!window.tolouMixDesigns?.updateBasics) throw new Error('API ویرایش طرح در دسترس نیست.');
       const response = await window.tolouMixDesigns.updateBasics({ ...record, actorName }) as { status?: string; record?: ManagementRecord; error?: string };
       if (response.status !== 'pass' || !response.record) throw new Error(response.error ?? 'ویرایش مشخصات طرح ناموفق بود.');
-      setRecord(response.record); setMode('overview'); setMessage('مشخصات کامل پروژه و نسخه جاری ذخیره شد و رویداد آن در Audit Log ثبت شد.');
+      setRecord(response.record); setMode('overview'); setMessage('مشخصات کامل پروژه، استاندارد طراحی و یادداشت مهندسی ذخیره و در Audit Log ثبت شد.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ویرایش طرح'); }
     finally { setBusy(false); }
   }
@@ -195,6 +199,8 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
         <label><span>اسلامپ mm</span><input type="number" value={record.requiredSlumpMm} onChange={event => setRecord({ ...record, requiredSlumpMm: Number(event.target.value) })} /></label>
         <label><span>NMSA mm</span><input type="number" value={record.maxAggregateSizeMm} onChange={event => setRecord({ ...record, maxAggregateSizeMm: Number(event.target.value) })} /></label>
         <label className="revision-field-wide"><span>شرایط دوام / مواجهه</span><textarea value={record.exposureSummary ?? ''} onChange={event => setRecord({ ...record, exposureSummary: event.target.value })} /></label>
+        <label className="revision-field-wide"><span>استاندارد طراحی / Design Standard</span><input value={record.designStandard ?? ''} onChange={event => setRecord({ ...record, designStandard: event.target.value })} placeholder="مثلاً ACI 318-25 / ACI PRC-211.1-22" /></label>
+        <label className="revision-field-wide"><span>یادداشت مهندس</span><textarea value={record.engineerNotes ?? ''} onChange={event => setRecord({ ...record, engineerNotes: event.target.value })} placeholder="تصمیمات، محدودیت‌ها و توضیحات مهندسی این Revision" /></label>
         <label><span>نام ویرایش‌کننده</span><input value={actorName} onChange={event => setActorName(event.target.value)} placeholder="برای Audit Trail" /></label>
       </div>
       <div className="revision-form-actions"><button className="btn ghost" onClick={() => { void loadRecord(); setMode('overview'); }}>انصراف</button><button className="btn success" disabled={busy} onClick={() => void saveBasics()}>{busy ? 'در حال ذخیره...' : 'ذخیره تغییرات'}</button></div>
@@ -243,9 +249,12 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
           <div><span>مقاومت هدف</span><b>{current.targetStrengthMpa} MPa</b></div>
           <div><span>اسلامپ</span><b>{current.requiredSlumpMm || '-'} mm</b></div>
           <div><span>NMSA</span><b>{current.maxAggregateSizeMm || '-'} mm</b></div>
+          <div><span>استاندارد طراحی</span><b>{current.designStandard || current.standardsVersion || '-'}</b></div>
+          <div><span>نسخه موتور</span><b>{current.engineVersion || '-'}</b></div>
           <div><span>وضعیت</span><b>{statusLabel(current.status)}</b></div>
         </div>
         {current.locationDescription && <div className="panel-body"><div className="alert info"><b>شرح موقعیت پروژه:</b> {current.locationDescription}</div></div>}
+        {current.engineerNotes && <div className="panel-body"><div className="alert info"><b>یادداشت مهندس:</b> {current.engineerNotes}</div></div>}
       </article>
       <article className="panel">
         <div className="panel-head"><div><h3>گردش کار مهندسی</h3><span>وضعیت تکمیل پرونده</span></div></div>
