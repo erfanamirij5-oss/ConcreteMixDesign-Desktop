@@ -17,6 +17,8 @@ type MixDesignEditInput = {
   requiredSlumpMm: number;
   maxAggregateSizeMm: number;
   exposureSummary: string;
+  designStandard?: string;
+  engineerNotes?: string;
   actorName?: string;
 };
 
@@ -42,7 +44,8 @@ export function getMixDesignManagementRecord(mixDesignId: string) {
       p.client_name AS clientName, p.contractor_name AS contractorName, p.consultant_name AS consultantName,
       md.concrete_type AS concreteType, md.target_strength_mpa AS targetStrengthMpa,
       md.required_slump_mm AS requiredSlumpMm, md.max_aggregate_size_mm AS maxAggregateSizeMm,
-      md.exposure_summary AS exposureSummary, md.status, md.revision_number AS revisionNumber,
+      md.exposure_summary AS exposureSummary, md.design_standard AS designStandard, md.engineer_notes AS engineerNotes,
+      md.status, md.revision_number AS revisionNumber,
       md.source_mix_design_id AS sourceMixDesignId, md.archived_from_status AS archivedFromStatus,
       md.archived_at AS archivedAt, md.engine_version AS engineVersion, md.standards_version AS standardsVersion,
       md.created_at AS createdAt, md.updated_at AS updatedAt
@@ -67,7 +70,7 @@ export function updateMixDesignBasics(input: MixDesignEditInput) {
       input.structureType?.trim() || null, input.elementType?.trim() || null, input.clientName?.trim() || null,
       input.contractorName?.trim() || null, input.consultantName?.trim() || null, now, current.projectId
     );
-    database.prepare('UPDATE mix_designs SET concrete_type = ?, target_strength_mpa = ?, required_slump_mm = ?, max_aggregate_size_mm = ?, exposure_summary = ?, updated_at = ? WHERE id = ?').run(input.concreteType, input.targetStrengthMpa, input.requiredSlumpMm, input.maxAggregateSizeMm, input.exposureSummary.trim(), now, input.mixDesignId);
+    database.prepare('UPDATE mix_designs SET concrete_type = ?, target_strength_mpa = ?, required_slump_mm = ?, max_aggregate_size_mm = ?, exposure_summary = ?, design_standard = ?, engineer_notes = ?, updated_at = ? WHERE id = ?').run(input.concreteType, input.targetStrengthMpa, input.requiredSlumpMm, input.maxAggregateSizeMm, input.exposureSummary.trim(), input.designStandard?.trim() || null, input.engineerNotes?.trim() || null, now, input.mixDesignId);
     insertAudit(database, input.mixDesignId, 'mix_design_basics_updated', {
       revisionNumber: current.revisionNumber,
       projectName: input.projectName.trim(), city: input.city?.trim() || null,
@@ -75,7 +78,8 @@ export function updateMixDesignBasics(input: MixDesignEditInput) {
       elementType: input.elementType?.trim() || null, clientName: input.clientName?.trim() || null,
       contractorName: input.contractorName?.trim() || null, consultantName: input.consultantName?.trim() || null,
       concreteType: input.concreteType, targetStrengthMpa: input.targetStrengthMpa,
-      requiredSlumpMm: input.requiredSlumpMm, maxAggregateSizeMm: input.maxAggregateSizeMm
+      requiredSlumpMm: input.requiredSlumpMm, maxAggregateSizeMm: input.maxAggregateSizeMm,
+      designStandard: input.designStandard?.trim() || null, engineerNotes: input.engineerNotes?.trim() || null
     }, input.actorName, now);
   })();
   return { status: 'pass' as const, record: getMixDesignManagementRecord(input.mixDesignId) };
