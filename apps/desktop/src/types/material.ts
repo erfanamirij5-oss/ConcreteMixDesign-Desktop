@@ -3,6 +3,8 @@ export type AggregateRole = 'natural_sand' | 'manufactured_sand' | 'pea_gravel' 
 export type MoistureCondition = 'oven_dry' | 'air_dry' | 'ssd' | 'wet' | 'stockpile';
 export type SulfateResistanceClass = 'none' | 'MS' | 'HS' | 'qualified_combination';
 export type SulfateQualificationMethod = 'product_designation' | 'astm_c1012' | 'documented_service_record' | 'engineer_approved_combination';
+export type AsrReactivityClass = 'unknown' | 'nonreactive' | 'potentially_reactive' | 'reactive';
+export type AsrQualificationMethod = 'astm_c1260' | 'astm_c1293' | 'astm_c1567' | 'documented_service_record' | 'petrographic_assessment' | 'engineer_approved';
 export type MaterialSubtype =
   | 'portland_cement' | 'blended_cement' | 'slag_cement' | 'fly_ash' | 'silica_fume' | 'natural_pozzolan' | 'calcined_clay' | 'limestone_filler' | 'other_scm'
   | 'water_reducer' | 'high_range_water_reducer' | 'retarder' | 'accelerator' | 'calcium_chloride_accelerator' | 'air_entrainer' | 'viscosity_modifier' | 'corrosion_inhibitor' | 'shrinkage_reducer' | 'other_admixture'
@@ -16,6 +18,8 @@ export type MaterialInput = {
   lossOnIgnitionPercent?: number | null; activityIndexPercent?: number | null; manufacturer?: string | null; productCode?: string | null;
   sulfateResistanceClass?: SulfateResistanceClass | null; sulfateQualificationMethod?: SulfateQualificationMethod | null;
   astmC1012Expansion6mPercent?: number | null; astmC1012Expansion12mPercent?: number | null; sulfatePerformanceEvidenceRef?: string | null;
+  asrReactivityClass?: AsrReactivityClass | null; asrQualificationMethod?: AsrQualificationMethod | null;
+  astmC1260Expansion14dPercent?: number | null; astmC1293Expansion1yPercent?: number | null; astmC1567Expansion14dPercent?: number | null; asrPerformanceEvidenceRef?: string | null;
 };
 export type MaterialRecord = MaterialInput & { id: string; };
 export type SaveMaterialResponse = { status: 'pass' | 'fail'; materialId?: string; error?: string; };
