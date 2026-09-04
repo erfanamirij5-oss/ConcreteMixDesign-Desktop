@@ -60,6 +60,8 @@ jobs:
         run: node dist/electron/reportRendererSmoke.js
       - name: Backup restore destructive safety smoke test
         run: node dist/electron/backupRestoreSmoke.js
+      - name: Users roles and audit security smoke test
+        run: node dist/electron/securityServiceSmoke.js
 
   python-engine:
     name: Python engine tests
@@ -112,15 +114,16 @@ jobs:
           $migration019 = 'release/win-unpacked/database/migrations/019_professional_material_library.sql'
           $migration020 = 'release/win-unpacked/database/migrations/020_minimum_trial_mix.sql'
           $migration021 = 'release/win-unpacked/database/migrations/021_report_center_snapshots.sql'
+          $migration022 = 'release/win-unpacked/database/migrations/022_users_roles_audit_security.sql'
           if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
-          foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019, $migration020, $migration021)) {
+          foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019, $migration020, $migration021, $migration022)) {
             if (-not (Test-Path $migration)) { throw "Required database migration is missing from packaged application: $migration" }
           }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
-          Write-Host 'Packaged migration chain verified through migration 021.'
+          Write-Host 'Packaged migration chain verified through migration 022.'
       - name: Verify installer artifact
         shell: pwsh
         run: |
