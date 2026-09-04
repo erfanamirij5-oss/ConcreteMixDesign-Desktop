@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import { assertDatabaseReadyForRuntime, assertDatabaseSchemaCompatibility, KNOWN_MIGRATIONS } from './databaseCompatibility';
 
-if (KNOWN_MIGRATIONS.length !== 21 || KNOWN_MIGRATIONS.at(-1) !== '021_report_center_snapshots') {
-  throw new Error('Database compatibility policy must explicitly recognize migrations through 021.');
+if (KNOWN_MIGRATIONS.length !== 22 || KNOWN_MIGRATIONS.at(-1) !== '022_users_roles_audit_security') {
+  throw new Error('Database compatibility policy must explicitly recognize migrations through 022.');
 }
 
 const database = new Database(':memory:');
@@ -40,4 +40,4 @@ if (!fkRejected) throw new Error('Runtime database guard must reject foreign key
 
 fkDatabase.close();
 database.close();
-console.log('Database compatibility and runtime health guard smoke validation passed through migration 021.');
+console.log('Database compatibility and runtime health guard smoke validation passed through migration 022.');
