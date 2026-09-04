@@ -61,74 +61,39 @@ database.exec(`
 database.prepare("INSERT INTO mix_designs (id, status) VALUES ('mix-1', 'draft')").run();
 
 saveMaterialLibraryRecord(database, {
-  id: 'lib-sand',
-  materialType: 'fine_aggregate',
-  name: 'Natural Sand A',
-  source: 'Yazd Quarry A',
-  standardDesignation: 'ASTM C33/C33M-24a',
-  laboratoryName: 'Tolou Lab',
-  laboratoryReportNumber: 'LAB-001',
-  testDate: '2026-09-01',
-  validUntil: '2027-09-01',
-  properties: {
-    aggregateRole: 'natural_sand',
-    specificGravity: 2.65,
-    absorptionPercent: 1.8,
-    moisturePercent: 3.2,
-    unitWeightKgM3: 1650,
-    nominalSizeMm: 4.75
-  }
+  id: 'lib-sand', materialType: 'fine_aggregate', name: 'Natural Sand A', source: 'Yazd Quarry A',
+  standardDesignation: 'ASTM C33/C33M-24a', laboratoryName: 'Tolou Lab', laboratoryReportNumber: 'LAB-001',
+  testDate: '2026-09-01', validUntil: '2027-09-01',
+  properties: { aggregateRole: 'natural_sand', specificGravity: 2.65, absorptionPercent: 1.8, moisturePercent: 3.2, unitWeightKgM3: 1650, nominalSizeMm: 4.75 }
 });
+const initialMaster = database.prepare('SELECT created_at AS createdAt FROM material_library WHERE id = ?').get('lib-sand') as { createdAt: string };
 
 const attached = attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand');
-const initialMaterial = database.prepare(`
-  SELECT library_snapshot_json AS snapshotJson, specific_gravity AS specificGravity,
-    absorption_percent AS absorptionPercent, source
-  FROM materials WHERE id = ?
-`).get(attached.materialId) as { snapshotJson: string; specificGravity: number; absorptionPercent: number; source: string };
+const initialMaterial = database.prepare(`SELECT library_snapshot_json AS snapshotJson, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, source FROM materials WHERE id = ?`).get(attached.materialId) as { snapshotJson: string; specificGravity: number; absorptionPercent: number; source: string };
 const originalSnapshot = JSON.parse(initialMaterial.snapshotJson) as { source?: string; status?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
 if (initialMaterial.specificGravity !== 2.65 || initialMaterial.absorptionPercent !== 1.8) throw new Error('Library material properties were not copied into the mix-design material.');
 if (originalSnapshot.source !== 'Yazd Quarry A' || originalSnapshot.properties?.specificGravity !== 2.65 || originalSnapshot.status !== 'active') throw new Error('Material library snapshot is incomplete.');
 
 saveMaterialLibraryRecord(database, {
-  id: 'lib-sand',
-  materialType: 'fine_aggregate',
-  name: 'Natural Sand A - Updated',
-  source: 'Yazd Quarry B',
-  standardDesignation: 'ASTM C33/C33M-24a',
-  laboratoryName: 'Tolou Lab',
-  laboratoryReportNumber: 'LAB-002',
-  testDate: '2026-09-04',
-  validUntil: '2027-09-04',
-  properties: { specificGravity: 2.61, absorptionPercent: 2.2 }
+  id: 'lib-sand', materialType: 'fine_aggregate', name: 'Natural Sand A - Updated', source: 'Yazd Quarry B',
+  standardDesignation: 'ASTM C33/C33M-24a', laboratoryName: 'Tolou Lab', laboratoryReportNumber: 'LAB-002',
+  testDate: '2026-09-04', validUntil: '2027-09-04', properties: { specificGravity: 2.61, absorptionPercent: 2.2 }
 });
+const editedMaster = database.prepare('SELECT created_at AS createdAt, name, source FROM material_library WHERE id = ?').get('lib-sand') as { createdAt: string; name: string; source: string };
+if (editedMaster.createdAt !== initialMaster.createdAt) throw new Error('Editing a Master Material Record changed its original creation identity.');
+if (editedMaster.name !== 'Natural Sand A - Updated' || editedMaster.source !== 'Yazd Quarry B') throw new Error('Master Material Record edit did not persist current values.');
 
 setMaterialLibraryStatus(database, 'lib-sand', 'inactive');
 let inactiveRejected = false;
 try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand'); } catch { inactiveRejected = true; }
 if (!inactiveRejected) throw new Error('Inactive Library material was attached to a mix design.');
 
-const afterLibraryEdit = database.prepare(`
-  SELECT name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent,
-    library_snapshot_json AS snapshotJson
-  FROM materials WHERE id = ?
-`).get(attached.materialId) as { name: string; source: string; specificGravity: number; absorptionPercent: number; snapshotJson: string };
+const afterLibraryEdit = database.prepare(`SELECT name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent, library_snapshot_json AS snapshotJson FROM materials WHERE id = ?`).get(attached.materialId) as { name: string; source: string; specificGravity: number; absorptionPercent: number; snapshotJson: string };
 const preservedSnapshot = JSON.parse(afterLibraryEdit.snapshotJson) as { source?: string; status?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
-if (afterLibraryEdit.source !== 'Yazd Quarry A' || afterLibraryEdit.specificGravity !== 2.65 || afterLibraryEdit.absorptionPercent !== 1.8) {
-  throw new Error('Editing the reusable Library mutated an existing mix-design material.');
-}
-if (preservedSnapshot.source !== 'Yazd Quarry A' || preservedSnapshot.properties?.specificGravity !== 2.65 || preservedSnapshot.status !== 'active') {
-  throw new Error('Historical material snapshot changed after Library edit/status change.');
-}
+if (afterLibraryEdit.source !== 'Yazd Quarry A' || afterLibraryEdit.specificGravity !== 2.65 || afterLibraryEdit.absorptionPercent !== 1.8) throw new Error('Editing the reusable Library mutated an existing mix-design material.');
+if (preservedSnapshot.source !== 'Yazd Quarry A' || preservedSnapshot.properties?.specificGravity !== 2.65 || preservedSnapshot.status !== 'active') throw new Error('Historical material snapshot changed after Library edit/status change.');
 
-saveMaterialLibraryRecord(database, {
-  id: 'lib-expired',
-  materialType: 'cement',
-  name: 'Expired Cement',
-  status: 'active',
-  validUntil: '2020-01-01',
-  properties: { specificGravity: 3.15 }
-});
+saveMaterialLibraryRecord(database, { id: 'lib-expired', materialType: 'cement', name: 'Expired Cement', status: 'active', validUntil: '2020-01-01', properties: { specificGravity: 3.15 } });
 let expiredRejected = false;
 try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-expired'); } catch { expiredRejected = true; }
 if (!expiredRejected) throw new Error('Expired material laboratory evidence must block attachment to a mix design.');
@@ -140,4 +105,4 @@ try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand'); } catch {
 if (!lockedRejected) throw new Error('Approved revision accepted a new Library material.');
 
 database.close();
-console.log('Material Library snapshot smoke passed: lifecycle changes never mutate historical mix-design snapshots.');
+console.log('Material Library snapshot smoke passed: master edits preserve identity and never mutate historical mix-design snapshots.');
