@@ -39,6 +39,13 @@ for (const reportType of types) {
   if (reportType === 'durability_compliance') assert.match(html, /max_w_cm/);
   if (reportType === 'gradation_blend') assert.match(html, /Fine Aggregate/);
   if (reportType === 'engineering_calculation') assert.match(html, /Absolute volume/);
+  if (reportType === 'production_sheet') {
+    assert.match(html, /Persisted production basis/);
+    assert.match(html, /Aggregate moisture correction — persisted values only/);
+    assert.match(html, /Not recorded/);
+    assert.match(html, /No moisture or water adjustment is inferred/);
+    assert.doesNotMatch(html, /Trial Mix/);
+  }
 }
 
 console.log('Report Center renderer contract smoke passed for all seven report types.');
