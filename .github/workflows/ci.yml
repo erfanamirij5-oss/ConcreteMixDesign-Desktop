@@ -43,6 +43,9 @@ jobs:
       - name: Duplicate engineering contract smoke test
         run: node dist/electron/duplicateContractSmoke.js
 
+      - name: Data integrity upgrade and rollback smoke test
+        run: node dist/electron/dataIntegrityUpgradeSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
