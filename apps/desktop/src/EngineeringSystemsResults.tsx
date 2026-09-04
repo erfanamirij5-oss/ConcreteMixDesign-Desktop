@@ -8,13 +8,11 @@ type StandardCheck = { product_name?: string; material_subtype?: string; standar
 type Compliance = {
   status?: string;
   standard_checks?: StandardCheck[];
-  chloride?: {
-    corrosion_exposure_class?: string; prestressed_concrete?: boolean; aci_limit_percent_by_mass_cementitious?: number | null; admixture_chloride_kg_m3?: number; admixture_chloride_percent_by_mass_cementitious?: number | null; admixture_chloride_data_complete?: boolean; scope?: string; status?: string;
-  };
+  chloride?: { corrosion_exposure_class?: string; prestressed_concrete?: boolean; aci_limit_percent_by_mass_cementitious?: number | null; admixture_chloride_kg_m3?: number; admixture_chloride_percent_by_mass_cementitious?: number | null; admixture_chloride_data_complete?: boolean; scope?: string; status?: string; };
 };
 type Props = {
   cementitiousSystem?: { weighted_specific_gravity?: number; absolute_volume_m3?: number; components?: BinderComponent[]; };
-  admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; };
+  admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; compliance?: Compliance; };
   admixtureCompliance?: Compliance;
   waterToAddKgM3?: number | null;
 };
@@ -23,8 +21,9 @@ export function EngineeringSystemsResults(props: Props) {
   const binders = props.cementitiousSystem?.components ?? [];
   const admixtures = props.admixtureSystem?.analysis ?? [];
   const totals = props.admixtureSystem?.totals;
-  const checks = props.admixtureCompliance?.standard_checks ?? [];
-  const chloride = props.admixtureCompliance?.chloride;
+  const compliance = props.admixtureCompliance ?? props.admixtureSystem?.compliance;
+  const checks = compliance?.standard_checks ?? [];
+  const chloride = compliance?.chloride;
 
   return <>
     <article className="panel wide-panel">
@@ -38,22 +37,8 @@ export function EngineeringSystemsResults(props: Props) {
     </article>
 
     <article className="panel wide-panel">
-      <div className="panel-head"><div><h3>انطباق افزودنی و کلراید</h3><span>ASTM C494/C494M، ASTM C260/C260M و کنترل جزئی کلراید ACI 318-25</span></div><span className={`badge ${props.admixtureCompliance?.status === 'fail' ? 'red' : 'orange'}`}>{props.admixtureCompliance?.status ?? 'not_checked'}</span></div>
-      <div className="panel-body">
-        <div className="result-grid">
-          <div><label>کلاس خوردگی</label><strong>{chloride?.corrosion_exposure_class ?? '-'}</strong></div>
-          <div><label>حد کلراید ACI</label><strong>{show(chloride?.aci_limit_percent_by_mass_cementitious)} % Binder</strong></div>
-          <div><label>کلراید ناشی از افزودنی</label><strong>{show(chloride?.admixture_chloride_percent_by_mass_cementitious)} % Binder</strong></div>
-          <div><label>جرم کلراید افزودنی</label><strong>{show(chloride?.admixture_chloride_kg_m3)} kg/m³</strong></div>
-          <div><label>بتن پیش‌تنیده</label><strong>{chloride?.prestressed_concrete ? 'بله' : 'خیر'}</strong></div>
-          <div><label>وضعیت کنترل کلراید</label><strong>{chloride?.status ?? '-'}</strong></div>
-        </div>
-        <div className="standards-list">
-          {checks.length === 0 && <div className="alert info">برای افزودنی ثبت‌شده کنترل استانداردی وجود ندارد.</div>}
-          {checks.map((check, index) => <div key={`${check.product_name ?? 'product'}-${index}`}><b>{check.product_name ?? `محصول ${index + 1}`}</b> — {check.status ?? '-'} | انتظار: {check.expected_standard ?? '-'}{check.standard_designation ? ` | ثبت‌شده: ${check.standard_designation}` : ''}</div>)}
-          <div className="alert warn">این کنترل کلراید فعلاً فقط سهم افزودنی‌های شیمیایی را پوشش می‌دهد؛ برای تأیید نهایی ACI باید کلراید آب، سنگدانه و مواد سیمانی نیز وارد محاسبه شود.</div>
-        </div>
-      </div>
+      <div className="panel-head"><div><h3>انطباق افزودنی و کلراید</h3><span>ASTM C494/C494M، ASTM C260/C260M و کنترل جزئی کلراید ACI 318-25</span></div><span className={`badge ${compliance?.status === 'fail' ? 'red' : 'orange'}`}>{compliance?.status ?? 'not_checked'}</span></div>
+      <div className="panel-body"><div className="result-grid"><div><label>کلاس خوردگی</label><strong>{chloride?.corrosion_exposure_class ?? '-'}</strong></div><div><label>حد کلراید ACI</label><strong>{show(chloride?.aci_limit_percent_by_mass_cementitious)} % Binder</strong></div><div><label>کلراید ناشی از افزودنی</label><strong>{show(chloride?.admixture_chloride_percent_by_mass_cementitious)} % Binder</strong></div><div><label>جرم کلراید افزودنی</label><strong>{show(chloride?.admixture_chloride_kg_m3)} kg/m³</strong></div><div><label>بتن پیش‌تنیده</label><strong>{chloride?.prestressed_concrete ? 'بله' : 'خیر'}</strong></div><div><label>وضعیت کنترل کلراید</label><strong>{chloride?.status ?? '-'}</strong></div></div><div className="standards-list">{checks.length === 0 && <div className="alert info">برای افزودنی ثبت‌شده کنترل استانداردی وجود ندارد.</div>}{checks.map((check, index) => <div key={`${check.product_name ?? 'product'}-${index}`}><b>{check.product_name ?? `محصول ${index + 1}`}</b> — {check.status ?? '-'} | انتظار: {check.expected_standard ?? '-'}{check.standard_designation ? ` | ثبت‌شده: ${check.standard_designation}` : ''}</div>)}<div className="alert warn">این کنترل کلراید فعلاً فقط سهم افزودنی‌های شیمیایی را پوشش می‌دهد؛ برای تأیید نهایی ACI باید کلراید آب، سنگدانه و مواد سیمانی نیز وارد محاسبه شود.</div></div></div>
     </article>
   </>;
 }
