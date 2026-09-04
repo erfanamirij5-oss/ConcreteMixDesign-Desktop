@@ -3,6 +3,8 @@ type BinderComponent = {
 };
 type CementitiousProductCheck = { material_id?: string; name?: string; material_subtype?: string; standard_designation?: string | null; expected_standard?: string; status?: string; };
 type CementitiousCompliance = { status?: string; sulfate_exposure_class?: string; compliance_route?: string | null; product_standard_checks?: CementitiousProductCheck[]; qualification_evidence?: unknown; };
+type AggregateComplianceSource = { material_id?: string; name?: string; material_type?: string; aggregate_role?: string | null; standard?: string; status?: string; gradation?: { status?: string; checked_sieve_count?: number; failure_count?: number; fineness_modulus?: number | null; }; fines_75um?: { status?: string; astm_c117_percent?: number | null; limit_percent?: number | null; }; physical_properties?: { data_complete?: boolean; ssd_specific_gravity?: number | null; absorption_percent?: number | null; rodded_unit_weight_kg_m3?: number | null; }; fractured_face_percent?: number | null; evidence_ref?: string | null; };
+type AggregateCompliance = { status?: string; data_complete?: boolean; sources?: AggregateComplianceSource[]; };
 type AsrBinderRow = { material_id?: string; name?: string; mass_kg_m3?: number; na2oeq_percent?: number | null; na2oeq_kg_m3?: number | null; };
 type AsrAggregateRow = { material_id?: string; name?: string; status?: string; basis?: string; declared_class?: string | null; astm_c1260_expansion_14d_percent?: number | null; astm_c1293_expansion_1y_percent?: number | null; qualification_method?: string | null; evidence_ref?: string | null; };
 type AsrCompliance = { status?: string; binder_alkali?: { data_complete?: boolean; total_na2oeq_kg_m3?: number; components?: AsrBinderRow[]; }; aggregate_reactivity?: { data_complete?: boolean; any_reactive?: boolean; sources?: AsrAggregateRow[]; }; mitigation?: { status?: string; qualified?: boolean; best_c1567_expansion_14d_percent?: number | null; }; };
@@ -25,6 +27,7 @@ type FullChloride = {
 type Props = {
   cementitiousSystem?: { weighted_specific_gravity?: number; absolute_volume_m3?: number; components?: BinderComponent[]; durability_compliance?: CementitiousCompliance; asr_compliance?: AsrCompliance; };
   cementitiousCompliance?: CementitiousCompliance;
+  aggregateCompliance?: AggregateCompliance;
   asrCompliance?: AsrCompliance;
   waterCompliance?: WaterCompliance;
   admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; compliance?: Compliance; chloride_compliance?: FullChloride; };
@@ -37,6 +40,8 @@ export function EngineeringSystemsResults(props: Props) {
   const binders = props.cementitiousSystem?.components ?? [];
   const binderCompliance = props.cementitiousCompliance ?? props.cementitiousSystem?.durability_compliance;
   const binderChecks = binderCompliance?.product_standard_checks ?? [];
+  const aggregate = props.aggregateCompliance;
+  const aggregateSources = aggregate?.sources ?? [];
   const asr = props.asrCompliance ?? props.cementitiousSystem?.asr_compliance;
   const asrBinders = asr?.binder_alkali?.components ?? [];
   const asrAggregates = asr?.aggregate_reactivity?.sources ?? [];
@@ -59,6 +64,13 @@ export function EngineeringSystemsResults(props: Props) {
     <article className="panel wide-panel">
       <div className="panel-head"><div><h3>انطباق سولفاتی سیستم سیمانی</h3><span>ACI 318-25 + ASTM C150/C595/C1157/C989/C618/C1240/C1012</span></div><span className={`badge ${binderCompliance?.status === 'fail' ? 'red' : binderCompliance?.status === 'pass' ? 'green' : 'orange'}`}>{binderCompliance?.status ?? 'not_checked'}</span></div>
       <div className="panel-body"><div className="result-grid"><div><label>کلاس سولفات</label><strong>{binderCompliance?.sulfate_exposure_class ?? '-'}</strong></div><div><label>مسیر انطباق</label><strong>{binderCompliance?.compliance_route ?? '-'}</strong></div><div><label>تعداد کنترل محصول</label><strong>{binderChecks.length}</strong></div></div><div className="standards-list">{binderChecks.length === 0 && <div className="alert info">کنترل استاندارد محصول سیمانی هنوز انجام نشده است.</div>}{binderChecks.map((check, index) => <div key={`${check.material_id ?? 'binder'}-${index}`}><b>{check.name ?? `Binder ${index + 1}`}</b> — {check.status ?? '-'} | انتظار: {check.expected_standard ?? '-'}{check.standard_designation ? ` | ثبت‌شده: ${check.standard_designation}` : ''}</div>)}{binderCompliance?.sulfate_exposure_class === 'S3' && <div className="alert warn">S3 حتی با مدارک Qualification به انتخاب صریح گزینه ACI و تأیید مهندس نیاز دارد؛ نرم‌افزار آن را خودکار pass نمی‌کند.</div>}</div></div>
+    </article>
+
+    <article className="panel wide-panel">
+      <div className="panel-head"><div><h3>کنترل کیفیت سنگدانه‌ها</h3><span>ASTM C33/C33M + C136/C136M + C117 + C127/C128 + C29/C29M</span></div><span className={`badge ${aggregate?.status === 'fail' ? 'red' : aggregate?.status === 'pass' ? 'green' : 'orange'}`}>{aggregate?.status ?? 'not_checked'}</span></div>
+      <div className="panel-body"><div className="result-grid"><div><label>تعداد منابع</label><strong>{aggregateSources.length}</strong></div><div><label>کامل بودن داده‌های اصلی</label><strong>{aggregate?.data_complete ? 'کامل' : 'ناقص'}</strong></div><div><label>منابع مردود</label><strong>{aggregateSources.filter(item => item.status === 'fail').length}</strong></div><div><label>منابع نیازمند بررسی</label><strong>{aggregateSources.filter(item => item.status === 'needs_review').length}</strong></div></div>
+        <div className="standards-list">{aggregateSources.length === 0 && <div className="alert warn">هیچ نتیجه Aggregate Compliance از موتور دریافت نشده است.</div>}{aggregateSources.map((item, index) => <div key={`${item.material_id ?? 'aggregate'}-${index}`}><b>{item.name ?? `Aggregate ${index + 1}`}</b> — {item.status ?? '-'} | {item.standard ?? 'ASTM C33/C33M'} | دانه‌بندی: {item.gradation?.status ?? '-'} ({item.gradation?.checked_sieve_count ?? 0} الک، {item.gradation?.failure_count ?? 0} خارج از حد){item.material_type === 'fine_aggregate' ? ` | FM: ${show(item.gradation?.fineness_modulus)}` : ''} | C117: {show(item.fines_75um?.astm_c117_percent)}% / حد {show(item.fines_75um?.limit_percent)}% | SG SSD: {show(item.physical_properties?.ssd_specific_gravity)} | جذب: {show(item.physical_properties?.absorption_percent)}% | C29: {show(item.physical_properties?.rodded_unit_weight_kg_m3)} kg/m³{item.fractured_face_percent !== null && item.fractured_face_percent !== undefined ? ` | شکستگی: ${show(item.fractured_face_percent)}%` : ''}{item.evidence_ref ? ` | گزارش: ${item.evidence_ref}` : ''}</div>)}{aggregate?.status === 'needs_review' && <div className="alert warn">یکی از حدود دانه‌بندی، نتیجه C117، حد پروژه یا خواص فیزیکی سنگدانه ناقص است؛ تا تکمیل داده‌ها pass کامل صادر نمی‌شود.</div>}</div>
+      </div>
     </article>
 
     <article className="panel wide-panel">
