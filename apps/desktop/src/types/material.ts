@@ -5,6 +5,8 @@ export type SulfateResistanceClass = 'none' | 'MS' | 'HS' | 'qualified_combinati
 export type SulfateQualificationMethod = 'product_designation' | 'astm_c1012' | 'documented_service_record' | 'engineer_approved_combination';
 export type AsrReactivityClass = 'unknown' | 'nonreactive' | 'potentially_reactive' | 'reactive';
 export type AsrQualificationMethod = 'astm_c1260' | 'astm_c1293' | 'astm_c1567' | 'documented_service_record' | 'engineer_approved_mitigation';
+export type WaterSourceClass = 'potable' | 'nonpotable' | 'concrete_production';
+export type WaterDensityMonitoringMethod = 'astm_c1603' | 'verified_hydrometer' | 'automated_density_system';
 export type MaterialSubtype =
   | 'portland_cement' | 'blended_cement' | 'slag_cement' | 'fly_ash' | 'silica_fume' | 'natural_pozzolan' | 'calcined_clay' | 'limestone_filler' | 'other_scm'
   | 'water_reducer' | 'high_range_water_reducer' | 'retarder' | 'accelerator' | 'calcium_chloride_accelerator' | 'air_entrainer' | 'viscosity_modifier' | 'corrosion_inhibitor' | 'shrinkage_reducer' | 'other_admixture'
@@ -16,6 +18,7 @@ export type MaterialInput = {
   materialSubtype?: MaterialSubtype | null; standardDesignation?: string | null; densityKgM3?: number | null; dosageValue?: number | null; dosageUnit?: string | null;
   binderSharePercent?: number | null; replacementPercent?: number | null; solidsPercent?: number | null; chloridePercent?: number | null; chlorideMgL?: number | null; waterSharePercent?: number | null; alkaliPercent?: number | null;
   sulfateMgL?: number | null; totalSolidsMgL?: number | null; alkalisNa2oeqMgL?: number | null; c1602StrengthRatio7dPercent?: number | null; c1602SettingTimeDeviationMin?: number | null; c1602PerformanceEvidenceRef?: string | null;
+  waterSourceClass?: WaterSourceClass | null; c1602LastQualificationDate?: string | null; c1602LastDensityCheckDate?: string | null; c1602DensityMonitoringMethod?: WaterDensityMonitoringMethod | null; c1602MonitoringEvidenceRef?: string | null;
   lossOnIgnitionPercent?: number | null; activityIndexPercent?: number | null; manufacturer?: string | null; productCode?: string | null;
   sulfateResistanceClass?: SulfateResistanceClass | null; sulfateQualificationMethod?: SulfateQualificationMethod | null;
   astmC1012Expansion6mPercent?: number | null; astmC1012Expansion12mPercent?: number | null; sulfatePerformanceEvidenceRef?: string | null;
