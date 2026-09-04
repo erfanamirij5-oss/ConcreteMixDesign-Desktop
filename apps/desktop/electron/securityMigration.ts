@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { ensureRuntimeMigrations } from './runtimeMigrations';
+import { ensureRuntimeMigration } from './runtimeMigrations';
 
 export const SECURITY_MIGRATION_ID = '022_users_roles_audit_security';
 
@@ -16,5 +16,5 @@ export const SECURITY_PERMISSIONS = [
 export type SecurityPermission = typeof SECURITY_PERMISSIONS[number];
 
 export function ensureSecurityMigration(database: Database.Database) {
-  ensureRuntimeMigrations(database);
+  ensureRuntimeMigration(database, SECURITY_MIGRATION_ID);
 }
