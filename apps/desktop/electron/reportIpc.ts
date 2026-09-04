@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
-import { createReportSnapshot, ensureReportCenterMigration, getReportSnapshot, listReportSnapshots } from './reportCenterStore';
+import { createReportSnapshot, getReportSnapshot, listReportSnapshots } from './reportCenterStore';
+import { ensureReportCenterMigration } from './reportCenterMigration';
 import { getDatabase } from './database';
 import { exportReportSnapshotPdf, printReportSnapshot } from './reportExport';
 
