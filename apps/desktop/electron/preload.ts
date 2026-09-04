@@ -12,6 +12,14 @@ contextBridge.exposeInMainWorld('tolouProjects', {
   listRecent: () => ipcRenderer.invoke('projects:list-recent')
 });
 
+contextBridge.exposeInMainWorld('tolouMixDesigns', {
+  getManagementRecord: (mixDesignId: string) => ipcRenderer.invoke('mix-design:get-management-record', mixDesignId),
+  updateBasics: (payload: unknown) => ipcRenderer.invoke('mix-design:update-basics', payload),
+  createRevision: (payload: unknown) => ipcRenderer.invoke('mix-design:create-revision', payload),
+  listRevisions: (mixDesignId: string) => ipcRenderer.invoke('mix-design:list-revisions', mixDesignId),
+  archive: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:archive', mixDesignId, actorName)
+});
+
 contextBridge.exposeInMainWorld('tolouMaterials', {
   save: (payload: unknown) => ipcRenderer.invoke('materials:save', payload),
   listByMixDesign: (mixDesignId: string) => ipcRenderer.invoke('materials:list-by-mix-design', mixDesignId)
