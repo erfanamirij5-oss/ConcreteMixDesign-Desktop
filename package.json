@@ -21,6 +21,7 @@
     "test:data-integrity-constraints": "npm run build:electron && node dist/electron/dataIntegrityConstraintsSmoke.js",
     "test:data-path-contract": "npm run build:electron && node dist/electron/dataPathContractSmoke.js",
     "test:database-compatibility": "npm run build:electron && node dist/electron/databaseCompatibilitySmoke.js",
+    "test:data-integrity-atomicity": "npm run build:electron && node dist/electron/dataIntegrityAtomicitySmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
