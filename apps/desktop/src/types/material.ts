@@ -19,6 +19,7 @@ export type MaterialInput = {
   binderSharePercent?: number | null; replacementPercent?: number | null; solidsPercent?: number | null; chloridePercent?: number | null; chlorideMgL?: number | null; waterSharePercent?: number | null; alkaliPercent?: number | null;
   sulfateMgL?: number | null; totalSolidsMgL?: number | null; alkalisNa2oeqMgL?: number | null; c1602StrengthRatio7dPercent?: number | null; c1602SettingTimeDeviationMin?: number | null; c1602PerformanceEvidenceRef?: string | null;
   waterSourceClass?: WaterSourceClass | null; c1602LastQualificationDate?: string | null; c1602LastDensityCheckDate?: string | null; c1602DensityMonitoringMethod?: WaterDensityMonitoringMethod | null; c1602MonitoringEvidenceRef?: string | null;
+  astmC117Finer75umPercent?: number | null; finer75umLimitPercent?: number | null; aggregateTestEvidenceRef?: string | null; astmC29RoddedUnitWeightKgM3?: number | null; astmC127C128SsdSpecificGravity?: number | null; astmC127C128AbsorptionPercent?: number | null; aggregateQualityStandard?: string | null;
   lossOnIgnitionPercent?: number | null; activityIndexPercent?: number | null; manufacturer?: string | null; productCode?: string | null;
   sulfateResistanceClass?: SulfateResistanceClass | null; sulfateQualificationMethod?: SulfateQualificationMethod | null;
   astmC1012Expansion6mPercent?: number | null; astmC1012Expansion12mPercent?: number | null; sulfatePerformanceEvidenceRef?: string | null;
