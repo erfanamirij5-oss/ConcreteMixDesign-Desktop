@@ -78,6 +78,18 @@ export function ensureSecurityMigration(database: Database.Database) {
 
       CREATE INDEX idx_security_audit_occurred_at ON security_audit_events(occurred_at DESC);
       CREATE INDEX idx_security_audit_actor ON security_audit_events(actor_user_id, occurred_at DESC);
+
+      CREATE TRIGGER security_audit_no_update
+      BEFORE UPDATE ON security_audit_events
+      BEGIN
+        SELECT RAISE(ABORT, 'security audit is append-only');
+      END;
+
+      CREATE TRIGGER security_audit_no_delete
+      BEFORE DELETE ON security_audit_events
+      BEGIN
+        SELECT RAISE(ABORT, 'security audit is append-only');
+      END;
     `);
 
     const now = new Date().toISOString();
