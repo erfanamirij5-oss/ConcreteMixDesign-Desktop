@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { DurabilityView } from './DurabilityView';
 import { GradationView } from './GradationView';
 import { MaterialsView } from './MaterialsView';
 import type { ProjectIntake, SaveProjectResponse } from './types/project';
 
 type EngineState = 'idle' | 'checking' | 'ready' | 'error';
-type ActiveView = 'dashboard' | 'new-project' | 'materials' | 'gradation' | 'results';
+type ActiveView = 'dashboard' | 'new-project' | 'materials' | 'gradation' | 'durability' | 'results';
 type CalculationState = 'idle' | 'calculating' | 'done' | 'error';
 type AggregateAnalysisRow = { material_id?: string; material_name?: string; material_type?: string; share_percent?: number; specific_gravity_ssd?: number; ssd_mass_kg_m3?: number; batch_mass_kg_m3?: number; absorption_percent?: number; moisture_percent?: number; water_adjustment_kg_m3?: number; };
 type EngineWarning = { code?: string; severity?: string; message?: string; reference?: string; };
@@ -26,6 +27,9 @@ type EngineResult = {
     aggregate_batch_kg_m3?: number | null;
     batch_water_adjustment_kg_m3?: number | null;
     air_content_percent?: number;
+    durability_governing_max_w_cm?: number | null;
+    durability_min_strength_mpa?: number | null;
+    durability_target_air_percent?: number | null;
   };
   aggregate_analysis?: AggregateAnalysisRow[];
   engineering_notes?: string[];
@@ -33,6 +37,7 @@ type EngineResult = {
   standard_references?: string[];
   assumptions?: string[];
   limitations?: string[];
+  durability?: { exposure_classes?: { freeze_thaw?: string; sulfate?: string; water?: string; corrosion?: string } };
 };
 type RecentProject = { id: string; projectName: string; city: string; mixDesignId: string; concreteType: string; targetStrengthMpa: number; status: string; createdAt: string; };
 
@@ -40,11 +45,11 @@ const initialProject: ProjectIntake = {
   project: { projectName: 'طرح اختلاط نمونه پروژه صنعتی یزد', city: 'یزد', locationDescription: 'محل پروژه، شرایط تماس با خاک/آب و توضیحات اجرایی', structureType: 'ساختمان بتن‌آرمه', elementType: 'فونداسیون', clientName: '', contractorName: '', consultantName: '' },
   laboratory: { labName: 'مرکز سنجش و تحقیقات بتن و مصالح سنگی یزد', licenseNumber: '', address: 'یزد', phone: '09133240205', logoPath: '' },
   designer: { fullName: 'مهندس عرفان امیری', role: 'طراح طرح اختلاط / مسئول فنی', licenseOrMembershipNumber: '', phone: '09133240205', email: '' },
-  mixDesign: { concreteType: 'normal_weight', targetStrengthMpa: 35, requiredSlumpMm: 100, maxAggregateSizeMm: 19, exposureSummary: 'شرایط دوام در مرحله بعد با کلاس مواجهه ACI 318 تکمیل شود.' }
+  mixDesign: { concreteType: 'normal_weight', targetStrengthMpa: 35, requiredSlumpMm: 100, maxAggregateSizeMm: 19, exposureSummary: 'شرایط دوام با ماژول ACI 318-25 تکمیل شود.' }
 };
 
 const modules = ['مشخصات پروژه', 'آزمایشگاه و طراح', 'انتخاب نوع بتن', 'مصالح و منابع', 'دانه‌بندی سنگدانه', 'دوام و پایایی', 'محاسبات طرح اختلاط', 'گزارش و مگاپرامپت'];
-const standards = ['ACI 211.1 - بتن معمولی، سنگین و حجیم', 'ACI 211.4 - بتن پرمقاومت', 'ACI 201.2R - دوام بتن', 'ACI 318 / ACI 301 - کلاس مواجهه و الزامات اجرایی', 'ASTM C33 / C136 - سنگدانه و دانه‌بندی'];
+const standards = ['ACI PRC-211.1-22 - تناسب اجزای بتن', 'ACI CODE-318-25 - دوام و کلاس مواجهه', 'ACI 201.2R - دوام بتن', 'ACI 301 - الزامات اجرایی', 'ASTM C33 / C136 - سنگدانه و دانه‌بندی'];
 
 export function App() {
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
@@ -62,8 +67,8 @@ export function App() {
   const kpis = useMemo(() => [
     { label: 'طرح‌های ذخیره‌شده', value: String(recentProjects.length), hint: 'آرشیو محلی SQLite', tone: 'blue' },
     { label: 'وضعیت موتور مهندسی', value: engineState === 'ready' ? 'متصل' : engineState === 'error' ? 'خطا' : 'آماده تست', hint: 'Python Engine', tone: engineState === 'error' ? 'red' : 'green' },
-    { label: 'استانداردهای فعال', value: 'ACI', hint: 'قابل توسعه به ASTM/EN/ISIRI', tone: 'orange' },
-    { label: 'طرح فعال', value: activeMixDesignId ? 'انتخاب شد' : 'ندارد', hint: 'برای مصالح، دانه‌بندی و محاسبه لازم است', tone: activeMixDesignId ? 'purple' : 'red' }
+    { label: 'استانداردهای فعال', value: 'ACI', hint: '211.1-22 + 318-25', tone: 'orange' },
+    { label: 'طرح فعال', value: activeMixDesignId ? 'انتخاب شد' : 'ندارد', hint: 'برای مصالح، دوام و محاسبه لازم است', tone: activeMixDesignId ? 'purple' : 'red' }
   ], [activeMixDesignId, engineState, recentProjects.length]);
 
   async function checkEngine() {
@@ -123,10 +128,10 @@ export function App() {
   }
 
   return <div className="app-shell">
-    <header className="header"><div className="header-top"><div className="brand"><div className="brand-icon">ط</div><div><strong>طلوع بتن</strong><small>TOLOU CONCRETE MIX DESIGN</small></div></div><div className="module-title"><h1>نرم‌افزار جامع طرح اختلاط انواع بتن</h1><p>طراحی، کنترل دوام، تحلیل دانه‌بندی، گزارش PDF و مگاپرامپت مهندسی</p></div><div className="header-actions"><button>راهنما</button><button>گزارش</button></div></div><div className="header-bottom"><span>ConcreteMixDesign-Desktop / فاز اجرایی اولیه</span><div className="badges"><span className="badge green">Python Engine</span><span className="badge blue">SQLite</span><span className="badge orange">Engine 0.2.0</span></div></div></header>
-    <nav className="top-nav"><button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button><button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>پروژه جدید</button><button className={activeView === 'materials' ? 'active' : ''} onClick={() => setActiveView('materials')}>مصالح</button><button className={activeView === 'gradation' ? 'active' : ''} onClick={() => setActiveView('gradation')}>دانه‌بندی</button><button>دوام</button><button className={activeView === 'results' ? 'active' : ''} onClick={() => setActiveView('results')}>نتایج</button><button>گزارش</button></nav>
+    <header className="header"><div className="header-top"><div className="brand"><div className="brand-icon">ط</div><div><strong>طلوع بتن</strong><small>TOLOU CONCRETE MIX DESIGN</small></div></div><div className="module-title"><h1>نرم‌افزار جامع طرح اختلاط انواع بتن</h1><p>طراحی، کنترل دوام، تحلیل دانه‌بندی، گزارش PDF و مگاپرامپت مهندسی</p></div><div className="header-actions"><button>راهنما</button><button>گزارش</button></div></div><div className="header-bottom"><span>ConcreteMixDesign-Desktop / فاز اجرایی اولیه</span><div className="badges"><span className="badge green">Python Engine</span><span className="badge blue">SQLite</span><span className="badge orange">Engine 0.3.0</span></div></div></header>
+    <nav className="top-nav"><button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => setActiveView('dashboard')}>داشبورد</button><button className={activeView === 'new-project' ? 'active' : ''} onClick={() => setActiveView('new-project')}>پروژه جدید</button><button className={activeView === 'materials' ? 'active' : ''} onClick={() => setActiveView('materials')}>مصالح</button><button className={activeView === 'gradation' ? 'active' : ''} onClick={() => setActiveView('gradation')}>دانه‌بندی</button><button className={activeView === 'durability' ? 'active' : ''} onClick={() => setActiveView('durability')}>دوام</button><button className={activeView === 'results' ? 'active' : ''} onClick={() => setActiveView('results')}>نتایج</button><button>گزارش</button></nav>
     <div className="page-grid"><aside className="sidebar"><div className="sidebar-title">ساختار نرم‌افزار</div>{modules.map((item, index) => <button className={sidebarClass(index, activeView)} key={item}><span><b className="ico">{index + 1}</b>{item}</span><span>›</span></button>)}<div className="note"><b>اصل مهندسی</b><br />هیچ خروجی بدون استاندارد، فرضیه، هشدار و قابلیت ردیابی معتبر نیست.</div></aside>
-      <main className="workspace">{activeView === 'dashboard' && <Dashboard kpis={kpis} engineState={engineState} engineResult={engineResult} engineError={engineError} recentProjects={recentProjects} onCheckEngine={checkEngine} onNewProject={() => setActiveView('new-project')} onSelectProject={(id) => { setActiveMixDesignId(id); setEngineResult(null); setCalculationState('idle'); setActiveView('materials'); }} />}{activeView === 'new-project' && <ProjectForm projectIntake={projectIntake} saveStatus={saveStatus} saveMessage={saveMessage} onUpdate={updateProject} onSave={saveProject} />}{activeView === 'materials' && <MaterialsView mixDesignId={activeMixDesignId} />}{activeView === 'gradation' && <GradationView mixDesignId={activeMixDesignId} />}{activeView === 'results' && <ResultsView mixDesignId={activeMixDesignId} result={engineResult} state={calculationState} error={calculationError} onCalculate={calculateSavedMix} />}</main>
+      <main className="workspace">{activeView === 'dashboard' && <Dashboard kpis={kpis} engineState={engineState} engineResult={engineResult} engineError={engineError} recentProjects={recentProjects} onCheckEngine={checkEngine} onNewProject={() => setActiveView('new-project')} onSelectProject={(id) => { setActiveMixDesignId(id); setEngineResult(null); setCalculationState('idle'); setActiveView('materials'); }} />}{activeView === 'new-project' && <ProjectForm projectIntake={projectIntake} saveStatus={saveStatus} saveMessage={saveMessage} onUpdate={updateProject} onSave={saveProject} />}{activeView === 'materials' && <MaterialsView mixDesignId={activeMixDesignId} />}{activeView === 'gradation' && <GradationView mixDesignId={activeMixDesignId} />}{activeView === 'durability' && <DurabilityView mixDesignId={activeMixDesignId} maxAggregateSizeMm={projectIntake.mixDesign.maxAggregateSizeMm} />}{activeView === 'results' && <ResultsView mixDesignId={activeMixDesignId} result={engineResult} state={calculationState} error={calculationError} onCalculate={calculateSavedMix} />}</main>
     </div>
   </div>;
 }
@@ -134,6 +139,7 @@ export function App() {
 function sidebarClass(index: number, activeView: ActiveView) {
   if (activeView === 'materials' && index === 3) return 'side active';
   if (activeView === 'gradation' && index === 4) return 'side active';
+  if (activeView === 'durability' && index === 5) return 'side active';
   if (activeView === 'results' && index === 6) return 'side active';
   if ((activeView === 'dashboard' || activeView === 'new-project') && index === 0) return 'side active';
   return 'side';
@@ -145,12 +151,14 @@ function ResultsView(props: { mixDesignId: string | null; result: EngineResult |
   const mix = props.result?.mix_proportions;
   const warnings = props.result?.warnings ?? [];
   const aggregateRows = props.result?.aggregate_analysis ?? [];
-  return <><section className="titlebar"><div><h2>نتایج محاسبات طرح اختلاط</h2><p>محاسبه مستقیم از پروژه، مصالح و سهم‌های ذخیره‌شده در SQLite توسط Python Engine</p></div><div className="toolbar"><button className="btn success" disabled={!props.mixDesignId || props.state === 'calculating'} onClick={props.onCalculate}>{props.state === 'calculating' ? 'در حال محاسبه...' : 'محاسبه طرح اختلاط'}</button></div></section>
-    {!props.mixDesignId && <div className="alert warn">ابتدا یک پروژه ذخیره‌شده را انتخاب کنید، مصالح و دانه‌بندی آن را ثبت کنید و سپس محاسبه را انجام دهید.</div>}
+  const exposure = props.result?.durability?.exposure_classes;
+  return <><section className="titlebar"><div><h2>نتایج محاسبات طرح اختلاط</h2><p>محاسبه مستقیم از پروژه، دوام، مصالح و سهم‌های ذخیره‌شده در SQLite توسط Python Engine</p></div><div className="toolbar"><button className="btn success" disabled={!props.mixDesignId || props.state === 'calculating'} onClick={props.onCalculate}>{props.state === 'calculating' ? 'در حال محاسبه...' : 'محاسبه طرح اختلاط'}</button></div></section>
+    {!props.mixDesignId && <div className="alert warn">ابتدا یک پروژه ذخیره‌شده را انتخاب کنید، مصالح، دانه‌بندی و دوام آن را ثبت کنید و سپس محاسبه را انجام دهید.</div>}
     {props.error && <div className="alert danger">{props.error}</div>}
-    {props.mixDesignId && !props.result && !props.error && <div className="alert info">طرح فعال آماده است. برای ارسال داده‌های واقعی SQLite به موتور روی «محاسبه طرح اختلاط» کلیک کنید.</div>}
-    {props.result && <><section className="kpis"><article className="kpi blue"><label>وضعیت محاسبه</label><strong>{props.result.status ?? '-'}</strong><small>Engine {props.result.engine_version ?? props.result.version ?? '0.2.0'}</small></article><article className="kpi green"><label>آب اختلاط</label><strong>{displayValue(mix?.water_kg_m3)}</strong><small>kg/m³</small></article><article className="kpi orange"><label>مواد سیمانی</label><strong>{displayValue(mix?.cementitious_kg_m3)}</strong><small>kg/m³</small></article><article className="kpi purple"><label>w/cm</label><strong>{displayValue(mix?.w_cm_ratio)}</strong><small>نسبت جرمی</small></article></section>
-      <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>مقادیر محاسبه‌شده در مترمکعب</h3><span>مبنای SSD و اصلاح رطوبت</span></div><span className="badge blue">{props.result.calculation_method ?? 'Python Engine'}</span></div><div className="panel-body"><div className="result-grid"><div><label>سنگدانه ریز SSD</label><strong>{displayValue(mix?.fine_aggregate_kg_m3)} kg/m³</strong></div><div><label>سنگدانه درشت SSD</label><strong>{displayValue(mix?.coarse_aggregate_kg_m3)} kg/m³</strong></div><div><label>کل سنگدانه SSD</label><strong>{displayValue(mix?.aggregate_ssd_kg_m3)} kg/m³</strong></div><div><label>کل وزن بچینگ</label><strong>{displayValue(mix?.aggregate_batch_kg_m3)} kg/m³</strong></div><div><label>اصلاح آب بچینگ</label><strong>{displayValue(mix?.batch_water_adjustment_kg_m3)} kg/m³</strong></div><div><label>هوای منظورشده</label><strong>{displayValue(mix?.air_content_percent)} %</strong></div></div></div></article>
+    {props.mixDesignId && !props.result && !props.error && <div className="alert info">طرح فعال آماده است. موتور ابتدا دوام ACI 318-25 و سپس تناسب اجزا ACI 211.1 را اجرا می‌کند.</div>}
+    {props.result && <><section className="kpis"><article className="kpi blue"><label>وضعیت محاسبه</label><strong>{props.result.status ?? '-'}</strong><small>Engine {props.result.engine_version ?? props.result.version ?? '0.3.0'}</small></article><article className="kpi green"><label>آب اختلاط</label><strong>{displayValue(mix?.water_kg_m3)}</strong><small>kg/m³</small></article><article className="kpi orange"><label>مواد سیمانی</label><strong>{displayValue(mix?.cementitious_kg_m3)}</strong><small>kg/m³</small></article><article className="kpi purple"><label>w/cm حاکم</label><strong>{displayValue(mix?.w_cm_ratio)}</strong><small>Durability + strength</small></article></section>
+      <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>الزامات دوام اعمال‌شده</h3><span>ACI CODE-318-25 → ACI PRC-211.1-22</span></div><span className="badge purple">{exposure ? `${exposure.freeze_thaw}/${exposure.sulfate}/${exposure.water}/${exposure.corrosion}` : 'No exposure data'}</span></div><div className="panel-body"><div className="result-grid"><div><label>حداکثر w/cm دوام</label><strong>{displayValue(mix?.durability_governing_max_w_cm)}</strong></div><div><label>حداقل مقاومت دوام</label><strong>{displayValue(mix?.durability_min_strength_mpa)} MPa</strong></div><div><label>هوای هدف دوام</label><strong>{displayValue(mix?.durability_target_air_percent)} %</strong></div><div><label>w/cm نهایی</label><strong>{displayValue(mix?.w_cm_ratio)}</strong></div></div></div></article>
+      <article className="panel wide-panel"><div className="panel-head"><div><h3>مقادیر محاسبه‌شده در مترمکعب</h3><span>مبنای SSD و اصلاح رطوبت</span></div><span className="badge blue">{props.result.calculation_method ?? 'Python Engine'}</span></div><div className="panel-body"><div className="result-grid"><div><label>سنگدانه ریز SSD</label><strong>{displayValue(mix?.fine_aggregate_kg_m3)} kg/m³</strong></div><div><label>سنگدانه درشت SSD</label><strong>{displayValue(mix?.coarse_aggregate_kg_m3)} kg/m³</strong></div><div><label>کل سنگدانه SSD</label><strong>{displayValue(mix?.aggregate_ssd_kg_m3)} kg/m³</strong></div><div><label>کل وزن بچینگ</label><strong>{displayValue(mix?.aggregate_batch_kg_m3)} kg/m³</strong></div><div><label>اصلاح آب بچینگ</label><strong>{displayValue(mix?.batch_water_adjustment_kg_m3)} kg/m³</strong></div><div><label>هوای منظورشده</label><strong>{displayValue(mix?.air_content_percent)} %</strong></div></div></div></article>
       <article className="panel wide-panel"><div className="panel-head"><div><h3>آنالیز تفکیکی سنگدانه‌ها</h3><span>سهم، SSD، رطوبت و اصلاح آب هر منبع</span></div><span className="badge green">{aggregateRows.length} منبع</span></div><div className="panel-body standards-list">{aggregateRows.length === 0 && <div className="alert warn">هیچ سنگدانه قابل محاسبه‌ای به موتور نرسیده است. سهم‌ها، وزن مخصوص SSD و اطلاعات مصالح را کنترل کنید.</div>}{aggregateRows.map((row, index) => <div key={row.material_id ?? index}><b>{row.material_name ?? `سنگدانه ${index + 1}`}</b> — سهم {displayValue(row.share_percent)}٪ | SSD: {displayValue(row.ssd_mass_kg_m3)} kg/m³ | بچینگ: {displayValue(row.batch_mass_kg_m3)} kg/m³ | جذب: {displayValue(row.absorption_percent)}٪ | رطوبت: {displayValue(row.moisture_percent)}٪ | اصلاح آب: {displayValue(row.water_adjustment_kg_m3)} kg/m³</div>)}</div></article>
       <article className="panel"><div className="panel-head"><div><h3>هشدارهای مهندسی</h3><span>نباید در گزارش نهایی حذف شوند</span></div><span className={`badge ${warnings.length ? 'orange' : 'green'}`}>{warnings.length}</span></div><div className="panel-body alerts">{warnings.length === 0 && <div className="alert ok">هشدار ثبت‌شده‌ای از موتور وجود ندارد.</div>}{warnings.map((warning, index) => <div className={`alert ${warning.severity === 'fail' ? 'danger' : 'warn'}`} key={`${warning.code ?? 'warning'}-${index}`}><b>{warning.code ?? 'ENGINE_WARNING'}</b> — {warning.message ?? 'هشدار مهندسی'}{warning.reference ? ` | مرجع: ${warning.reference}` : ''}</div>)}</div></article>
       <article className="panel"><div className="panel-head"><div><h3>ردیابی محاسبه</h3><span>استاندارد، فرضیات و محدودیت‌ها</span></div></div><div className="panel-body standards-list">{(props.result.standard_references ?? []).map(item => <div key={`ref-${item}`}>✓ {item}</div>)}{(props.result.engineering_notes ?? []).map(item => <div key={`note-${item}`}>• {item}</div>)}{(props.result.assumptions ?? []).map(item => <div key={`assumption-${item}`}>فرض: {item}</div>)}{(props.result.limitations ?? []).map(item => <div key={`limit-${item}`}>محدودیت: {item}</div>)}</div></article></section></>}
