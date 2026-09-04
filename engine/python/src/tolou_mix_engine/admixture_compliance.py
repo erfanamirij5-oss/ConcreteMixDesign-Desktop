@@ -8,11 +8,10 @@ def evaluate_admixture_compliance(
     durability: dict,
     prestressed_concrete: bool,
 ) -> dict:
-    """Check admixture standard designation and partial chloride contribution.
+    """Check admixture standard designation and quantify its chloride contribution.
 
-    Chloride check is deliberately partial: only chloride contributed by chemical admixtures
-    is quantified here. Water, aggregates and cementitious materials must also be tested or
-    declared before total mixture chloride compliance can be confirmed.
+    This module intentionally reports chloride from chemical admixtures only. Final mixture
+    chloride acceptance is performed by chloride_compliance after all active sources are known.
     """
     warnings: list[dict] = []
     checks: list[dict] = []
@@ -78,20 +77,11 @@ def evaluate_admixture_compliance(
                         f"کلراید محاسبه‌شده فقط از افزودنی‌ها معادل {admixture_chloride_percent_binder:.4f}% "
                         f"جرم مواد سیمانی است و از حد {float(limit_percent):.3f}% برای {corrosion_class} بیشتر است."
                     ),
-                    "reference": "ACI CODE-318-25 Table 19.3.2.1 chloride-ion limit",
+                    "reference": "ACI CODE-318-25 chloride-ion limit",
                 }
             )
         else:
             chloride_status = "partial_pass" if chloride_data_complete else "needs_review"
-
-    warnings.append(
-        {
-            "code": "TOTAL_MIXTURE_CHLORIDE_NOT_YET_VERIFIED",
-            "severity": "needs_review",
-            "message": "کنترل فعلی فقط کلراید ناشی از افزودنی شیمیایی را پوشش می‌دهد؛ آب، سنگدانه و مواد سیمانی نیز باید در کل کلراید بتن منظور شوند.",
-            "reference": "ACI CODE-318-25 chloride-ion limits / ASTM C1218/C1218M",
-        }
-    )
 
     return {
         "status": "fail" if any(item.get("severity") == "fail" for item in warnings) else "needs_review",
@@ -115,7 +105,6 @@ def evaluate_admixture_compliance(
             "ASTM C494/C494M - Chemical Admixtures for Concrete",
             "ASTM C260/C260M - Air-Entraining Admixtures for Concrete",
             "ACI CODE-318-25 - Exposure and chloride-ion requirements",
-            "ASTM C1218/C1218M - Water-soluble chloride in mortar and concrete",
         ],
     }
 
@@ -126,7 +115,7 @@ def _check_standard_designation(subtype: str, designation: str, name: object) ->
     if subtype == "air_entrainer":
         valid = "C260" in normalized
         expected = "ASTM C260/C260M"
-    elif subtype in {"water_reducer", "high_range_water_reducer", "retarder", "accelerator"}:
+    elif subtype in {"water_reducer", "high_range_water_reducer", "retarder", "accelerator", "calcium_chloride_accelerator"}:
         valid = "C494" in normalized
         expected = "ASTM C494/C494M"
     else:
