@@ -28,6 +28,13 @@ declare global {
       save: (payload: unknown) => Promise<unknown>;
       listByMixDesign: (mixDesignId: string) => Promise<unknown>;
     };
+    tolouMaterialLibrary?: {
+      save: (payload: unknown) => Promise<unknown>;
+      list: (materialType?: string) => Promise<unknown>;
+      attach: (mixDesignId: string, libraryMaterialId: string) => Promise<unknown>;
+      setStatus: (id: string, status: 'active' | 'expired' | 'inactive') => Promise<unknown>;
+      listProvenance: (mixDesignId: string) => Promise<unknown>;
+    };
     tolouGradation?: {
       save: (payload: unknown) => Promise<unknown>;
       listByMaterial: (materialId: string) => Promise<unknown>;

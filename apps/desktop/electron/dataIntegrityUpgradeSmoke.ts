@@ -3,26 +3,17 @@ import { readFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 
 const legacyMigrations = [
-  '001_initial_schema',
-  '002_manual_gradation_controls',
-  '003_aggregate_material_fields',
-  '004_sieve_labels',
-  '005_durability_inputs',
-  '006_cementitious_material_fields',
-  '007_full_chloride_inputs',
-  '008_sulfate_cementitious_compliance',
-  '009_asr_alkali_inputs',
-  '010_mixing_water_c1602',
-  '011_recycled_water_monitoring',
-  '012_aggregate_quality_inputs',
-  '013_advanced_aggregate_quality',
-  '014_aggregate_shape_texture',
-  '015_aggregate_blend_optimizer_criteria'
+  '001_initial_schema', '002_manual_gradation_controls', '003_aggregate_material_fields', '004_sieve_labels',
+  '005_durability_inputs', '006_cementitious_material_fields', '007_full_chloride_inputs',
+  '008_sulfate_cementitious_compliance', '009_asr_alkali_inputs', '010_mixing_water_c1602',
+  '011_recycled_water_monitoring', '012_aggregate_quality_inputs', '013_advanced_aggregate_quality',
+  '014_aggregate_shape_texture', '015_aggregate_blend_optimizer_criteria'
 ];
 const upgradeMigrations = [
   '016_mix_design_revision_control',
   '017_mix_design_management_workflow',
-  '018_mix_design_engineering_identity'
+  '018_mix_design_engineering_identity',
+  '019_professional_material_library'
 ];
 
 const database = new Database(':memory:');
@@ -63,8 +54,20 @@ if (!upgraded || upgraded.id !== 'mix-v03' || upgraded.projectId !== 'project-v0
 if (upgraded.projectName !== 'Legacy v0.3 Project' || upgraded.city !== 'Yazd') throw new Error('Legacy project data changed during upgrade.');
 if (Number(upgraded.revisionNumber) !== 0 || upgraded.status !== 'draft') throw new Error('Management defaults were not applied safely during upgrade.');
 
-const material = database.prepare('SELECT name, source, specific_gravity AS specificGravity, notes FROM materials WHERE id = ?').get('cement-v03') as { name: string; source: string; specificGravity: number; notes: string };
+const material = database.prepare(`SELECT name, source, specific_gravity AS specificGravity, notes,
+  library_material_id AS libraryMaterialId, library_snapshot_json AS librarySnapshotJson,
+  library_snapshot_at AS librarySnapshotAt FROM materials WHERE id = ?`).get('cement-v03') as {
+  name: string; source: string; specificGravity: number; notes: string;
+  libraryMaterialId: string | null; librarySnapshotJson: string | null; librarySnapshotAt: string | null;
+};
 if (!material || material.name !== 'Legacy Cement' || material.source !== 'Legacy Source' || material.specificGravity !== 3.15 || material.notes !== 'preserve me') throw new Error('Legacy material data was not preserved during upgrade.');
+if (material.libraryMaterialId !== null || material.librarySnapshotJson !== null || material.librarySnapshotAt !== null) throw new Error('Migration 019 must keep pre-Library materials as manual records with nullable provenance fields.');
+
+const libraryTable = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'material_library'").get() as { name?: string } | undefined;
+if (libraryTable?.name !== 'material_library') throw new Error('Migration 019 did not create material_library.');
+const libraryIndexes = database.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'material_library'").all() as Array<{ name: string }>;
+if (!libraryIndexes.some(row => row.name === 'idx_material_library_type_status') || !libraryIndexes.some(row => row.name === 'idx_material_library_name')) throw new Error('Migration 019 material library indexes are incomplete.');
+
 const result = database.prepare('SELECT cementitious_content_kg_m3 AS cementitious, water_content_kg_m3 AS water, w_cm_ratio AS wcm, notes FROM mix_results WHERE id = ?').get('result-v03') as { cementitious: number; water: number; wcm: number; notes: string };
 if (!result || result.cementitious !== 400 || result.water !== 180 || result.wcm !== 0.45 || result.notes !== 'legacy result') throw new Error('Legacy engineering result data was not preserved during upgrade.');
 
@@ -78,9 +81,7 @@ try {
     database.exec('THIS IS NOT VALID SQL;');
     database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run('999_intentional_failure', new Date().toISOString());
   })();
-} catch {
-  rollbackTriggered = true;
-}
+} catch { rollbackTriggered = true; }
 if (!rollbackTriggered) throw new Error('Intentional migration failure did not throw.');
 const rollbackColumns = database.prepare("PRAGMA table_info('projects')").all() as Array<{ name: string }>;
 if (rollbackColumns.some(column => column.name === '__rollback_probe')) throw new Error('Failed migration left partial schema changes behind.');
@@ -88,7 +89,7 @@ const failedMigrationRecord = database.prepare('SELECT id FROM schema_migrations
 if (failedMigrationRecord) throw new Error('Failed migration was incorrectly recorded as applied.');
 
 const applied = database.prepare('SELECT id FROM schema_migrations ORDER BY id').all() as Array<{ id: string }>;
-if (applied.length !== 18 || applied.at(-1)?.id !== '018_mix_design_engineering_identity') throw new Error('Upgrade chain did not finish through migration 018.');
+if (applied.length !== 19 || applied.at(-1)?.id !== '019_professional_material_library') throw new Error('Upgrade chain did not finish through migration 019.');
 
 database.close();
-console.log('Data integrity upgrade smoke passed: v0.3 data preserved, foreign keys clean, failed migration rolled back.');
+console.log('Data integrity upgrade smoke passed: legacy data preserved and migration chain verified through 019.');
