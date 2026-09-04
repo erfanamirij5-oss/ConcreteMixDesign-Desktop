@@ -12,6 +12,14 @@ export type BackupManifest = {
   sizeBytes: number;
 };
 
+export type PreparedRestore = {
+  candidate: string;
+  activePath: string;
+  incomingPath: string;
+  recoveryPath: string;
+  manifest: BackupManifest;
+};
+
 export async function createValidatedBackup(database: Database.Database, destination: string): Promise<BackupManifest> {
   assertDatabaseReadyForRuntime(database);
   mkdirSync(path.dirname(destination), { recursive: true });
@@ -44,32 +52,35 @@ export function validateBackupCandidate(candidate: string): BackupManifest {
   return manifest;
 }
 
-export async function restoreValidatedBackup(candidate: string, activePath: string): Promise<{ recoveryPath: string; manifest: BackupManifest }> {
+export async function prepareValidatedRestore(candidate: string, activePath: string, activeDatabase: Database.Database): Promise<PreparedRestore> {
   const manifest = validateBackupCandidate(candidate);
+  assertDatabaseReadyForRuntime(activeDatabase);
   mkdirSync(path.dirname(activePath), { recursive: true });
+
   const recoveryPath = `${activePath}.pre-restore-${timestampToken()}.sqlite`;
-  const incoming = `${activePath}.restore-incoming`;
-  rmIfExists(incoming);
+  const incomingPath = `${activePath}.restore-incoming`;
+  rmIfExists(incomingPath);
   rmIfExists(recoveryPath);
 
-  copyFileSync(candidate, incoming);
-  validateDatabaseFile(incoming);
+  copyFileSync(candidate, incomingPath);
+  validateDatabaseFile(incomingPath);
 
-  if (existsSync(activePath)) {
-    const active = new Database(activePath, { fileMustExist: true });
-    try {
-      assertDatabaseReadyForRuntime(active);
-      await active.backup(recoveryPath);
-    } finally {
-      active.close();
-    }
-    validateDatabaseFile(recoveryPath);
-  }
+  await activeDatabase.backup(recoveryPath);
+  validateDatabaseFile(recoveryPath);
 
+  return { candidate, activePath, incomingPath, recoveryPath, manifest };
+}
+
+export function commitPreparedRestore(prepared: PreparedRestore, activeDatabase: Database.Database): { recoveryPath: string; manifest: BackupManifest } {
+  const { activePath, incomingPath, recoveryPath, manifest } = prepared;
+
+  activeDatabase.pragma('wal_checkpoint(TRUNCATE)');
+  activeDatabase.close();
   removeSidecars(activePath);
+
   try {
     rmIfExists(activePath);
-    renameSync(incoming, activePath);
+    renameSync(incomingPath, activePath);
     validateDatabaseFile(activePath);
   } catch (error) {
     rmIfExists(activePath);
@@ -80,9 +91,15 @@ export async function restoreValidatedBackup(candidate: string, activePath: stri
     removeSidecars(activePath);
     throw error;
   } finally {
-    rmIfExists(incoming);
+    rmIfExists(incomingPath);
   }
+
   return { recoveryPath, manifest };
+}
+
+export async function restoreValidatedBackup(candidate: string, activePath: string, activeDatabase: Database.Database): Promise<{ recoveryPath: string; manifest: BackupManifest }> {
+  const prepared = await prepareValidatedRestore(candidate, activePath, activeDatabase);
+  return commitPreparedRestore(prepared, activeDatabase);
 }
 
 function validateDatabaseFile(filePath: string) {
