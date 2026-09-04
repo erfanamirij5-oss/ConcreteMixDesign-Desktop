@@ -18,6 +18,7 @@
     "test:management-workflow": "npm run build:electron && node dist/electron/managementWorkflowSmoke.js",
     "test:duplicate-contract": "npm run build:electron && node dist/electron/duplicateContractSmoke.js",
     "test:data-integrity-upgrade": "npm run build:electron && node dist/electron/dataIntegrityUpgradeSmoke.js",
+    "test:data-integrity-constraints": "npm run build:electron && node dist/electron/dataIntegrityConstraintsSmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
