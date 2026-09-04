@@ -8,6 +8,12 @@ type ManagementRecord = {
   mixDesignId: string;
   projectName: string;
   city: string;
+  locationDescription?: string;
+  structureType?: string;
+  elementType?: string;
+  clientName?: string;
+  contractorName?: string;
+  consultantName?: string;
   concreteType: string;
   targetStrengthMpa: number;
   requiredSlumpMm: number;
@@ -84,6 +90,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     mixDesignId: project.mixDesignId,
     projectName: project.projectName,
     city: project.city,
+    locationDescription: '', structureType: '', elementType: '', clientName: '', contractorName: '', consultantName: '',
     concreteType: project.concreteType,
     targetStrengthMpa: project.targetStrengthMpa,
     requiredSlumpMm: 0,
@@ -121,7 +128,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
       if (!window.tolouMixDesigns?.updateBasics) throw new Error('API ویرایش طرح در دسترس نیست.');
       const response = await window.tolouMixDesigns.updateBasics({ ...record, actorName }) as { status?: string; record?: ManagementRecord; error?: string };
       if (response.status !== 'pass' || !response.record) throw new Error(response.error ?? 'ویرایش مشخصات طرح ناموفق بود.');
-      setRecord(response.record); setMode('overview'); setMessage('مشخصات نسخه جاری ذخیره شد و رویداد آن در Audit Log ثبت شد.');
+      setRecord(response.record); setMode('overview'); setMessage('مشخصات کامل پروژه و نسخه جاری ذخیره شد و رویداد آن در Audit Log ثبت شد.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در ویرایش طرح'); }
     finally { setBusy(false); }
   }
@@ -173,15 +180,21 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     {locked && mode === 'edit' && <div className="alert warn">نسخه با وضعیت {statusLabel(current.status)} قفل است. برای تغییر مهندسی ابتدا Revision جدید بسازید.</div>}
 
     {mode === 'edit' && record && !locked && <section className="panel revision-editor">
-      <div className="panel-head"><div><h3>ویرایش نسخه جاری R{String(record.revisionNumber).padStart(2, '0')}</h3><span>تغییرات در Audit Log ثبت می‌شوند؛ نسخه‌های قفل‌شده قابل ویرایش مستقیم نیستند.</span></div></div>
+      <div className="panel-head"><div><h3>ویرایش نسخه جاری R{String(record.revisionNumber).padStart(2, '0')}</h3><span>مشخصات پروژه و الزامات بتن در یک تراکنش ذخیره و در Audit Log ثبت می‌شوند.</span></div></div>
       <div className="panel-body revision-form-grid">
         <label><span>نام پروژه</span><input value={record.projectName} onChange={event => setRecord({ ...record, projectName: event.target.value })} /></label>
-        <label><span>شهر</span><input value={record.city} onChange={event => setRecord({ ...record, city: event.target.value })} /></label>
+        <label><span>شهر</span><input value={record.city ?? ''} onChange={event => setRecord({ ...record, city: event.target.value })} /></label>
+        <label><span>نوع سازه</span><input value={record.structureType ?? ''} onChange={event => setRecord({ ...record, structureType: event.target.value })} /></label>
+        <label><span>عضو سازه‌ای</span><input value={record.elementType ?? ''} onChange={event => setRecord({ ...record, elementType: event.target.value })} /></label>
+        <label><span>کارفرما</span><input value={record.clientName ?? ''} onChange={event => setRecord({ ...record, clientName: event.target.value })} /></label>
+        <label><span>پیمانکار</span><input value={record.contractorName ?? ''} onChange={event => setRecord({ ...record, contractorName: event.target.value })} /></label>
+        <label><span>مشاور</span><input value={record.consultantName ?? ''} onChange={event => setRecord({ ...record, consultantName: event.target.value })} /></label>
+        <label className="revision-field-wide"><span>شرح موقعیت / شرایط پروژه</span><textarea value={record.locationDescription ?? ''} onChange={event => setRecord({ ...record, locationDescription: event.target.value })} /></label>
         <label><span>نوع بتن</span><select value={record.concreteType} onChange={event => setRecord({ ...record, concreteType: event.target.value })}><option value="normal_weight">بتن معمولی</option><option value="pumped">بتن پمپی</option></select></label>
         <label><span>مقاومت هدف MPa</span><input type="number" value={record.targetStrengthMpa} onChange={event => setRecord({ ...record, targetStrengthMpa: Number(event.target.value) })} /></label>
         <label><span>اسلامپ mm</span><input type="number" value={record.requiredSlumpMm} onChange={event => setRecord({ ...record, requiredSlumpMm: Number(event.target.value) })} /></label>
         <label><span>NMSA mm</span><input type="number" value={record.maxAggregateSizeMm} onChange={event => setRecord({ ...record, maxAggregateSizeMm: Number(event.target.value) })} /></label>
-        <label className="revision-field-wide"><span>شرایط دوام / مواجهه</span><textarea value={record.exposureSummary} onChange={event => setRecord({ ...record, exposureSummary: event.target.value })} /></label>
+        <label className="revision-field-wide"><span>شرایط دوام / مواجهه</span><textarea value={record.exposureSummary ?? ''} onChange={event => setRecord({ ...record, exposureSummary: event.target.value })} /></label>
         <label><span>نام ویرایش‌کننده</span><input value={actorName} onChange={event => setActorName(event.target.value)} placeholder="برای Audit Trail" /></label>
       </div>
       <div className="revision-form-actions"><button className="btn ghost" onClick={() => { void loadRecord(); setMode('overview'); }}>انصراف</button><button className="btn success" disabled={busy} onClick={() => void saveBasics()}>{busy ? 'در حال ذخیره...' : 'ذخیره تغییرات'}</button></div>
@@ -220,13 +233,19 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
           <div><span>کد طرح</span><b className="mono-cell">{current.mixDesignId}</b></div>
           <div><span>Revision</span><b>R{String(current.revisionNumber ?? 0).padStart(2, '0')}</b></div>
           <div><span>نام پروژه</span><b>{current.projectName}</b></div>
+          <div><span>شهر</span><b>{current.city || '-'}</b></div>
+          <div><span>نوع سازه</span><b>{current.structureType || '-'}</b></div>
+          <div><span>عضو سازه‌ای</span><b>{current.elementType || '-'}</b></div>
+          <div><span>کارفرما</span><b>{current.clientName || '-'}</b></div>
+          <div><span>پیمانکار</span><b>{current.contractorName || '-'}</b></div>
+          <div><span>مشاور</span><b>{current.consultantName || '-'}</b></div>
           <div><span>نوع بتن</span><b>{concreteTypeLabel(current.concreteType)}</b></div>
           <div><span>مقاومت هدف</span><b>{current.targetStrengthMpa} MPa</b></div>
           <div><span>اسلامپ</span><b>{current.requiredSlumpMm || '-'} mm</b></div>
           <div><span>NMSA</span><b>{current.maxAggregateSizeMm || '-'} mm</b></div>
-          <div><span>شهر</span><b>{current.city || '-'}</b></div>
           <div><span>وضعیت</span><b>{statusLabel(current.status)}</b></div>
         </div>
+        {current.locationDescription && <div className="panel-body"><div className="alert info"><b>شرح موقعیت پروژه:</b> {current.locationDescription}</div></div>}
       </article>
       <article className="panel">
         <div className="panel-head"><div><h3>گردش کار مهندسی</h3><span>وضعیت تکمیل پرونده</span></div></div>
@@ -239,9 +258,9 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
         </div>
       </article>
       <article className="panel workspace-wide-card">
-        <div className="panel-head"><div><h3>کنترل مدیریتی پرونده</h3><span>Revision Control اکنون فعال است</span></div></div>
+        <div className="panel-head"><div><h3>کنترل مدیریتی پرونده</h3><span>Revision Control و قفل مهندسی فعال است</span></div></div>
         <div className="panel-body future-capabilities">
-          <span className="capability-active">Revision Control</span><span>Trial Mix</span><span>Engineering Approval</span><span>Print / PDF</span><span className="capability-active">Audit Trail</span><span>Production Release</span>
+          <span className="capability-active">Revision Control</span><span>Trial Mix</span><span>Engineering Approval</span><span>Print / PDF</span><span className="capability-active">Audit Trail</span><span className="capability-active">Locked Revision</span>
         </div>
       </article>
     </section>}
