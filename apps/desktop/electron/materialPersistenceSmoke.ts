@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import ts from 'typescript';
+import * as ts from 'typescript';
 
 const repositoryRoot = process.cwd();
 const databaseSourcePath = path.join(repositoryRoot, 'apps/desktop/electron/database.ts');
