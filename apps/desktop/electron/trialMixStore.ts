@@ -106,15 +106,21 @@ export function hasCompletedTrialMixRecordInDatabase(database: Database.Database
 }
 
 export function saveTrialMixRecord(input: TrialMixInput) {
-  return saveTrialMixRecordToDatabase(getDatabase(), input);
+  const database = getDatabase();
+  ensureTrialMixMigration(database);
+  return saveTrialMixRecordToDatabase(database, input);
 }
 
 export function listTrialMixRecords(mixDesignId: string) {
-  return listTrialMixRecordsFromDatabase(getDatabase(), mixDesignId);
+  const database = getDatabase();
+  ensureTrialMixMigration(database);
+  return listTrialMixRecordsFromDatabase(database, mixDesignId);
 }
 
 export function hasCompletedTrialMixRecord(mixDesignId: string) {
-  return hasCompletedTrialMixRecordInDatabase(getDatabase(), mixDesignId);
+  const database = getDatabase();
+  ensureTrialMixMigration(database);
+  return hasCompletedTrialMixRecordInDatabase(database, mixDesignId);
 }
 
 function getTrialMixRecordFromDatabase(database: Database.Database, id: string) {
