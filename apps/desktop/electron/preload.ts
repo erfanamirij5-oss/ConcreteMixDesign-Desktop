@@ -39,7 +39,8 @@ contextBridge.exposeInMainWorld('tolouMaterialLibrary', {
   save: (payload: unknown) => ipcRenderer.invoke('material-library:save', payload),
   list: (materialType?: string) => ipcRenderer.invoke('material-library:list', materialType),
   attach: (mixDesignId: string, libraryMaterialId: string) => ipcRenderer.invoke('material-library:attach', mixDesignId, libraryMaterialId),
-  setStatus: (id: string, status: 'active' | 'expired' | 'inactive') => ipcRenderer.invoke('material-library:set-status', id, status)
+  setStatus: (id: string, status: 'active' | 'expired' | 'inactive') => ipcRenderer.invoke('material-library:set-status', id, status),
+  listProvenance: (mixDesignId: string) => ipcRenderer.invoke('material-library:list-provenance', mixDesignId)
 });
 
 contextBridge.exposeInMainWorld('tolouGradation', {
