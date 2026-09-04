@@ -127,7 +127,8 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["warnings"] = warnings
     result["engineering_notes"] = list(result.get("engineering_notes", [])) + [
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
-        "دانه‌بندی، ASTM C117، خواص فیزیکی، LA Abrasion، ASTM C88 Soundness و مواد زیان‌آور ASTM C142/C123 هر منبع سنگدانه کنترل شد؛ حدود پذیرش وابسته به کاربرد فقط از Specification ثبت‌شده پروژه اعمال می‌شوند و نرم‌افزار حد را حدس نمی‌زند.",
+        "دانه‌بندی، ASTM C117، خواص فیزیکی، LA Abrasion، ASTM C88 Soundness، مواد زیان‌آور C142/C123 و شکل/بافت سنگدانه با ASTM D4791/D5821 کنترل شد؛ حدود پذیرش وابسته به کاربرد فقط از Specification ثبت‌شده پروژه اعمال می‌شوند و نرم‌افزار حد را حدس نمی‌زند.",
+        "اثر D4791/D5821 بر کارایی و قابلیت پمپاژ فقط به‌صورت advisory گزارش می‌شود؛ تصحیح عددی آب، خمیر یا سهم سنگدانه بدون مدل کالیبره و آزمون مخلوط اعمال نمی‌شود.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
         "انطباق سیستم سیمانی با کلاس سولفات S0/S1/S2/S3 بر اساس Designation محصول و مدارک Qualification کنترل شد؛ S3 بدون انتخاب صریح مهندس pass کامل نمی‌گیرد.",
         "بار قلیایی Na₂Oeq مواد سیمانی و شواهد واکنش‌زایی سنگدانه برای ASR کنترل شد؛ سنگدانه واکنش‌زا بدون Qualification معتبر سیستم کاهش‌دهنده pass نمی‌گیرد.",
@@ -150,7 +151,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result["status"] = "fail" if max_rank >= 3 else "warning" if max_rank >= 2 else "needs_review" if max_rank >= 1 else result.get("status", "pass")
     result["calculation_pipeline"] = [
         "ACI_318_25_durability",
-        "ASTM_C33_C136_C117_C127_C128_C29_C131_C535_C88_C142_C123_aggregate_compliance",
+        "ASTM_C33_C136_C117_C127_C128_C29_C131_C535_C88_C142_C123_D4791_D5821_aggregate_compliance",
         "cementitious_multi_binder_allocation",
         "ACI_318_25_sulfate_cementitious_compliance",
         "ASTM_C1778_ASR_alkali_compliance",
