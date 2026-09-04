@@ -6,6 +6,12 @@ type MixDesignEditInput = {
   mixDesignId: string;
   projectName: string;
   city: string;
+  locationDescription?: string;
+  structureType?: string;
+  elementType?: string;
+  clientName?: string;
+  contractorName?: string;
+  consultantName?: string;
   concreteType: string;
   targetStrengthMpa: number;
   requiredSlumpMm: number;
@@ -32,6 +38,8 @@ export function getMixDesignManagementRecord(mixDesignId: string) {
   const database = managementDatabase();
   const row = database.prepare(`
     SELECT md.id AS mixDesignId, md.project_id AS projectId, p.project_name AS projectName, p.city,
+      p.location_description AS locationDescription, p.structure_type AS structureType, p.element_type AS elementType,
+      p.client_name AS clientName, p.contractor_name AS contractorName, p.consultant_name AS consultantName,
       md.concrete_type AS concreteType, md.target_strength_mpa AS targetStrengthMpa,
       md.required_slump_mm AS requiredSlumpMm, md.max_aggregate_size_mm AS maxAggregateSizeMm,
       md.exposure_summary AS exposureSummary, md.status, md.revision_number AS revisionNumber,
@@ -51,9 +59,24 @@ export function updateMixDesignBasics(input: MixDesignEditInput) {
   if (isLockedStatus(current.status)) throw new Error('این نسخه برای ویرایش مستقیم قفل است. ابتدا Revision جدید ایجاد کنید.');
   const now = new Date().toISOString();
   database.transaction(() => {
-    database.prepare('UPDATE projects SET project_name = ?, city = ?, updated_at = ? WHERE id = ?').run(input.projectName.trim(), input.city.trim(), now, current.projectId);
+    database.prepare(`
+      UPDATE projects SET project_name = ?, city = ?, location_description = ?, structure_type = ?, element_type = ?,
+        client_name = ?, contractor_name = ?, consultant_name = ?, updated_at = ? WHERE id = ?
+    `).run(
+      input.projectName.trim(), input.city?.trim() || null, input.locationDescription?.trim() || null,
+      input.structureType?.trim() || null, input.elementType?.trim() || null, input.clientName?.trim() || null,
+      input.contractorName?.trim() || null, input.consultantName?.trim() || null, now, current.projectId
+    );
     database.prepare('UPDATE mix_designs SET concrete_type = ?, target_strength_mpa = ?, required_slump_mm = ?, max_aggregate_size_mm = ?, exposure_summary = ?, updated_at = ? WHERE id = ?').run(input.concreteType, input.targetStrengthMpa, input.requiredSlumpMm, input.maxAggregateSizeMm, input.exposureSummary.trim(), now, input.mixDesignId);
-    insertAudit(database, input.mixDesignId, 'mix_design_basics_updated', { revisionNumber: current.revisionNumber, projectName: input.projectName.trim(), city: input.city.trim(), concreteType: input.concreteType, targetStrengthMpa: input.targetStrengthMpa, requiredSlumpMm: input.requiredSlumpMm, maxAggregateSizeMm: input.maxAggregateSizeMm }, input.actorName, now);
+    insertAudit(database, input.mixDesignId, 'mix_design_basics_updated', {
+      revisionNumber: current.revisionNumber,
+      projectName: input.projectName.trim(), city: input.city?.trim() || null,
+      locationDescription: input.locationDescription?.trim() || null, structureType: input.structureType?.trim() || null,
+      elementType: input.elementType?.trim() || null, clientName: input.clientName?.trim() || null,
+      contractorName: input.contractorName?.trim() || null, consultantName: input.consultantName?.trim() || null,
+      concreteType: input.concreteType, targetStrengthMpa: input.targetStrengthMpa,
+      requiredSlumpMm: input.requiredSlumpMm, maxAggregateSizeMm: input.maxAggregateSizeMm
+    }, input.actorName, now);
   })();
   return { status: 'pass' as const, record: getMixDesignManagementRecord(input.mixDesignId) };
 }
