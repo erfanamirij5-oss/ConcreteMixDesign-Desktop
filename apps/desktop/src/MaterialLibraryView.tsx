@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 type LibraryType = 'cement' | 'scm' | 'fine_aggregate' | 'coarse_aggregate' | 'water' | 'admixture';
+type LibraryStatus = 'active' | 'expired' | 'inactive';
 type LibraryRecord = {
   id: string;
   materialType: LibraryType;
@@ -10,7 +11,7 @@ type LibraryRecord = {
   source?: string | null;
   productCode?: string | null;
   standardDesignation?: string | null;
-  status: 'active' | 'expired' | 'inactive';
+  status: LibraryStatus;
   testDate?: string | null;
   validUntil?: string | null;
   laboratoryName?: string | null;
@@ -89,6 +90,18 @@ export function MaterialLibraryView(props: { activeMixDesignId: string | null; o
     finally { setBusy(false); }
   }
 
+  async function changeStatus(record: LibraryRecord, status: LibraryStatus) {
+    setBusy(true); setMessage('');
+    try {
+      if (!window.tolouMaterialLibrary?.setStatus) throw new Error('API تغییر وضعیت Library در دسترس نیست.');
+      const response = await window.tolouMaterialLibrary.setStatus(record.id, status) as { status?: string; error?: string };
+      if (response.status !== 'pass') throw new Error(response.error ?? 'تغییر وضعیت Library ناموفق بود.');
+      setMessage(`وضعیت ${record.name} به ${status} تغییر کرد. Snapshotهای قبلی طرح‌های اختلاط بدون تغییر باقی می‌مانند.`);
+      await refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در تغییر وضعیت Library'); }
+    finally { setBusy(false); }
+  }
+
   function setField<K extends keyof Draft>(key: K, value: Draft[K]) { setDraft(previous => ({ ...previous, [key]: value })); }
 
   return <>
@@ -119,7 +132,7 @@ export function MaterialLibraryView(props: { activeMixDesignId: string | null; o
       <article className="panel wide-panel">
         <div className="panel-head"><div><h3>مواد ثبت‌شده</h3><span>Reusable Sources</span></div><select value={filter} onChange={event => setFilter(event.target.value as LibraryType | 'all')}><option value="all">همه انواع</option>{materialTypes.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
         <div className="table-wrap"><table><thead><tr><th>نام</th><th>نوع</th><th>منبع / تولیدکننده</th><th>استاندارد</th><th>آزمایش</th><th>اعتبار</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>
-          {records.map(record => <tr key={record.id}><td><b>{record.name}</b><br /><small>{record.productCode || '-'}</small></td><td>{materialTypes.find(item => item.value === record.materialType)?.label ?? record.materialType}</td><td>{record.source || record.manufacturer || '-'}</td><td>{record.standardDesignation || '-'}</td><td>{record.laboratoryReportNumber || record.testDate || '-'}</td><td>{record.validUntil || '-'}</td><td>{record.status}</td><td><button className="btn ghost" disabled={busy || record.status !== 'active' || !props.activeMixDesignId} onClick={() => void attach(record)}>افزودن به طرح</button></td></tr>)}
+          {records.map(record => <tr key={record.id}><td><b>{record.name}</b><br /><small>{record.productCode || '-'}</small></td><td>{materialTypes.find(item => item.value === record.materialType)?.label ?? record.materialType}</td><td>{record.source || record.manufacturer || '-'}</td><td>{record.standardDesignation || '-'}</td><td>{record.laboratoryReportNumber || record.testDate || '-'}</td><td>{record.validUntil || '-'}</td><td><span className={`badge ${record.status === 'active' ? 'green' : record.status === 'expired' ? 'orange' : 'gray'}`}>{record.status}</span></td><td><div className="toolbar"><button className="btn ghost" disabled={busy || record.status !== 'active' || !props.activeMixDesignId} onClick={() => void attach(record)}>افزودن به طرح</button>{record.status !== 'active' && <button className="btn ghost" disabled={busy} onClick={() => void changeStatus(record, 'active')}>فعال‌سازی</button>}{record.status === 'active' && <button className="btn ghost" disabled={busy} onClick={() => void changeStatus(record, 'inactive')}>غیرفعال</button>}<button className="btn ghost" disabled={busy || record.status === 'expired'} onClick={() => void changeStatus(record, 'expired')}>منقضی</button></div></td></tr>)}
           {records.length === 0 && <tr><td colSpan={8}>رکوردی در Library ثبت نشده است.</td></tr>}
         </tbody></table></div>
       </article>
