@@ -34,6 +34,15 @@ jobs:
       - name: SQLite material persistence smoke test
         run: node dist/electron/materialPersistenceSmoke.js
 
+      - name: Management migration chain smoke test
+        run: node dist/electron/managementMigrationSmoke.js
+
+      - name: Management workflow regression smoke test
+        run: node dist/electron/managementWorkflowSmoke.js
+
+      - name: Duplicate engineering contract smoke test
+        run: node dist/electron/duplicateContractSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
@@ -87,13 +96,19 @@ jobs:
         shell: pwsh
         run: |
           $engine = 'release/win-unpacked/resources/engine/tolou-mix-engine.exe'
-          $migration = 'release/win-unpacked/database/migrations/015_aggregate_blend_optimizer_criteria.sql'
+          $migration015 = 'release/win-unpacked/database/migrations/015_aggregate_blend_optimizer_criteria.sql'
+          $migration016 = 'release/win-unpacked/database/migrations/016_mix_design_revision_control.sql'
+          $migration017 = 'release/win-unpacked/database/migrations/017_mix_design_management_workflow.sql'
+          $migration018 = 'release/win-unpacked/database/migrations/018_mix_design_engineering_identity.sql'
           if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
-          if (-not (Test-Path $migration)) { throw 'Database migrations are missing from the packaged application.' }
+          foreach ($migration in @($migration015, $migration016, $migration017, $migration018)) {
+            if (-not (Test-Path $migration)) { throw "Required database migration is missing from packaged application: $migration" }
+          }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
+          Write-Host 'Packaged migration chain verified through migration 018.'
 
       - name: Verify installer artifact
         shell: pwsh

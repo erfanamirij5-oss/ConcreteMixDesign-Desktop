@@ -3,8 +3,10 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { archiveMixDesign, createNewMixDesignRevision, duplicateMixDesign, getAllowedNextStatuses, getMixDesignManagementRecord, listMixDesignRevisionHistory, restoreMixDesign, transitionMixDesignStatus, updateMixDesignBasics } from './mixDesignRevisionStore';
 import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
+import { getManagementSummary, getRecentManagementActivity } from './managementAnalytics';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -27,6 +29,27 @@ function createWindow() {
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 }
+
+function requireAuditActor(actorName?: string) {
+  if (!actorName?.trim()) throw new Error('نام مسئول عملیات برای Audit Trail الزامی است.');
+}
+
+function requireTransitionReason(reason?: string) {
+  if (!reason?.trim()) throw new Error('دلیل تغییر وضعیت باید برای Audit Trail ثبت شود.');
+}
+
+ipcMain.handle('management:get-summary', async () => safeCall(() => getManagementSummary(), 'خطا در خواندن خلاصه مدیریتی'));
+ipcMain.handle('management:get-activity', async () => safeCall(() => getRecentManagementActivity(), 'خطا در خواندن فعالیت‌های مدیریتی'));
+
+ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, record: getMixDesignManagementRecord(mixDesignId) }), 'خطا در خواندن پرونده مدیریتی طرح اختلاط'));
+ipcMain.handle('mix-design:update-basics', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return updateMixDesignBasics(payload); }, 'خطا در ویرایش اطلاعات طرح اختلاط'));
+ipcMain.handle('mix-design:create-revision', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return createNewMixDesignRevision(payload); }, 'خطا در ایجاد Revision جدید'));
+ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, history: listMixDesignRevisionHistory(mixDesignId) }), 'خطا در خواندن تاریخچه Revision'));
+ipcMain.handle('mix-design:allowed-statuses', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, ...getAllowedNextStatuses(mixDesignId) }), 'خطا در خواندن وضعیت‌های مجاز'));
+ipcMain.handle('mix-design:transition-status', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); requireTransitionReason(payload?.reason); return transitionMixDesignStatus(payload); }, 'خطا در تغییر وضعیت طرح اختلاط'));
+ipcMain.handle('mix-design:duplicate', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return duplicateMixDesign(payload); }, 'خطا در Duplicate طرح اختلاط'));
+ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return archiveMixDesign(mixDesignId, actorName); }, 'خطا در بایگانی طرح اختلاط'));
+ipcMain.handle('mix-design:restore', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return restoreMixDesign(mixDesignId, actorName); }, 'خطا در بازیابی طرح اختلاط'));
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));

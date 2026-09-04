@@ -12,6 +12,23 @@ contextBridge.exposeInMainWorld('tolouProjects', {
   listRecent: () => ipcRenderer.invoke('projects:list-recent')
 });
 
+contextBridge.exposeInMainWorld('tolouManagement', {
+  getSummary: () => ipcRenderer.invoke('management:get-summary'),
+  getActivity: () => ipcRenderer.invoke('management:get-activity')
+});
+
+contextBridge.exposeInMainWorld('tolouMixDesigns', {
+  getManagementRecord: (mixDesignId: string) => ipcRenderer.invoke('mix-design:get-management-record', mixDesignId),
+  updateBasics: (payload: unknown) => ipcRenderer.invoke('mix-design:update-basics', payload),
+  createRevision: (payload: unknown) => ipcRenderer.invoke('mix-design:create-revision', payload),
+  listRevisions: (mixDesignId: string) => ipcRenderer.invoke('mix-design:list-revisions', mixDesignId),
+  allowedStatuses: (mixDesignId: string) => ipcRenderer.invoke('mix-design:allowed-statuses', mixDesignId),
+  transitionStatus: (payload: unknown) => ipcRenderer.invoke('mix-design:transition-status', payload),
+  duplicate: (payload: unknown) => ipcRenderer.invoke('mix-design:duplicate', payload),
+  archive: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:archive', mixDesignId, actorName),
+  restore: (mixDesignId: string, actorName?: string) => ipcRenderer.invoke('mix-design:restore', mixDesignId, actorName)
+});
+
 contextBridge.exposeInMainWorld('tolouMaterials', {
   save: (payload: unknown) => ipcRenderer.invoke('materials:save', payload),
   listByMixDesign: (mixDesignId: string) => ipcRenderer.invoke('materials:list-by-mix-design', mixDesignId)
