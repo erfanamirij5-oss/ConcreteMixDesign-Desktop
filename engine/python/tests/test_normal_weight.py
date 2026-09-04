@@ -29,9 +29,12 @@ def test_high_w_cm_ratio_creates_warning():
 
 
 def test_high_strength_is_flagged_for_review():
-    result = calculate_normal_weight_mix({"requirements": {"target_strength_mpa": 60}})
+    result = calculate_normal_weight_mix(
+        {"requirements": {"target_strength_mpa": 60, "w_cm_ratio": 0.35}}
+    )
 
     assert any(warning["code"] == "HIGH_STRENGTH_SCOPE" for warning in result["warnings"])
+    assert result["mix_proportions"]["strength_based_w_cm_ratio"] is None
 
 
 def test_manual_aggregate_blend_allocates_ssd_and_batch_masses_with_od_moisture_basis():
