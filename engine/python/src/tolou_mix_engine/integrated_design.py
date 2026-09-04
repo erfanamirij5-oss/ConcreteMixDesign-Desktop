@@ -5,12 +5,13 @@ from copy import deepcopy
 from tolou_mix_engine.admixture_compliance import evaluate_admixture_compliance
 from tolou_mix_engine.admixtures import apply_admixtures
 from tolou_mix_engine.cementitious import allocate_cementitious
+from tolou_mix_engine.chloride_compliance import evaluate_full_chloride_compliance
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.mix_design.normal_weight import calculate_normal_weight_mix
 
 
 def calculate_integrated_normal_mix(payload: dict) -> dict:
-    """Run durability, binder allocation, ACI proportioning, admixture correction and compliance."""
+    """Run durability, binder allocation, proportioning, admixture correction and compliance."""
     source = deepcopy(payload if isinstance(payload, dict) else {})
     requirements = source.setdefault("requirements", {})
     materials = source.setdefault("materials", {})
@@ -62,6 +63,16 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     warnings.extend(admixture_compliance.get("warnings", []))
     admixture_system["compliance"] = admixture_compliance
 
+    full_chloride = evaluate_full_chloride_compliance(
+        result,
+        binder,
+        admixture_compliance,
+        materials,
+        durability,
+        durability_conditions,
+    )
+    warnings.extend(full_chloride.get("warnings", []))
+
     target_strength_mpa = float(requirements.get("target_strength_mpa", 0) or 0)
     if durability_min_strength_mpa is not None and target_strength_mpa < float(durability_min_strength_mpa):
         warnings.append({"code": "TARGET_STRENGTH_BELOW_DURABILITY_MINIMUM", "severity": "fail", "message": f"مقاومت هدف پروژه {target_strength_mpa:g} MPa از حداقل موردنیاز دوام {float(durability_min_strength_mpa):g} MPa کمتر است.", "reference": "ACI CODE-318-25 Table 19.3.2.1"})
@@ -74,25 +85,30 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     mix["cementitious_weighted_specific_gravity"] = binder.get("weighted_specific_gravity")
     mix["admixture_chloride_kg_m3"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_kg_m3")
     mix["admixture_chloride_percent_binder"] = admixture_compliance.get("chloride", {}).get("admixture_chloride_percent_by_mass_cementitious")
-    mix["aci_chloride_limit_percent_binder"] = admixture_compliance.get("chloride", {}).get("aci_limit_percent_by_mass_cementitious")
+    mix["aci_chloride_limit_percent_binder"] = full_chloride.get("aci_limit_percent_by_mass_cementitious")
+    mix["total_chloride_kg_m3"] = full_chloride.get("total_chloride_kg_m3")
+    mix["total_chloride_percent_binder"] = full_chloride.get("total_chloride_percent_by_mass_cementitious")
 
     result["durability"] = durability
     result["cementitious_system"] = binder
     result["admixture_system"] = admixture_system
     result["admixture_compliance"] = admixture_compliance
+    result["chloride_compliance"] = full_chloride
     result["warnings"] = warnings
     result["engineering_notes"] = list(result.get("engineering_notes", [])) + [
         "پیش از محاسبه طرح، کلاس‌های مواجهه ACI 318-25 ارزیابی و محدودیت حاکم w/cm و هوا اعمال شد.",
         "وزن مخصوص موثر مواد سیمانی از سهم جرمی و وزن مخصوص هر سیمان/SCM محاسبه و در موازنه حجم مطلق اعمال شد.",
         "آب حامل افزودنی‌های مایع از آب قابل افزودن به بچ کسر و حجم غیرآبی افزودنی در موازنه حجم سنگدانه اعمال شد.",
-        "انطباق استاندارد افزودنی و سهم کلراید ناشی از افزودنی‌ها کنترل شد؛ تأیید کل کلراید بتن نیازمند داده آب، سنگدانه و مواد سیمانی نیز هست.",
+        "کلراید آب، مواد سیمانی، سنگدانه و افزودنی‌ها تجمیع و با حد حاکم ACI مقایسه شد؛ فقط در صورت کامل بودن داده همه منابع، pass کامل صادر می‌شود.",
+        "وجود CaCl2 در شرایط منع‌شده مانند S2/S3 یا بتن پیش‌تنیده موجب fail می‌شود.",
         "اگر مقاومت هدف پروژه از حداقل مقاومت دوام کمتر باشد، خروجی fail می‌شود و باید مشخصات پروژه اصلاح شود.",
     ]
 
     references = list(result.get("standard_references", []))
-    for reference in admixture_compliance.get("references", []):
-        if reference not in references:
-            references.append(reference)
+    for group in (admixture_compliance, full_chloride):
+        for reference in group.get("references", []):
+            if reference not in references:
+                references.append(reference)
     result["standard_references"] = references
 
     severity_rank = {"needs_review": 1, "warning": 2, "fail": 3}
@@ -103,6 +119,7 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
         "cementitious_multi_binder_allocation",
         "ACI_PRC_211_1_22_proportioning",
         "chemical_admixture_batch_water_and_volume_correction",
-        "ASTM_C494_C260_and_ACI_chloride_partial_compliance",
+        "ASTM_C494_C260_admixture_compliance",
+        "full_mixture_chloride_compliance",
     ]
     return result
