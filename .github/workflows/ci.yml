@@ -64,6 +64,9 @@ jobs:
       - name: Locked revision immutability smoke test
         run: node dist/electron/mixDesignImmutabilitySmoke.js
 
+      - name: Material Library snapshot immutability smoke test
+        run: node dist/electron/materialLibrarySnapshotSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
@@ -121,15 +124,16 @@ jobs:
           $migration016 = 'release/win-unpacked/database/migrations/016_mix_design_revision_control.sql'
           $migration017 = 'release/win-unpacked/database/migrations/017_mix_design_management_workflow.sql'
           $migration018 = 'release/win-unpacked/database/migrations/018_mix_design_engineering_identity.sql'
+          $migration019 = 'release/win-unpacked/database/migrations/019_professional_material_library.sql'
           if (-not (Test-Path $engine)) { throw 'Bundled engineering engine executable is missing from win-unpacked.' }
-          foreach ($migration in @($migration015, $migration016, $migration017, $migration018)) {
+          foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019)) {
             if (-not (Test-Path $migration)) { throw "Required database migration is missing from packaged application: $migration" }
           }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
-          Write-Host 'Packaged migration chain verified through migration 018.'
+          Write-Host 'Packaged migration chain verified through migration 019.'
 
       - name: Verify installer artifact
         shell: pwsh
