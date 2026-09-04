@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+C1260_INNOCUOUS_SCREEN_PERCENT = 0.10
+C1260_DELETERIOUS_SCREEN_PERCENT = 0.20
+C1293_C1778_LIMIT_PERCENT = 0.04
+C1567_C1778_SCREEN_PERCENT = 0.10
+
 
 def evaluate_asr_compliance(materials: dict, binder_system: dict) -> dict:
     """Evaluate alkali loading, aggregate ASR evidence and mitigation qualification.
 
-    ASTM C1260/C1293/C1567 results are treated as engineering evidence. The engine does not
-    declare an aggregate innocuous solely from missing or low binder alkali data.
+    ASTM C1260/C1293/C1567 results are engineering evidence, not standalone universal
+    acceptance criteria. Interpretation is tied to ASTM C1778 and documented project evidence.
     """
     warnings: list[dict] = []
     binders = list(materials.get("cementitious") or [])
@@ -56,7 +61,7 @@ def evaluate_asr_compliance(materials: dict, binder_system: dict) -> dict:
                 "code": "ASR_AGGREGATE_REACTIVITY_UNRESOLVED",
                 "severity": "needs_review",
                 "message": f"وضعیت ASR سنگدانه «{item.get('name') or 'بدون نام'}» قطعی نیست.",
-                "reference": "ASTM C1260 / ASTM C1293 / documented field performance",
+                "reference": "ASTM C1260-23 / ASTM C1293/C1293M-23ae1 / ASTM C1778-25 / documented field performance",
             })
 
     mitigation = _assess_mitigation(binders, any_reactive)
@@ -77,7 +82,7 @@ def evaluate_asr_compliance(materials: dict, binder_system: dict) -> dict:
             "data_complete": binder_data_complete,
             "total_na2oeq_kg_m3": round(alkali_kg_m3, 6),
             "components": binder_rows,
-            "scope_note": "Na₂Oeq loading is reported as a design indicator; acceptance requires aggregate reactivity/mitigation evidence.",
+            "scope_note": "Na₂Oeq loading is a design indicator; acceptance still requires aggregate reactivity and mitigation evidence.",
         },
         "aggregate_reactivity": {
             "data_complete": aggregate_data_complete,
@@ -85,12 +90,30 @@ def evaluate_asr_compliance(materials: dict, binder_system: dict) -> dict:
             "sources": aggregate_rows,
         },
         "mitigation": mitigation,
+        "screening_criteria": {
+            "c1260_14d_percent": {
+                "innocuous_below": C1260_INNOCUOUS_SCREEN_PERCENT,
+                "review_from": C1260_INNOCUOUS_SCREEN_PERCENT,
+                "review_through": C1260_DELETERIOUS_SCREEN_PERCENT,
+                "potentially_deleterious_above": C1260_DELETERIOUS_SCREEN_PERCENT,
+                "basis": "ASTM C1260 interpretation guidance; confirm under ASTM C1778 and project requirements",
+            },
+            "c1293_1y_percent": {
+                "guide_limit": C1293_C1778_LIMIT_PERCENT,
+                "basis": "ASTM C1293/C1293M directs interpretation to ASTM C1778",
+            },
+            "c1567_14d_percent": {
+                "screening_limit": C1567_C1778_SCREEN_PERCENT,
+                "basis": "Conservative screening only; ASTM C1567-25 states acceptance criteria come from specifications/ASTM C1778",
+                "evidence_reference_required_for_pass": True,
+            },
+        },
         "warnings": warnings,
         "references": [
-            "ASTM C1260 - Potential alkali reactivity of aggregates (mortar-bar method)",
-            "ASTM C1293 - Determination of length change of concrete due to alkali-silica reaction",
-            "ASTM C1567 - Potential alkali-silica reactivity of combinations of cementitious materials and aggregate",
-            "ASTM C1778 - Guide for reducing the risk of deleterious alkali-aggregate reaction in concrete",
+            "ASTM C1260-23 - Potential alkali reactivity of aggregates (mortar-bar method)",
+            "ASTM C1293/C1293M-23ae1 - Determination of length change of concrete due to alkali-silica reaction",
+            "ASTM C1567-25 - Potential alkali-silica reactivity of combinations of cementitious materials and aggregate",
+            "ASTM C1778-25 - Guide for reducing the risk of deleterious alkali-aggregate reaction in concrete",
         ],
     }
 
@@ -105,16 +128,16 @@ def _assess_aggregate(item: dict) -> dict:
     status = "unknown"
     basis = "no evidence"
     if c1293 is not None:
-        status = "nonreactive" if c1293 <= 0.04 else "reactive"
-        basis = "ASTM C1293 1-year expansion"
+        status = "nonreactive" if c1293 <= C1293_C1778_LIMIT_PERCENT else "reactive"
+        basis = "ASTM C1293/C1293M 1-year expansion interpreted with ASTM C1778"
     elif c1260 is not None:
-        if c1260 < 0.10:
+        if c1260 < C1260_INNOCUOUS_SCREEN_PERCENT:
             status = "nonreactive"
-        elif c1260 > 0.20:
+        elif c1260 > C1260_DELETERIOUS_SCREEN_PERCENT:
             status = "reactive"
         else:
             status = "needs_review"
-        basis = "ASTM C1260 14-day expansion"
+        basis = "ASTM C1260 14-day screening interpreted with ASTM C1778"
     elif declared in {"nonreactive", "innocuous"}:
         status = "nonreactive" if evidence or method else "needs_review"
         basis = "declared classification"
@@ -138,9 +161,14 @@ def _assess_aggregate(item: dict) -> dict:
 def _assess_mitigation(binders: list[dict], reactive: bool) -> dict:
     warnings: list[dict] = []
     if not reactive:
-        return {"status": "not_required", "qualified": False, "best_c1567_expansion_14d_percent": None, "warnings": warnings}
+        return {
+            "status": "not_required",
+            "qualified": False,
+            "best_c1567_expansion_14d_percent": None,
+            "warnings": warnings,
+        }
 
-    values = []
+    values: list[float] = []
     evidence = False
     for item in binders:
         value = _optional_percent(item.get("astm_c1567_expansion_14d_percent"))
@@ -150,24 +178,52 @@ def _assess_mitigation(binders: list[dict], reactive: bool) -> dict:
             evidence = True
 
     best = min(values) if values else None
-    if best is not None and best < 0.10:
-        return {"status": "pass", "qualified": True, "best_c1567_expansion_14d_percent": best, "warnings": warnings}
-    if best is not None and best >= 0.10:
+    if best is not None and best < C1567_C1778_SCREEN_PERCENT:
+        if evidence:
+            return {
+                "status": "pass",
+                "qualified": True,
+                "best_c1567_expansion_14d_percent": best,
+                "warnings": warnings,
+            }
+        warnings.append({
+            "code": "ASR_MITIGATION_EVIDENCE_REF_MISSING",
+            "severity": "needs_review",
+            "message": "نتیجه ASTM C1567 زیر معیار غربالگری است، اما شماره گزارش/مدرک آزمون ثبت نشده؛ تا تکمیل Traceability پذیرش نهایی صادر نمی‌شود.",
+            "reference": "ASTM C1567-25 / ASTM C1778-25 / laboratory test report",
+        })
+        return {
+            "status": "needs_review",
+            "qualified": False,
+            "best_c1567_expansion_14d_percent": best,
+            "warnings": warnings,
+        }
+    if best is not None and best >= C1567_C1778_SCREEN_PERCENT:
         warnings.append({
             "code": "ASR_MITIGATION_C1567_NOT_EFFECTIVE",
             "severity": "fail",
-            "message": f"نتیجه ASTM C1567 برای سیستم کاهش ASR برابر {best:.3f}% است و معیار محافظه‌کارانه 0.10% را برآورده نمی‌کند.",
-            "reference": "ASTM C1567 / project ASR mitigation criteria",
+            "message": f"نتیجه ASTM C1567 برای سیستم کاهش ASR برابر {best:.3f}% است و معیار غربالگری محافظه‌کارانه {C1567_C1778_SCREEN_PERCENT:.2f}% را برآورده نمی‌کند؛ معیار نهایی پروژه/ASTM C1778 نیز باید بررسی شود.",
+            "reference": "ASTM C1567-25 / ASTM C1778-25 / project ASR mitigation criteria",
         })
-        return {"status": "fail", "qualified": False, "best_c1567_expansion_14d_percent": best, "warnings": warnings}
+        return {
+            "status": "fail",
+            "qualified": False,
+            "best_c1567_expansion_14d_percent": best,
+            "warnings": warnings,
+        }
 
     warnings.append({
         "code": "ASR_MITIGATION_QUALIFICATION_REQUIRED",
         "severity": "needs_review",
         "message": "سنگدانه واکنش‌زا شناسایی شده ولی اثربخشی سیستم سیمانی/SCM با ASTM C1567 یا مدرک عملکرد معتبر تأیید نشده است.",
-        "reference": "ASTM C1567 / ASTM C1778",
+        "reference": "ASTM C1567-25 / ASTM C1778-25",
     })
-    return {"status": "needs_review", "qualified": evidence, "best_c1567_expansion_14d_percent": None, "warnings": warnings}
+    return {
+        "status": "needs_review",
+        "qualified": evidence,
+        "best_c1567_expansion_14d_percent": None,
+        "warnings": warnings,
+    }
 
 
 def _optional_percent(value: object) -> float | None:
