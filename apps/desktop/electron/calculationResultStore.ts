@@ -13,6 +13,7 @@ export type PersistedCalculationInput = {
     coarse_aggregate_kg_m3?: number | null;
     air_content_percent?: number | null;
   };
+  engineering_notes?: string[];
   warnings?: unknown[];
   standard_references?: string[];
   assumptions?: string[];
@@ -39,6 +40,7 @@ export function persistCalculatedMixResult(database: Database.Database, mixDesig
   const mix = result.mix_proportions ?? {};
   const traceability = {
     calculationMethod: result.calculation_method ?? null,
+    engineeringNotes: result.engineering_notes ?? [],
     standardReferences: result.standard_references ?? [],
     warnings: result.warnings ?? [],
     assumptions: result.assumptions ?? [],
