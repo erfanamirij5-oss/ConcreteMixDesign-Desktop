@@ -17,6 +17,11 @@
     "test:management-migrations": "npm run build:electron && node dist/electron/managementMigrationSmoke.js",
     "test:management-workflow": "npm run build:electron && node dist/electron/managementWorkflowSmoke.js",
     "test:duplicate-contract": "npm run build:electron && node dist/electron/duplicateContractSmoke.js",
+    "test:data-integrity-upgrade": "npm run build:electron && node dist/electron/dataIntegrityUpgradeSmoke.js",
+    "test:data-integrity-constraints": "npm run build:electron && node dist/electron/dataIntegrityConstraintsSmoke.js",
+    "test:data-path-contract": "npm run build:electron && node dist/electron/dataPathContractSmoke.js",
+    "test:database-compatibility": "npm run build:electron && node dist/electron/databaseCompatibilitySmoke.js",
+    "test:data-integrity-atomicity": "npm run build:electron && node dist/electron/dataIntegrityAtomicitySmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {

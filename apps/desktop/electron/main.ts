@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { getAggregateBlendOptimizer, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { getAggregateBlendOptimizer, getDatabase, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { assertDatabaseReadyForRuntime } from './databaseCompatibility';
 import { archiveMixDesign, createNewMixDesignRevision, duplicateMixDesign, getAllowedNextStatuses, getMixDesignManagementRecord, listMixDesignRevisionHistory, restoreMixDesign, transitionMixDesignStatus, updateMixDesignBasics } from './mixDesignRevisionStore';
 import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
@@ -134,6 +135,8 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
 
 app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
+  const database = getDatabase();
+  assertDatabaseReadyForRuntime(database);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

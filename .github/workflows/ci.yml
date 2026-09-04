@@ -43,6 +43,21 @@ jobs:
       - name: Duplicate engineering contract smoke test
         run: node dist/electron/duplicateContractSmoke.js
 
+      - name: Data integrity upgrade and rollback smoke test
+        run: node dist/electron/dataIntegrityUpgradeSmoke.js
+
+      - name: Referential integrity delete policy smoke test
+        run: node dist/electron/dataIntegrityConstraintsSmoke.js
+
+      - name: Persistent database path contract smoke test
+        run: node dist/electron/dataPathContractSmoke.js
+
+      - name: Database schema compatibility policy smoke test
+        run: node dist/electron/databaseCompatibilitySmoke.js
+
+      - name: Partial-save atomicity smoke test
+        run: node dist/electron/dataIntegrityAtomicitySmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
