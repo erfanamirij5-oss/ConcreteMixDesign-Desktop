@@ -2,6 +2,7 @@ import { app, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import { getDatabase, getDatabasePath } from './database';
 import { createValidatedBackup, restoreValidatedBackup, validateBackupCandidate } from './backupRestoreService';
+import { requireRendererPermission } from './securityRuntime';
 
 let registered = false;
 let shutdownRegistered = false;
@@ -11,8 +12,9 @@ export function registerBackupRestoreIpc() {
   if (registered) return;
   registered = true;
 
-  ipcMain.handle('data-safety:backup', async () => {
+  ipcMain.handle('data-safety:backup', async event => {
     try {
+      requireRendererPermission(event.sender, 'security.users.manage');
       const suggested = `tolou-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
       const selection = await dialog.showSaveDialog({
         title: 'ایجاد نسخه پشتیبان طلوع بتن',
@@ -28,9 +30,10 @@ export function registerBackupRestoreIpc() {
     }
   });
 
-  ipcMain.handle('data-safety:restore', async () => {
+  ipcMain.handle('data-safety:restore', async event => {
     let database: ReturnType<typeof getDatabase> | null = null;
     try {
+      requireRendererPermission(event.sender, 'security.users.manage');
       const selection = await dialog.showOpenDialog({
         title: 'انتخاب نسخه پشتیبان طلوع بتن',
         properties: ['openFile'],
