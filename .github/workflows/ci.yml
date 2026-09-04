@@ -64,6 +64,8 @@ jobs:
         run: node dist/electron/securityServiceSmoke.js
       - name: Renderer session isolation security smoke test
         run: node dist/electron/securityRuntimeIsolationSmoke.js
+      - name: Gate 09 upgrade and security backup smoke test
+        run: node dist/electron/gate09UpgradeBackupSmoke.js
 
   python-engine:
     name: Python engine tests
