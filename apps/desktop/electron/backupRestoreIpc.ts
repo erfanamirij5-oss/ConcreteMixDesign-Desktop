@@ -4,8 +4,10 @@ import { getDatabase, getDatabasePath } from './database';
 import { createValidatedBackup, restoreValidatedBackup, validateBackupCandidate } from './backupRestoreService';
 
 let registered = false;
+let shutdownRegistered = false;
 
 export function registerBackupRestoreIpc() {
+  registerControlledDatabaseShutdown();
   if (registered) return;
   registered = true;
 
@@ -27,6 +29,7 @@ export function registerBackupRestoreIpc() {
   });
 
   ipcMain.handle('data-safety:restore', async () => {
+    let database: ReturnType<typeof getDatabase> | null = null;
     try {
       const selection = await dialog.showOpenDialog({
         title: 'انتخاب نسخه پشتیبان طلوع بتن',
@@ -49,15 +52,46 @@ export function registerBackupRestoreIpc() {
       });
       if (confirmation.response !== 1) return { status: 'cancelled' as const };
 
-      const database = getDatabase();
+      database = getDatabase();
       const result = await restoreValidatedBackup(candidate, getDatabasePath(), database);
-      app.relaunch();
-      app.exit(0);
+      relaunchAfterRestore(0);
       return { status: 'pass' as const, ...result };
     } catch (error) {
-      return { status: 'fail' as const, error: messageOf(error, 'خطا در بازیابی نسخه پشتیبان') };
+      const message = messageOf(error, 'خطا در بازیابی نسخه پشتیبان');
+      if (database && !database.open) {
+        await dialog.showMessageBox({
+          type: 'error',
+          buttons: ['راه‌اندازی مجدد'],
+          defaultId: 0,
+          noLink: true,
+          title: 'بازیابی ایمن انجام نشد',
+          message: 'عملیات بازیابی پس از ورود به مرحله جایگزینی متوقف شد.',
+          detail: `Recovery Copy برای بازگردانی داده‌ها استفاده شده است. نرم‌افزار برای بازکردن مجدد پایگاه داده راه‌اندازی می‌شود.\n\n${message}`
+        });
+        relaunchAfterRestore(1);
+      }
+      return { status: 'fail' as const, error: message };
     }
   });
+}
+
+function registerControlledDatabaseShutdown() {
+  if (shutdownRegistered) return;
+  shutdownRegistered = true;
+  app.on('before-quit', () => {
+    const database = getDatabase();
+    if (!database.open) return;
+    try {
+      database.pragma('wal_checkpoint(TRUNCATE)');
+    } finally {
+      database.close();
+    }
+  });
+}
+
+function relaunchAfterRestore(exitCode: number) {
+  app.relaunch();
+  app.exit(exitCode);
 }
 
 function messageOf(error: unknown, fallback: string) {
