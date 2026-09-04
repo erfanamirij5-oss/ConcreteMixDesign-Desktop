@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { attachLibraryMaterialToMixDesign, saveMaterialLibraryRecord } from './materialLibraryStore';
+import { attachLibraryMaterialToMixDesign, saveMaterialLibraryRecord, setMaterialLibraryStatus } from './materialLibraryStore';
 
 const database = new Database(':memory:');
 database.pragma('foreign_keys = ON');
@@ -86,9 +86,9 @@ const initialMaterial = database.prepare(`
     absorption_percent AS absorptionPercent, source
   FROM materials WHERE id = ?
 `).get(attached.materialId) as { snapshotJson: string; specificGravity: number; absorptionPercent: number; source: string };
-const originalSnapshot = JSON.parse(initialMaterial.snapshotJson) as { source?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
+const originalSnapshot = JSON.parse(initialMaterial.snapshotJson) as { source?: string; status?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
 if (initialMaterial.specificGravity !== 2.65 || initialMaterial.absorptionPercent !== 1.8) throw new Error('Library material properties were not copied into the mix-design material.');
-if (originalSnapshot.source !== 'Yazd Quarry A' || originalSnapshot.properties?.specificGravity !== 2.65) throw new Error('Material library snapshot is incomplete.');
+if (originalSnapshot.source !== 'Yazd Quarry A' || originalSnapshot.properties?.specificGravity !== 2.65 || originalSnapshot.status !== 'active') throw new Error('Material library snapshot is incomplete.');
 
 saveMaterialLibraryRecord(database, {
   id: 'lib-sand',
@@ -103,17 +103,22 @@ saveMaterialLibraryRecord(database, {
   properties: { specificGravity: 2.61, absorptionPercent: 2.2 }
 });
 
+setMaterialLibraryStatus(database, 'lib-sand', 'inactive');
+let inactiveRejected = false;
+try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand'); } catch { inactiveRejected = true; }
+if (!inactiveRejected) throw new Error('Inactive Library material was attached to a mix design.');
+
 const afterLibraryEdit = database.prepare(`
   SELECT name, source, specific_gravity AS specificGravity, absorption_percent AS absorptionPercent,
     library_snapshot_json AS snapshotJson
   FROM materials WHERE id = ?
 `).get(attached.materialId) as { name: string; source: string; specificGravity: number; absorptionPercent: number; snapshotJson: string };
-const preservedSnapshot = JSON.parse(afterLibraryEdit.snapshotJson) as { source?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
+const preservedSnapshot = JSON.parse(afterLibraryEdit.snapshotJson) as { source?: string; status?: string; properties?: { specificGravity?: number; absorptionPercent?: number } };
 if (afterLibraryEdit.source !== 'Yazd Quarry A' || afterLibraryEdit.specificGravity !== 2.65 || afterLibraryEdit.absorptionPercent !== 1.8) {
   throw new Error('Editing the reusable Library mutated an existing mix-design material.');
 }
-if (preservedSnapshot.source !== 'Yazd Quarry A' || preservedSnapshot.properties?.specificGravity !== 2.65) {
-  throw new Error('Historical material snapshot changed after Library edit.');
+if (preservedSnapshot.source !== 'Yazd Quarry A' || preservedSnapshot.properties?.specificGravity !== 2.65 || preservedSnapshot.status !== 'active') {
+  throw new Error('Historical material snapshot changed after Library edit/status change.');
 }
 
 saveMaterialLibraryRecord(database, {
@@ -129,9 +134,10 @@ try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-expired'); } catc
 if (!expiredRejected) throw new Error('Expired material laboratory evidence must block attachment to a mix design.');
 
 database.prepare("UPDATE mix_designs SET status = 'approved' WHERE id = 'mix-1'").run();
+setMaterialLibraryStatus(database, 'lib-sand', 'active');
 let lockedRejected = false;
 try { attachLibraryMaterialToMixDesign(database, 'mix-1', 'lib-sand'); } catch { lockedRejected = true; }
 if (!lockedRejected) throw new Error('Approved revision accepted a new Library material.');
 
 database.close();
-console.log('Material Library snapshot smoke passed: reusable records remain editable while mix-design snapshots stay immutable.');
+console.log('Material Library snapshot smoke passed: lifecycle changes never mutate historical mix-design snapshots.');
