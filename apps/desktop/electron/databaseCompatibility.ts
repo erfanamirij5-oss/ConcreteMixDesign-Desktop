@@ -18,7 +18,8 @@ export const KNOWN_MIGRATIONS = [
   '015_aggregate_blend_optimizer_criteria',
   '016_mix_design_revision_control',
   '017_mix_design_management_workflow',
-  '018_mix_design_engineering_identity'
+  '018_mix_design_engineering_identity',
+  '019_professional_material_library'
 ] as const;
 
 export function assertDatabaseSchemaCompatibility(database: Database.Database) {
