@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { App } from './App';
+import { DataSafetyView } from './DataSafetyView';
 import { ReportCenterView } from './ReportCenterView';
 
-type RootView = 'application' | 'reports';
+type RootView = 'application' | 'reports' | 'data-safety';
 type RecentProject = { mixDesignId: string; projectName: string; status: string; targetStrengthMpa: number };
 
 export function RootApp() {
@@ -29,15 +30,22 @@ export function RootApp() {
     }
   }
 
+  const navigation = <div className="root-module-nav">
+    <button className={view === 'application' ? 'active' : ''} onClick={() => setView('application')}>سامانه مهندسی</button>
+    <button className={view === 'reports' ? 'active' : ''} onClick={() => setView('reports')}>Report Center</button>
+    <button className={view === 'data-safety' ? 'active' : ''} onClick={() => setView('data-safety')}>Data Safety</button>
+  </div>;
+
   if (view === 'application') {
-    return <div>
-      <div className="root-module-nav"><button className="active">سامانه مهندسی</button><button onClick={() => setView('reports')}>Report Center</button></div>
-      <App />
-    </div>;
+    return <div>{navigation}<App /></div>;
+  }
+
+  if (view === 'data-safety') {
+    return <div className="app-shell">{navigation}<DataSafetyView /></div>;
   }
 
   return <div className="app-shell">
-    <div className="root-module-nav"><button onClick={() => setView('application')}>سامانه مهندسی</button><button className="active">Report Center</button></div>
+    {navigation}
     <main className="workspace report-center-root">
       <section className="titlebar"><div><h2>Report Center</h2><p>صدور، PDF، Print و تاریخچه گزارش‌های immutable بر اساس داده‌های ثبت‌شده SQLite</p></div><div className="toolbar"><button onClick={() => void loadProjects()}>بازخوانی طرح‌ها</button></div></section>
       {message && <div className="alert danger">{message}</div>}
