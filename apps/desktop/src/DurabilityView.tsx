@@ -103,6 +103,7 @@ export function DurabilityView(props: { mixDesignId: string | null; maxAggregate
   async function evaluate(values: DurabilityForm) {
     if (!window.tolouEngine?.evaluateDurability) throw new Error('موتور تحلیل دوام در دسترس نیست.');
     const response = await window.tolouEngine.evaluateDurability({
+      mix_design_id: props.mixDesignId,
       max_aggregate_size_mm: props.maxAggregateSizeMm ?? 19,
       conditions: {
         freeze_thaw_exposure: values.freezeThawExposure,
