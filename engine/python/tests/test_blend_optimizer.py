@@ -87,3 +87,11 @@ def test_optimizer_reports_no_candidate_when_constraints_cannot_sum_to_100():
     assert result["status"] == "needs_review"
     assert result["candidates"] == []
     assert any(w["code"] == "BLEND_OPTIMIZER_NO_FEASIBLE_CANDIDATE" for w in result["warnings"])
+
+
+def test_disabled_optimizer_does_not_generate_candidates_or_warnings():
+    result = optimize_aggregate_blend(materials(), {"blend_optimizer_enabled": False})
+    assert result["status"] == "disabled"
+    assert result["evaluated_candidate_count"] == 0
+    assert result["candidates"] == []
+    assert result["warnings"] == []
