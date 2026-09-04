@@ -23,6 +23,7 @@
     "test:database-compatibility": "npm run build:electron && node dist/electron/databaseCompatibilitySmoke.js",
     "test:data-integrity-atomicity": "npm run build:electron && node dist/electron/dataIntegrityAtomicitySmoke.js",
     "test:calculation-persistence": "npm run build:electron && node dist/electron/calculationResultPersistenceSmoke.js",
+    "test:revision-immutability": "npm run build:electron && node dist/electron/mixDesignImmutabilitySmoke.js",
     "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
   },
   "dependencies": {
