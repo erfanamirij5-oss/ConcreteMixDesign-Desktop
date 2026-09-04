@@ -16,65 +16,48 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 24
-
       - name: Install dependencies for static validation
         run: npm install --ignore-scripts
-
       - name: Typecheck
         run: npm run typecheck
-
       - name: Build desktop application
         run: npm run build
-
       - name: SQLite material persistence smoke test
         run: node dist/electron/materialPersistenceSmoke.js
-
       - name: Management migration chain smoke test
         run: node dist/electron/managementMigrationSmoke.js
-
       - name: Management workflow regression smoke test
         run: node dist/electron/managementWorkflowSmoke.js
-
       - name: Duplicate engineering contract smoke test
         run: node dist/electron/duplicateContractSmoke.js
-
       - name: Data integrity upgrade and rollback smoke test
         run: node dist/electron/dataIntegrityUpgradeSmoke.js
-
       - name: Referential integrity delete policy smoke test
         run: node dist/electron/dataIntegrityConstraintsSmoke.js
-
       - name: Persistent database path contract smoke test
         run: node dist/electron/dataPathContractSmoke.js
-
       - name: Database schema compatibility policy smoke test
         run: node dist/electron/databaseCompatibilitySmoke.js
-
       - name: Partial-save atomicity smoke test
         run: node dist/electron/dataIntegrityAtomicitySmoke.js
-
       - name: Calculation result persistence smoke test
         run: node dist/electron/calculationResultPersistenceSmoke.js
-
       - name: Locked revision immutability smoke test
         run: node dist/electron/mixDesignImmutabilitySmoke.js
-
       - name: Material Library snapshot immutability smoke test
         run: node dist/electron/materialLibrarySnapshotSmoke.js
-
       - name: Minimum Trial Mix persistence smoke test
         run: node dist/electron/trialMixSmoke.js
-
       - name: Trial completion workflow database gate smoke test
         run: node dist/electron/trialWorkflowSmoke.js
-
       - name: Report Center snapshot immutability smoke test
         run: node dist/electron/reportCenterSmoke.js
+      - name: Report Center renderer contract smoke test
+        run: node dist/electron/reportRendererSmoke.js
 
   python-engine:
     name: Python engine tests
@@ -82,22 +65,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: engine/python/pyproject.toml
-
       - name: Install engine and test dependencies
         working-directory: engine/python
         run: python -m pip install -e '.[dev]'
-
       - name: Run Ruff
         working-directory: engine/python
         run: python -m ruff check .
-
       - name: Run pytest
         working-directory: engine/python
         run: python -m pytest
@@ -108,23 +87,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 24
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-
       - name: Install desktop dependencies
         run: npm install
-
       - name: Build NSIS x64 installer
         run: npm run dist:win
-
       - name: Verify packaged runtime resources
         shell: pwsh
         run: |
@@ -145,7 +119,6 @@ jobs:
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
           Write-Host 'Packaged migration chain verified through migration 021.'
-
       - name: Verify installer artifact
         shell: pwsh
         run: |
