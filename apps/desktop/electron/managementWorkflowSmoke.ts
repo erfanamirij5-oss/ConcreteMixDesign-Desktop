@@ -24,6 +24,20 @@ if (!managementSource.includes("draft: ['trial_required']")
   || !managementSource.includes("production: ['superseded']")) {
   throw new Error('Controlled management workflow state machine is incomplete');
 }
+for (const contract of [
+  'p.location_description AS locationDescription',
+  'p.structure_type AS structureType',
+  'p.element_type AS elementType',
+  'p.client_name AS clientName',
+  'p.contractor_name AS contractorName',
+  'p.consultant_name AS consultantName',
+  'md.design_standard AS designStandard',
+  'md.engineer_notes AS engineerNotes',
+  'design_standard = ?',
+  'engineer_notes = ?'
+]) {
+  if (!managementSource.includes(contract)) throw new Error(`Workspace persistence contract missing: ${contract}`);
+}
 
 const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
@@ -95,4 +109,4 @@ if (finalMix.revisionNumber !== 1 || finalMix.status !== 'draft') throw new Erro
 if (auditCount < 6 || historyCount !== 4) throw new Error(`Audit/history contract incomplete: audit=${auditCount}, statusHistory=${historyCount}`);
 
 db.close();
-console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, archive/restore, revision uniqueness and audit verified.`);
+console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, complete workspace identity, archive/restore, revision uniqueness and audit verified.`);
