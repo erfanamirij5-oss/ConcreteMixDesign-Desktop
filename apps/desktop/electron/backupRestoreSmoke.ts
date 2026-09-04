@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
@@ -9,7 +9,6 @@ const tempDir = mkdtempSync(path.join(os.tmpdir(), 'tolou-backup-restore-'));
 const activePath = path.join(tempDir, 'active.sqlite');
 const backupPath = path.join(tempDir, 'backup.sqlite');
 const corruptPath = path.join(tempDir, 'corrupt.sqlite');
-const tamperedPath = path.join(tempDir, 'tampered.sqlite');
 
 function seedCurrentSchema(database: Database.Database) {
   database.exec(`
@@ -38,20 +37,13 @@ async function run() {
     assert.ok(manifest.sizeBytes > 0);
     assert.deepEqual(validateBackupCandidate(backupPath).sha256, manifest.sha256);
 
-    copyFileSync(backupPath, tamperedPath);
-    copyFileSync(`${backupPath}.manifest.json`, `${tamperedPath}.manifest.json`);
-    const tampered = Buffer.from(readFileSync(tamperedPath));
-    tampered[tampered.length - 1] ^= 0xff;
-    writeFileSync(tamperedPath, tampered);
-    assert.throws(() => validateBackupCandidate(tamperedPath), /digest|database|malformed|disk image/i);
-
     active.prepare('DELETE FROM projects');
     active.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run('project-after', 'After backup');
-    active.pragma('wal_checkpoint(TRUNCATE)');
-    active.close();
 
-    const restored = await restoreValidatedBackup(backupPath, activePath);
+    const restored = await restoreValidatedBackup(backupPath, activePath, active);
     assert.ok(restored.recoveryPath.includes('.pre-restore-'));
+    assert.throws(() => active.prepare('SELECT 1').get(), /closed/i, 'Restore must close the active SQLite connection before file replacement');
+
     const reopened = new Database(activePath, { readonly: true });
     assert.equal((reopened.prepare('SELECT id FROM projects').get() as { id: string }).id, 'project-before');
     assert.equal(reopened.pragma('quick_check', { simple: true }), 'ok');
@@ -63,9 +55,19 @@ async function run() {
 
     const activeBeforeRejectedRestore = readFileSync(activePath);
     writeFileSync(corruptPath, Buffer.from('not a sqlite database'));
-    writeFileSync(`${corruptPath}.manifest.json`, JSON.stringify({ formatVersion: 1, createdAt: new Date().toISOString(), schemaMigrations: [], sha256: '0'.repeat(64), sizeBytes: 21 }));
-    await assert.rejects(() => restoreValidatedBackup(corruptPath, activePath));
+    const activeForRejectedRestore = new Database(activePath);
+    activeForRejectedRestore.pragma('journal_mode = WAL');
+    assert.throws(() => validateBackupCandidate(corruptPath));
+    await assert.rejects(() => restoreValidatedBackup(corruptPath, activePath, activeForRejectedRestore));
     assert.deepEqual(readFileSync(activePath), activeBeforeRejectedRestore, 'Rejected restore must not modify active DB bytes');
+    assert.equal(activeForRejectedRestore.prepare('SELECT 1 AS value').get().value, 1, 'Pre-validation failure must leave active connection open');
+    activeForRejectedRestore.close();
+
+    const originalBackup = readFileSync(backupPath);
+    const tampered = Buffer.from(originalBackup);
+    tampered[tampered.length - 1] ^= 0xff;
+    writeFileSync(backupPath, tampered);
+    assert.throws(() => validateBackupCandidate(backupPath), /digest|database|malformed|disk image/i);
 
     console.log('Backup/restore destructive safety smoke passed.');
   } finally {
