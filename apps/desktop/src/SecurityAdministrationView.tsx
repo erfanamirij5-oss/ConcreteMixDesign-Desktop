@@ -67,7 +67,7 @@ export function SecurityAdministrationView() {
     {message && <div className="alert danger">{message}</div>}
 
     <section className="panel" style={{ marginBottom: 12 }}>
-      <div className="panel-head"><h3>ایجاد کاربر</h3><span>رمز عبور هرگز در renderer ذخیره نمی‌شود</span></div>
+      <div className="panel-head"><h3>ایجاد کاربر</h3><span>رمز عبور به‌صورت متن ساده در پایگاه داده ذخیره نمی‌شود</span></div>
       <div className="panel-body manager-filters">
         <input className="manager-search" placeholder="نام کاربری انگلیسی" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
         <input className="manager-search" placeholder="نام نمایشی" value={form.displayName} onChange={e => setForm({ ...form, displayName: e.target.value })} />
