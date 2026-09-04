@@ -12,6 +12,11 @@ contextBridge.exposeInMainWorld('tolouProjects', {
   listRecent: () => ipcRenderer.invoke('projects:list-recent')
 });
 
+contextBridge.exposeInMainWorld('tolouManagement', {
+  getSummary: () => ipcRenderer.invoke('management:get-summary'),
+  getActivity: () => ipcRenderer.invoke('management:get-activity')
+});
+
 contextBridge.exposeInMainWorld('tolouMixDesigns', {
   getManagementRecord: (mixDesignId: string) => ipcRenderer.invoke('mix-design:get-management-record', mixDesignId),
   updateBasics: (payload: unknown) => ipcRenderer.invoke('mix-design:update-basics', payload),
