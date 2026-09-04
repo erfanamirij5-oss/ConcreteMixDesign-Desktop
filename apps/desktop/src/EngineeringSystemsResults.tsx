@@ -1,6 +1,8 @@
 type BinderComponent = {
   material_id?: string; name?: string; material_type?: string; material_subtype?: string; standard_designation?: string | null; share_percent?: number; mass_kg_m3?: number; specific_gravity?: number; replacement_percent?: number | null;
 };
+type CementitiousProductCheck = { material_id?: string; name?: string; material_subtype?: string; standard_designation?: string | null; expected_standard?: string; status?: string; };
+type CementitiousCompliance = { status?: string; sulfate_exposure_class?: string; compliance_route?: string | null; product_standard_checks?: CementitiousProductCheck[]; qualification_evidence?: unknown; };
 type AdmixtureAnalysis = {
   material_id?: string; name?: string; material_subtype?: string; standard_designation?: string | null; manufacturer?: string | null; product_code?: string | null; dosage_value?: number | null; dosage_unit?: string | null; mass_kg_m3?: number; density_kg_m3?: number | null; solids_percent?: number | null; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number;
 };
@@ -15,7 +17,8 @@ type FullChloride = {
   status?: string; corrosion_exposure_class?: string; prestressed_concrete?: boolean; aci_limit_percent_by_mass_cementitious?: number | null; total_chloride_kg_m3?: number; total_chloride_percent_by_mass_cementitious?: number | null; data_complete?: boolean; source_breakdown?: ChlorideSource[]; calcium_chloride_detected?: boolean; calcium_chloride_prohibited?: boolean;
 };
 type Props = {
-  cementitiousSystem?: { weighted_specific_gravity?: number; absolute_volume_m3?: number; components?: BinderComponent[]; };
+  cementitiousSystem?: { weighted_specific_gravity?: number; absolute_volume_m3?: number; components?: BinderComponent[]; durability_compliance?: CementitiousCompliance; };
+  cementitiousCompliance?: CementitiousCompliance;
   admixtureSystem?: { analysis?: AdmixtureAnalysis[]; totals?: { mass_kg_m3?: number; carrier_water_kg_m3?: number; nonwater_absolute_volume_m3?: number; }; compliance?: Compliance; chloride_compliance?: FullChloride; };
   admixtureCompliance?: Compliance;
   chlorideCompliance?: FullChloride;
@@ -24,6 +27,8 @@ type Props = {
 
 export function EngineeringSystemsResults(props: Props) {
   const binders = props.cementitiousSystem?.components ?? [];
+  const binderCompliance = props.cementitiousCompliance ?? props.cementitiousSystem?.durability_compliance;
+  const binderChecks = binderCompliance?.product_standard_checks ?? [];
   const admixtures = props.admixtureSystem?.analysis ?? [];
   const totals = props.admixtureSystem?.totals;
   const compliance = props.admixtureCompliance ?? props.admixtureSystem?.compliance;
@@ -35,6 +40,11 @@ export function EngineeringSystemsResults(props: Props) {
     <article className="panel wide-panel">
       <div className="panel-head"><div><h3>سیستم مواد سیمانی</h3><span>تفکیک جرم، سهم و وزن مخصوص هر Binder / SCM</span></div><span className="badge orange">SG موثر {show(props.cementitiousSystem?.weighted_specific_gravity)}</span></div>
       <div className="panel-body"><div className="result-grid"><div><label>تعداد اجزای Binder</label><strong>{binders.length}</strong></div><div><label>SG موثر سیستم</label><strong>{show(props.cementitiousSystem?.weighted_specific_gravity)}</strong></div><div><label>حجم مطلق مواد سیمانی</label><strong>{show(props.cementitiousSystem?.absolute_volume_m3)} m³/m³</strong></div></div><div className="standards-list">{binders.length === 0 && <div className="alert warn">جزء سیمانی ثبت‌شده‌ای برای تفکیک وجود ندارد.</div>}{binders.map((item, index) => <div key={item.material_id ?? index}><b>{item.name ?? `Binder ${index + 1}`}</b> — {item.material_subtype ?? item.material_type ?? '-'} | سهم: {show(item.share_percent)}٪ | جرم: {show(item.mass_kg_m3)} kg/m³ | SG: {show(item.specific_gravity)}{item.replacement_percent !== null && item.replacement_percent !== undefined ? ` | جایگزینی: ${show(item.replacement_percent)}٪` : ''}{item.standard_designation ? ` | ${item.standard_designation}` : ''}</div>)}</div></div>
+    </article>
+
+    <article className="panel wide-panel">
+      <div className="panel-head"><div><h3>انطباق سولفاتی سیستم سیمانی</h3><span>ACI 318-25 + ASTM C150/C595/C1157/C989/C618/C1240/C1012</span></div><span className={`badge ${binderCompliance?.status === 'fail' ? 'red' : binderCompliance?.status === 'pass' ? 'green' : 'orange'}`}>{binderCompliance?.status ?? 'not_checked'}</span></div>
+      <div className="panel-body"><div className="result-grid"><div><label>کلاس سولفات</label><strong>{binderCompliance?.sulfate_exposure_class ?? '-'}</strong></div><div><label>مسیر انطباق</label><strong>{binderCompliance?.compliance_route ?? '-'}</strong></div><div><label>تعداد کنترل محصول</label><strong>{binderChecks.length}</strong></div></div><div className="standards-list">{binderChecks.length === 0 && <div className="alert info">کنترل استاندارد محصول سیمانی هنوز انجام نشده است.</div>}{binderChecks.map((check, index) => <div key={`${check.material_id ?? 'binder'}-${index}`}><b>{check.name ?? `Binder ${index + 1}`}</b> — {check.status ?? '-'} | انتظار: {check.expected_standard ?? '-'}{check.standard_designation ? ` | ثبت‌شده: ${check.standard_designation}` : ''}</div>)}{binderCompliance?.sulfate_exposure_class === 'S3' && <div className="alert warn">S3 حتی با مدارک Qualification به انتخاب صریح گزینه ACI و تأیید مهندس نیاز دارد؛ نرم‌افزار آن را خودکار pass نمی‌کند.</div>}</div></div>
     </article>
 
     <article className="panel wide-panel">
