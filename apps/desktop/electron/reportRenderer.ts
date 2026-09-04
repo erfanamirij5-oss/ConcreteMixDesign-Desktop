@@ -25,7 +25,7 @@ function reportBody(s: ReportSnapshot, fa: boolean) {
     case 'durability_compliance': return durabilitySection(s, fa) + traceabilitySection(s, fa);
     case 'gradation_blend': return gradationSection(s, fa) + blendSection(s, fa);
     case 'revision_identity': return revisionSection(s, fa);
-    case 'production_sheet': return mixResultSection(s, fa) + materialsSection(s, fa) + trialSection(s, fa);
+    case 'production_sheet': return productionSheetSection(s, fa);
   }
 }
 
@@ -37,6 +37,17 @@ function identitySection(s: ReportSnapshot, fa: boolean) {
 function mixResultSection(s: ReportSnapshot, fa: boolean) {
   const c = s.calculation ?? {};
   return `<div class="section"><h2>${fa ? 'نتیجه طرح اختلاط' : 'Mix proportions'}</h2><table><tbody><tr><th>Cementitious</th><td>${esc(c.cementitious_content_kg_m3)} kg/m³</td><th>Water</th><td>${esc(c.water_content_kg_m3)} kg/m³</td></tr><tr><th>w/cm</th><td>${esc(c.w_cm_ratio)}</td><th>Air</th><td>${esc(c.air_content_percent)} %</td></tr><tr><th>Fine Aggregate</th><td>${esc(c.fine_aggregate_kg_m3)} kg/m³</td><th>Coarse Aggregate</th><td>${esc(c.coarse_aggregate_kg_m3)} kg/m³</td></tr></tbody></table></div>`;
+}
+
+function productionSheetSection(s: ReportSnapshot, fa: boolean) {
+  const c = s.calculation ?? {};
+  const engineering = isRecord(c.traceability) && isRecord(c.traceability.engineeringOutput) ? c.traceability.engineeringOutput : {};
+  const mix = isRecord(engineering.mix_proportions) ? engineering.mix_proportions : {};
+  const aggregateRows = asRecords(engineering.aggregate_analysis);
+  const recorded = (value: unknown, unit = '') => `${escRecorded(value, fa)}${hasRecordedValue(value) && unit ? ` ${unit}` : ''}`;
+  const aggregates = aggregateRows.map(row => `<tr><td>${escRecorded(row.material_name ?? row.material_id, fa)}</td><td>${recorded(row.ssd_mass_kg_m3, 'kg/m³')}</td><td>${recorded(row.moisture_percent, '%')}</td><td>${recorded(row.absorption_percent, '%')}</td><td>${recorded(row.batch_mass_kg_m3, 'kg/m³')}</td><td>${recorded(row.water_adjustment_kg_m3, 'kg/m³')}</td></tr>`).join('');
+  return `<div class="section"><h2>${fa ? 'مقادیر مبنای تولید ثبت‌شده' : 'Persisted production basis'}</h2><table><tbody><tr><th>Cementitious</th><td>${recorded(c.cementitious_content_kg_m3, 'kg/m³')}</td><th>Design Water</th><td>${recorded(c.water_content_kg_m3, 'kg/m³')}</td></tr><tr><th>Fine Aggregate SSD</th><td>${recorded(c.fine_aggregate_kg_m3, 'kg/m³')}</td><th>Coarse Aggregate SSD</th><td>${recorded(c.coarse_aggregate_kg_m3, 'kg/m³')}</td></tr><tr><th>Aggregate Batch Total</th><td>${recorded(mix.aggregate_batch_kg_m3, 'kg/m³')}</td><th>Water Adjustment</th><td>${recorded(mix.batch_water_adjustment_kg_m3, 'kg/m³')}</td></tr><tr><th>Water to Add</th><td>${recorded(mix.water_to_add_kg_m3, 'kg/m³')}</td><th>w/cm</th><td>${recorded(c.w_cm_ratio)}</td></tr></tbody></table></div>
+  <div class="section"><h2>${fa ? 'اصلاح رطوبت سنگدانه — فقط داده ثبت‌شده' : 'Aggregate moisture correction — persisted values only'}</h2><table><thead><tr><th>${fa ? 'سنگدانه' : 'Aggregate'}</th><th>SSD</th><th>Moisture</th><th>Absorption</th><th>Batch</th><th>ΔWater</th></tr></thead><tbody>${aggregates || emptyRecordedRow(6, fa)}</tbody></table><div class="muted">${fa ? 'هیچ مقدار اصلاح رطوبت یا آب در این برگه از روی داده‌های دیگر تخمین زده نمی‌شود؛ مقدار ثبت‌نشده صریحاً «ثبت نشده» نمایش داده می‌شود.' : 'No moisture or water adjustment is inferred in this sheet. Missing persisted values are explicitly shown as Not recorded.'}</div></div>`;
 }
 
 function materialsSection(s: ReportSnapshot, fa: boolean) {
@@ -92,6 +103,9 @@ function reportTitle(type: ReportSnapshot['reportType'], fa: boolean) {
   }; return titles[type][fa ? 0 : 1];
 }
 function emptyRow(cols: number) { return `<tr><td colspan="${cols}">-</td></tr>`; }
+function emptyRecordedRow(cols: number, fa: boolean) { return `<tr><td colspan="${cols}">${fa ? 'ثبت نشده' : 'Not recorded'}</td></tr>`; }
+function hasRecordedValue(value: unknown) { return value !== null && value !== undefined && value !== ''; }
+function escRecorded(value: unknown, fa: boolean) { return hasRecordedValue(value) ? esc(value) : escapeHtml(fa ? 'ثبت نشده' : 'Not recorded'); }
 function asRecords(value: unknown) { return Array.isArray(value) ? value.filter(isRecord) : []; }
 function asStrings(value: unknown) { return Array.isArray(value) ? value.filter((x): x is string => typeof x === 'string') : []; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
