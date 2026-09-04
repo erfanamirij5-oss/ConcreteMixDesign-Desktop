@@ -1,6 +1,4 @@
 import crypto from 'node:crypto';
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
 
@@ -20,7 +18,6 @@ type NewRevisionInput = { mixDesignId: string; changeReason: string; actorName?:
 type StatusTransitionInput = { mixDesignId: string; toStatus: string; reason?: string; actorName?: string; };
 type DuplicateInput = { mixDesignId: string; projectName?: string; actorName?: string; };
 
-const MIGRATIONS = ['016_mix_design_revision_control', '017_mix_design_management_workflow'];
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   draft: ['trial_required'],
   trial_required: ['trial_completed'],
@@ -200,19 +197,7 @@ export function listMixDesignRevisionHistory(mixDesignId: string) {
   return { current, snapshots, audit, statusHistory };
 }
 
-function managementDatabase() { const database = getDatabase(); ensureManagementMigrations(database); return database; }
-
-function ensureManagementMigrations(database: Database.Database) {
-  for (const migrationId of MIGRATIONS) {
-    const applied = database.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migrationId);
-    if (applied) continue;
-    const migrationPath = path.join(process.cwd(), `database/migrations/${migrationId}.sql`);
-    database.transaction(() => {
-      database.exec(readFileSync(migrationPath, 'utf-8'));
-      database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run(migrationId, new Date().toISOString());
-    })();
-  }
-}
+function managementDatabase() { return getDatabase(); }
 
 function validateEdit(input: MixDesignEditInput) {
   if (!input.mixDesignId?.trim()) throw new Error('شناسه طرح اختلاط الزامی است.');
