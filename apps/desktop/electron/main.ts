@@ -86,7 +86,18 @@ ipcMain.handle('engine:get-saved-result', async (_event, mixDesignId: string) =>
 ipcMain.handle('projects:save-intake', async (_event, payload) => safeCall(() => saveProjectIntake(payload), 'خطای ناشناخته در ذخیره پروژه'));
 ipcMain.handle('projects:list-recent', async () => safeCall(() => ({ status: 'pass', projects: listRecentProjects() }), 'خطای ناشناخته در خواندن پروژه‌ها'));
 ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => { requireEditableMixDesign(payload?.mixDesignId); return saveMaterial(payload); }, 'خطای ناشناخته در ذخیره مصالح'));
-ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) }), 'خطای ناشناخته در خواندن مصالح'));
+ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => {
+  const provenance = new Map(listMixDesignMaterialProvenance(mixDesignId).map(item => [item.id, item]));
+  const materials = (listMaterialsByMixDesign(mixDesignId) as Array<Record<string, unknown>>).map(item => {
+    const identity = provenance.get(String(item.id));
+    const source = typeof item.source === 'string' && item.source.trim() ? item.source : '-';
+    const provenanceLabel = identity?.provenance === 'library_snapshot'
+      ? `Library Snapshot${identity.snapshotAt ? ` — ${identity.snapshotAt}` : ''}`
+      : 'Manual Entry';
+    return { ...item, source: `${source} | ${provenanceLabel}`, provenance: identity?.provenance ?? 'manual', librarySnapshotAt: identity?.snapshotAt ?? null, libraryMaterialId: identity?.libraryMaterialId ?? null };
+  });
+  return { status: 'pass', materials };
+}, 'خطای ناشناخته در خواندن مصالح'));
 ipcMain.handle('material-library:save', async (_event, payload) => safeCall(() => ({ status: 'pass' as const, record: saveLibraryMaterial(payload) }), 'خطا در ذخیره رکورد کتابخانه مصالح'));
 ipcMain.handle('material-library:list', async (_event, materialType?: Parameters<typeof listLibraryMaterials>[0]) => safeCall(() => ({ status: 'pass' as const, materials: listLibraryMaterials(materialType) }), 'خطا در خواندن کتابخانه مصالح'));
 ipcMain.handle('material-library:attach', async (_event, mixDesignId: string, libraryMaterialId: string) => safeCall(() => { requireEditableMixDesign(mixDesignId); return attachLibraryMaterial(mixDesignId, libraryMaterialId); }, 'خطا در افزودن ماده Library به طرح اختلاط'));
