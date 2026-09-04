@@ -20,6 +20,10 @@ declare global {
       save: (payload: unknown) => Promise<unknown>;
       listByMaterial: (materialId: string) => Promise<unknown>;
     };
+    tolouBlendOptimizer?: {
+      save: (payload: unknown) => Promise<unknown>;
+      get: (mixDesignId: string) => Promise<unknown>;
+    };
     tolouDurability?: {
       save: (payload: unknown) => Promise<unknown>;
       get: (mixDesignId: string) => Promise<unknown>;
