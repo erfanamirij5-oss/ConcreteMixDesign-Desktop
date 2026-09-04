@@ -11,6 +11,7 @@ import { getManagementSummary, getRecentManagementActivity } from './managementA
 import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalculationInput } from './calculationResultStore';
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
 import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
+import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -54,6 +55,10 @@ ipcMain.handle('mix-design:transition-status', async (_event, payload) => safeCa
 ipcMain.handle('mix-design:duplicate', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return duplicateMixDesign(payload); }, 'خطا در Duplicate طرح اختلاط'));
 ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return archiveMixDesign(mixDesignId, actorName); }, 'خطا در بایگانی طرح اختلاط'));
 ipcMain.handle('mix-design:restore', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => { requireAuditActor(actorName); return restoreMixDesign(mixDesignId, actorName); }, 'خطا در بازیابی طرح اختلاط'));
+
+ipcMain.handle('trial-mix:save', async (_event, payload) => safeCall(() => { requireAuditActor(payload?.actorName); return saveTrialMixRecord(payload); }, 'خطا در ثبت Trial Mix'));
+ipcMain.handle('trial-mix:list', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, records: listTrialMixRecords(mixDesignId) }), 'خطا در خواندن Trial Mix'));
+ipcMain.handle('trial-mix:has-completed', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass' as const, completed: hasCompletedTrialMixRecord(mixDesignId) }), 'خطا در بررسی تکمیل Trial Mix'));
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));
@@ -159,6 +164,7 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
 app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   const database = getDatabase();
+  ensureTrialMixMigration(database);
   assertDatabaseReadyForRuntime(database);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

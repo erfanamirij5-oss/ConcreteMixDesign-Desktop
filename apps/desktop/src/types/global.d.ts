@@ -47,5 +47,10 @@ declare global {
       save: (payload: unknown) => Promise<unknown>;
       get: (mixDesignId: string) => Promise<unknown>;
     };
+    tolouTrialMix?: {
+      save: (payload: unknown) => Promise<unknown>;
+      list: (mixDesignId: string) => Promise<unknown>;
+      hasCompleted: (mixDesignId: string) => Promise<unknown>;
+    };
   }
 }

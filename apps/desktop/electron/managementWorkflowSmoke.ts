@@ -82,6 +82,14 @@ const transition = (from: string, to: string, reason: string) => {
 };
 
 transition('draft', 'trial_required', 'Trial required');
+db.prepare(`INSERT INTO trial_mix_records (
+  id, mix_design_id, revision_number, trial_date, batch_quantity_m3, actual_slump_mm,
+  air_content_percent, concrete_temperature_c, fresh_density_kg_m3,
+  strength_7d_mpa, strength_28d_mpa, notes, created_by, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  'trial-workflow-0', 'mix-1', 0, '2026-09-04', 0.06, 100, 2.0, 25, 2390,
+  30, 42, 'Workflow evidence', 'CI Engineer', now, now
+);
 transition('trial_required', 'trial_completed', 'Trial completed');
 transition('trial_completed', 'under_review', 'Engineering review');
 transition('under_review', 'approved', 'Approved');
@@ -110,6 +118,10 @@ if (!duplicateSnapshotRejected) throw new Error('Revision snapshot uniqueness is
 db.prepare("UPDATE mix_designs SET revision_number = 1, status = 'draft', updated_at = ? WHERE id = ?").run(now, 'mix-1');
 db.prepare('INSERT INTO mix_design_audit_log (id, mix_design_id, action, details_json, actor_name, created_at) VALUES (?, ?, ?, ?, ?, ?)').run('audit-revision', 'mix-1', 'revision_created', JSON.stringify({ fromRevision: 0, toRevision: 1 }), 'CI Engineer', now);
 
+const staleTrialCount = (db.prepare('SELECT COUNT(*) AS count FROM trial_mix_records WHERE mix_design_id = ? AND revision_number = 0').get('mix-1') as { count: number }).count;
+const currentTrialCount = (db.prepare('SELECT COUNT(*) AS count FROM trial_mix_records WHERE mix_design_id = ? AND revision_number = 1').get('mix-1') as { count: number }).count;
+if (staleTrialCount !== 1 || currentTrialCount !== 0) throw new Error('Revision Trial Mix identity contract is incorrect');
+
 const finalMix = db.prepare('SELECT revision_number AS revisionNumber, status FROM mix_designs WHERE id = ?').get('mix-1') as { revisionNumber: number; status: string };
 const auditCount = (db.prepare('SELECT COUNT(*) AS count FROM mix_design_audit_log WHERE mix_design_id = ?').get('mix-1') as { count: number }).count;
 const historyCount = (db.prepare('SELECT COUNT(*) AS count FROM mix_design_status_history WHERE mix_design_id = ?').get('mix-1') as { count: number }).count;
@@ -117,4 +129,4 @@ if (finalMix.revisionNumber !== 1 || finalMix.status !== 'draft') throw new Erro
 if (auditCount < 6 || historyCount !== 4) throw new Error(`Audit/history contract incomplete: audit=${auditCount}, statusHistory=${historyCount}`);
 
 db.close();
-console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, complete project/lab/designer workspace identity, archive/restore, revision uniqueness and audit verified.`);
+console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, Trial evidence, complete project/lab/designer workspace identity, archive/restore, revision uniqueness and audit verified.`);

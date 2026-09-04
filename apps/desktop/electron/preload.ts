@@ -57,3 +57,9 @@ contextBridge.exposeInMainWorld('tolouDurability', {
   save: (payload: unknown) => ipcRenderer.invoke('durability:save', payload),
   get: (mixDesignId: string) => ipcRenderer.invoke('durability:get', mixDesignId)
 });
+
+contextBridge.exposeInMainWorld('tolouTrialMix', {
+  save: (payload: unknown) => ipcRenderer.invoke('trial-mix:save', payload),
+  list: (mixDesignId: string) => ipcRenderer.invoke('trial-mix:list', mixDesignId),
+  hasCompleted: (mixDesignId: string) => ipcRenderer.invoke('trial-mix:has-completed', mixDesignId)
+});

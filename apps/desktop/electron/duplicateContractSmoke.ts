@@ -37,7 +37,8 @@ const forbiddenCloneTables = [
   'ai_prompts',
   'mix_design_revision_snapshots',
   'mix_design_audit_log',
-  'mix_design_status_history'
+  'mix_design_status_history',
+  'trial_mix_records'
 ];
 for (const table of forbiddenCloneTables) {
   if (duplicateSource.includes(`insertClonedRow(database, '${table}'`)) {
@@ -52,4 +53,4 @@ if (!duplicateSource.includes("insertStatusHistory(database, newMixDesignId, nul
   throw new Error('Duplicate must start an independent Draft status history.');
 }
 
-console.log('Duplicate contract smoke passed: engineering inputs are cloned, lineage is preserved, and historical/output records remain independent.');
+console.log('Duplicate contract smoke passed: engineering inputs are cloned, lineage is preserved, and historical/output/Trial Mix records remain independent.');
