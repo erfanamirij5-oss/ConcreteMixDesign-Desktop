@@ -55,6 +55,9 @@ jobs:
       - name: Database schema compatibility policy smoke test
         run: node dist/electron/databaseCompatibilitySmoke.js
 
+      - name: Partial-save atomicity smoke test
+        run: node dist/electron/dataIntegrityAtomicitySmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
