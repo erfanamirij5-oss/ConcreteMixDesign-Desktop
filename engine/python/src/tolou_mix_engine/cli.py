@@ -7,11 +7,75 @@ from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
 
+NON_AIR_STRENGTH_RANGE_MPA = (15.0, 40.0)
+AIR_STRENGTH_RANGE_MPA = (15.0, 35.0)
+
+
 def read_payload() -> dict:
     raw = sys.stdin.read().strip()
     if not raw:
         return {}
     return json.loads(raw)
+
+
+def validate_normal_mix_request(payload: dict) -> dict | None:
+    """Reject unresolved strength-only w/cm requests before numerical proportioning.
+
+    The preliminary ACI-style strength lookup in the current normal-weight engine is bounded.
+    Outside that range the engine must not extrapolate or allow None to enter arithmetic. An
+    explicit project/durability w/cm is therefore required before proportioning can continue.
+    """
+    requirements = payload.get("requirements", {}) if isinstance(payload, dict) else {}
+    provided_w_cm = requirements.get("w_cm_ratio")
+    if provided_w_cm is not None:
+        return None
+
+    target = float(requirements.get("target_strength_mpa", 30) or 30)
+    air_entrained = bool(requirements.get("air_entrained", False))
+    lower, upper = AIR_STRENGTH_RANGE_MPA if air_entrained else NON_AIR_STRENGTH_RANGE_MPA
+    if lower <= target <= upper:
+        return None
+
+    return {
+        "status": "fail",
+        "engine": "tolou-mix-engine",
+        "engine_version": "0.3.0",
+        "error": "w_cm_ratio_required_outside_strength_lookup",
+        "mix_proportions": {
+            "water_kg_m3": None,
+            "cementitious_kg_m3": None,
+            "w_cm_ratio": None,
+            "strength_based_w_cm_ratio": None,
+            "fine_aggregate_kg_m3": None,
+            "coarse_aggregate_kg_m3": None,
+            "aggregate_ssd_kg_m3": None,
+            "aggregate_batch_kg_m3": None,
+            "batch_water_adjustment_kg_m3": None,
+            "water_to_add_kg_m3": None,
+        },
+        "warnings": [
+            {
+                "code": "W_CM_EXPLICIT_REQUIRED_OUTSIDE_STRENGTH_LOOKUP",
+                "severity": "fail",
+                "message": (
+                    f"مقاومت هدف {target:g} MPa خارج از بازه lookup مقاومت‌محور فعلی "
+                    f"({lower:g} تا {upper:g} MPa) است. برای ادامه، w/cm پروژه/دوام باید صریحاً تعیین شود؛ "
+                    "نرم‌افزار برون‌یابی خودکار انجام نمی‌دهد."
+                ),
+                "reference": "ACI PRC-211.1-22 preliminary proportioning; project/durability w/cm governs",
+            }
+        ],
+        "engineering_notes": [
+            "محاسبه پیش از تناسب اجزا متوقف شد تا از تولید w/cm برون‌یابی‌شده یا غیرقابل ردیابی جلوگیری شود."
+        ],
+        "standard_references": [
+            "ACI PRC-211.1-22 - Selecting Proportions for Normal-Density and High-Density Concrete",
+            "ACI CODE-318-25 - Durability requirements where applicable",
+        ],
+        "limitations": [
+            "پس از تعیین w/cm حاکم باید طرح مجدداً محاسبه و با Trial Mix تایید شود."
+        ],
+    }
 
 
 def main() -> int:
@@ -30,7 +94,7 @@ def main() -> int:
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
-        response = calculate_integrated_normal_mix(payload)
+        response = validate_normal_mix_request(payload) or calculate_integrated_normal_mix(payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
