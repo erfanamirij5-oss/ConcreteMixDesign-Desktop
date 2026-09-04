@@ -6,7 +6,6 @@ import sys
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
-
 NON_AIR_STRENGTH_RANGE_MPA = (15.0, 40.0)
 AIR_STRENGTH_RANGE_MPA = (15.0, 35.0)
 
