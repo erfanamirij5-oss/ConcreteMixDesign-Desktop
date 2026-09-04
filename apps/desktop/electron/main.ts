@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { archiveMixDesign, createNewMixDesignRevision, getMixDesignManagementRecord, listMixDesignRevisionHistory, updateMixDesignBasics } from './mixDesignRevisionStore';
 import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
 
@@ -54,6 +55,11 @@ ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string)
 
 ipcMain.handle('projects:save-intake', async (_event, payload) => safeCall(() => saveProjectIntake(payload), 'خطای ناشناخته در ذخیره پروژه'));
 ipcMain.handle('projects:list-recent', async () => safeCall(() => ({ status: 'pass', projects: listRecentProjects() }), 'خطای ناشناخته در خواندن پروژه‌ها'));
+ipcMain.handle('mix-design:get-management-record', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', record: getMixDesignManagementRecord(mixDesignId) }), 'خطای ناشناخته در خواندن پرونده طرح'));
+ipcMain.handle('mix-design:update-basics', async (_event, payload) => safeCall(() => updateMixDesignBasics(payload), 'خطای ناشناخته در ویرایش مشخصات طرح'));
+ipcMain.handle('mix-design:create-revision', async (_event, payload) => safeCall(() => createNewMixDesignRevision(payload), 'خطای ناشناخته در ایجاد Revision'));
+ipcMain.handle('mix-design:list-revisions', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', history: listMixDesignRevisionHistory(mixDesignId) }), 'خطای ناشناخته در خواندن تاریخچه Revision'));
+ipcMain.handle('mix-design:archive', async (_event, mixDesignId: string, actorName?: string) => safeCall(() => archiveMixDesign(mixDesignId, actorName), 'خطای ناشناخته در بایگانی طرح'));
 ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => saveMaterial(payload), 'خطای ناشناخته در ذخیره مصالح'));
 ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) }), 'خطای ناشناخته در خواندن مصالح'));
 ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => saveGradation(payload), 'خطای ناشناخته در ذخیره دانه‌بندی'));
