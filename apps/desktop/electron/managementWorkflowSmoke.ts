@@ -24,6 +24,28 @@ if (!managementSource.includes("draft: ['trial_required']")
   || !managementSource.includes("production: ['superseded']")) {
   throw new Error('Controlled management workflow state machine is incomplete');
 }
+for (const contract of [
+  'p.location_description AS locationDescription',
+  'p.structure_type AS structureType',
+  'p.element_type AS elementType',
+  'p.client_name AS clientName',
+  'p.contractor_name AS contractorName',
+  'p.consultant_name AS consultantName',
+  'l.lab_name AS laboratoryName',
+  'l.license_number AS laboratoryLicenseNumber',
+  'd.full_name AS designerFullName',
+  'd.license_or_membership_number AS designerLicenseNumber',
+  'LEFT JOIN laboratories l ON l.id = md.laboratory_id',
+  'LEFT JOIN designers d ON d.id = md.designer_id',
+  'UPDATE laboratories SET lab_name = ?',
+  'UPDATE designers SET full_name = ?',
+  'md.design_standard AS designStandard',
+  'md.engineer_notes AS engineerNotes',
+  'design_standard = ?',
+  'engineer_notes = ?'
+]) {
+  if (!managementSource.includes(contract)) throw new Error(`Workspace persistence contract missing: ${contract}`);
+}
 
 const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON;');
@@ -70,7 +92,7 @@ if (approved.status !== 'approved') throw new Error('Workflow did not reach appr
 // Archive must preserve the prior controlled status and Restore must return to it.
 db.prepare("UPDATE mix_designs SET status = 'archived', archived_from_status = 'approved', archived_at = ?, updated_at = ? WHERE id = ?").run(now, now, 'mix-1');
 db.prepare('INSERT INTO mix_design_audit_log (id, mix_design_id, action, details_json, actor_name, created_at) VALUES (?, ?, ?, ?, ?, ?)').run('audit-archive', 'mix-1', 'mix_design_archived', JSON.stringify({ previousStatus: 'approved' }), 'CI Engineer', now);
-let archived = db.prepare('SELECT status, archived_from_status AS archivedFromStatus FROM mix_designs WHERE id = ?').get('mix-1') as { status: string; archivedFromStatus: string };
+const archived = db.prepare('SELECT status, archived_from_status AS archivedFromStatus FROM mix_designs WHERE id = ?').get('mix-1') as { status: string; archivedFromStatus: string };
 if (archived.status !== 'archived' || archived.archivedFromStatus !== 'approved') throw new Error('Archive did not retain previous status');
 db.prepare("UPDATE mix_designs SET status = archived_from_status, archived_from_status = NULL, archived_at = NULL, updated_at = ? WHERE id = ?").run(now, 'mix-1');
 const restored = db.prepare('SELECT status, archived_from_status AS archivedFromStatus, archived_at AS archivedAt FROM mix_designs WHERE id = ?').get('mix-1') as { status: string; archivedFromStatus: string | null; archivedAt: string | null };
@@ -95,4 +117,4 @@ if (finalMix.revisionNumber !== 1 || finalMix.status !== 'draft') throw new Erro
 if (auditCount < 6 || historyCount !== 4) throw new Error(`Audit/history contract incomplete: audit=${auditCount}, statusHistory=${historyCount}`);
 
 db.close();
-console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, archive/restore, revision uniqueness and audit verified.`);
+console.log(`Management workflow smoke passed: ${migrations.length} migrations, controlled transitions, complete project/lab/designer workspace identity, archive/restore, revision uniqueness and audit verified.`);

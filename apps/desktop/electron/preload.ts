@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('tolouEngine', {
   health: () => ipcRenderer.invoke('engine:health'),
   calculateNormalMix: (payload: unknown) => ipcRenderer.invoke('engine:calculate-normal-mix', payload),
   calculateSavedMix: (mixDesignId: string) => ipcRenderer.invoke('engine:calculate-saved-mix', mixDesignId),
+  getSavedResult: (mixDesignId: string) => ipcRenderer.invoke('engine:get-saved-result', mixDesignId),
   evaluateDurability: (payload: unknown) => ipcRenderer.invoke('engine:evaluate-durability', payload)
 });
 

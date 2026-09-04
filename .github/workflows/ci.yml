@@ -58,6 +58,12 @@ jobs:
       - name: Partial-save atomicity smoke test
         run: node dist/electron/dataIntegrityAtomicitySmoke.js
 
+      - name: Calculation result persistence smoke test
+        run: node dist/electron/calculationResultPersistenceSmoke.js
+
+      - name: Locked revision immutability smoke test
+        run: node dist/electron/mixDesignImmutabilitySmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest

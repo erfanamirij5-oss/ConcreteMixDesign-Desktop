@@ -6,6 +6,7 @@ declare global {
       health: () => Promise<unknown>;
       calculateNormalMix: (payload: unknown) => Promise<unknown>;
       calculateSavedMix: (mixDesignId: string) => Promise<unknown>;
+      getSavedResult: (mixDesignId: string) => Promise<unknown>;
       evaluateDurability: (payload: unknown) => Promise<unknown>;
     };
     tolouProjects?: {
