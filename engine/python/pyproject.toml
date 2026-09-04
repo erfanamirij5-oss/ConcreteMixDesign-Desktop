@@ -1,6 +1,6 @@
 [project]
 name = "tolou-mix-engine"
-version = "0.1.0"
+version = "0.3.0"
 description = "Python engineering engine for Tolou Concrete Mix Design Desktop."
 requires-python = ">=3.11"
 dependencies = []
