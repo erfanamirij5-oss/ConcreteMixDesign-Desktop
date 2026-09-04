@@ -70,11 +70,16 @@ if (insertColumns.length !== placeholderCount || placeholderCount !== saveMateri
   throw new Error(`Material INSERT contract mismatch: columns=${insertColumns.length}, placeholders=${placeholderCount}, values=${saveMaterialRunArgumentCount}`);
 }
 
+if (!databaseSource.includes("'015_aggregate_blend_optimizer_criteria'")) {
+  throw new Error('database.ts runMigrations does not include migration 015_aggregate_blend_optimizer_criteria');
+}
+
 const database = new DatabaseSync(':memory:');
 database.exec('PRAGMA foreign_keys = OFF;');
 const migrationsDirectory = path.join(repositoryRoot, 'database/migrations');
 const migrationFiles = readdirSync(migrationsDirectory).filter((file) => /^\d{3}_.+\.sql$/.test(file)).sort();
 if (!migrationFiles.includes('014_aggregate_shape_texture.sql')) throw new Error('Migration 014_aggregate_shape_texture.sql is missing from the migration set');
+if (!migrationFiles.includes('015_aggregate_blend_optimizer_criteria.sql')) throw new Error('Migration 015_aggregate_blend_optimizer_criteria.sql is missing from the migration set');
 for (const migrationFile of migrationFiles) database.exec(readFileSync(path.join(migrationsDirectory, migrationFile), 'utf-8'));
 
 const schemaColumns = new Set((database.prepare('PRAGMA table_info(materials)').all() as Array<{ name: string }>).map((row) => row.name));
@@ -108,5 +113,16 @@ if (
   || saved.shape_texture_evidence_ref !== 'CI-SMOKE-014'
 ) throw new Error('Migration 014 aggregate shape/texture fields did not round-trip correctly');
 
+database.prepare(`INSERT INTO aggregate_blend_optimizer_settings (mix_design_id, enabled, step_percent, fine_share_min_percent, fine_share_max_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('smoke-mix', 1, 5, 35, 50, 'CI');
+database.prepare(`INSERT INTO aggregate_blend_constraints (id, mix_design_id, material_id, min_percent, max_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('constraint-1', 'smoke-mix', 'smoke-material', 20, 65, 'CI');
+database.prepare(`INSERT INTO combined_gradation_limits (id, mix_design_id, sieve_size_mm, lower_percent, upper_percent, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('limit-1', 'smoke-mix', 4.75, 35, 55, 'CI');
+
+const optimizerSaved = database.prepare(`SELECT enabled, step_percent, fine_share_min_percent, fine_share_max_percent FROM aggregate_blend_optimizer_settings WHERE mix_design_id = ?`).get('smoke-mix') as Record<string, unknown> | undefined;
+const constraintSaved = database.prepare(`SELECT min_percent, max_percent FROM aggregate_blend_constraints WHERE mix_design_id = ? AND material_id = ?`).get('smoke-mix', 'smoke-material') as Record<string, unknown> | undefined;
+const limitSaved = database.prepare(`SELECT lower_percent, upper_percent FROM combined_gradation_limits WHERE mix_design_id = ? AND sieve_size_mm = ?`).get('smoke-mix', 4.75) as Record<string, unknown> | undefined;
+if (!optimizerSaved || optimizerSaved.enabled !== 1 || optimizerSaved.step_percent !== 5 || optimizerSaved.fine_share_min_percent !== 35 || optimizerSaved.fine_share_max_percent !== 50) throw new Error('Migration 015 optimizer settings did not round-trip correctly');
+if (!constraintSaved || constraintSaved.min_percent !== 20 || constraintSaved.max_percent !== 65) throw new Error('Migration 015 source constraints did not round-trip correctly');
+if (!limitSaved || limitSaved.lower_percent !== 35 || limitSaved.upper_percent !== 55) throw new Error('Migration 015 combined gradation limits did not round-trip correctly');
+
 database.close();
-console.log(`SQLite material persistence smoke passed: ${migrationFiles.length} migrations, ${insertColumns.length} columns, ${placeholderCount} placeholders/values.`);
+console.log(`SQLite persistence smoke passed: ${migrationFiles.length} migrations, ${insertColumns.length} material columns, optimizer criteria round-trip verified.`);
