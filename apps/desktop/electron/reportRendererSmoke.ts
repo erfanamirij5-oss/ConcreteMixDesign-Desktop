@@ -30,10 +30,11 @@ for (const reportType of types) {
     signatures: { preparedBy: 'Engineer', reviewedBy: null, approvedBy: null }
   };
   const html = renderReportHtml(snapshot);
-  assert.match(html, new RegExp(expected[reportType].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.ok(html.includes(escapeHtml(expected[reportType])), `${reportType} title must be present in escaped HTML output.`);
   assert.match(html, /Reference Project/);
   assert.match(html, /R2/);
   assert.match(html, /immutable persisted report snapshot/);
+  assert.doesNotMatch(html, /text-align:(?:left|right)th\{/);
   if (reportType === 'material_summary') assert.match(html, /Cement A/);
   if (reportType === 'durability_compliance') assert.match(html, /max_w_cm/);
   if (reportType === 'gradation_blend') assert.match(html, /Fine Aggregate/);
@@ -41,3 +42,7 @@ for (const reportType of types) {
 }
 
 console.log('Report Center renderer contract smoke passed for all seven report types.');
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] ?? ch));
+}
