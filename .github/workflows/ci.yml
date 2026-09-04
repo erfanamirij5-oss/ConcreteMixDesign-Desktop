@@ -46,6 +46,9 @@ jobs:
       - name: Data integrity upgrade and rollback smoke test
         run: node dist/electron/dataIntegrityUpgradeSmoke.js
 
+      - name: Referential integrity delete policy smoke test
+        run: node dist/electron/dataIntegrityConstraintsSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
