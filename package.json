@@ -1,6 +1,6 @@
 {
   "name": "concrete-mix-design-desktop",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Tolou Concrete Mix Design Desktop - professional concrete mix design software for Windows.",
   "main": "dist/electron/main.js",
