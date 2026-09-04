@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveGradation, saveMaterial, saveProjectIntake } from './database';
+import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -27,6 +28,7 @@ function createWindow() {
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));
+ipcMain.handle('engine:evaluate-durability', async (_event, payload) => runPythonCommand('evaluate-durability', payload));
 ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string) => {
   try {
     const payload = buildNormalMixPayload(mixDesignId);
@@ -42,6 +44,8 @@ ipcMain.handle('materials:save', async (_event, payload) => safeCall(() => saveM
 ipcMain.handle('materials:list-by-mix-design', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', materials: listMaterialsByMixDesign(mixDesignId) }), 'خطای ناشناخته در خواندن مصالح'));
 ipcMain.handle('gradation:save', async (_event, payload) => safeCall(() => saveGradation(payload), 'خطای ناشناخته در ذخیره دانه‌بندی'));
 ipcMain.handle('gradation:list-by-material', async (_event, materialId: string) => safeCall(() => ({ status: 'pass', rows: listGradationByMaterial(materialId) }), 'خطای ناشناخته در خواندن دانه‌بندی'));
+ipcMain.handle('durability:save', async (_event, payload) => safeCall(() => saveDurabilityInput(payload), 'خطای ناشناخته در ذخیره دوام'));
+ipcMain.handle('durability:get', async (_event, mixDesignId: string) => safeCall(() => ({ status: 'pass', input: getDurabilityInput(mixDesignId) }), 'خطای ناشناخته در خواندن دوام'));
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
