@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 DEFAULT_MAX_CANDIDATES = 250_000
 ABSOLUTE_MAX_CANDIDATES = 1_000_000
 
