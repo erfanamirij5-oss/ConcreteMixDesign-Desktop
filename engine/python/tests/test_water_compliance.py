@@ -1,10 +1,10 @@
-from datetime import UTC, datetime, timedelta
+import datetime as dt
 
 from tolou_mix_engine.water_compliance import evaluate_mixing_water_compliance
 
 
 def today():
-    return datetime.now(UTC).date()
+    return dt.datetime.now(dt.UTC).date()
 
 
 def water(**overrides):
@@ -101,7 +101,7 @@ def test_prestressed_uses_lower_chloride_screening_limit():
 
 def test_recycled_water_requires_daily_density_monitoring():
     result = evaluate_mixing_water_compliance(
-        {"admixtures": [recycled(c1602_last_density_check_date=(today() - timedelta(days=3)).isoformat())]},
+        {"admixtures": [recycled(c1602_last_density_check_date=(today() - dt.timedelta(days=3)).isoformat())]},
         {},
     )
     assert result["status"] == "needs_review"
@@ -119,7 +119,7 @@ def test_recycled_water_density_controls_default_qualification_frequency():
 
 def test_nonpotable_default_requalification_due_after_three_months():
     result = evaluate_mixing_water_compliance(
-        {"admixtures": [nonpotable(c1602_last_qualification_date=(today() - timedelta(days=100)).isoformat())]},
+        {"admixtures": [nonpotable(c1602_last_qualification_date=(today() - dt.timedelta(days=100)).isoformat())]},
         {},
     )
     assert result["status"] == "needs_review"
