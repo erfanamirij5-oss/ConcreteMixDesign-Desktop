@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 
 ASTM_C1602_LIMITS = {
@@ -203,7 +203,7 @@ def _monitoring_assessment(item: dict, source_class: str) -> dict:
             "warnings": [],
         }
 
-    today = date.today()
+    today = datetime.now(UTC).date()
     last_qualification = _optional_date(item.get("c1602_last_qualification_date"))
     last_density_check = _optional_date(item.get("c1602_last_density_check_date"))
     density = _optional_number(item.get("density_kg_m3"))
@@ -329,7 +329,7 @@ def _optional_date(value: object) -> date | None:
         return date.fromisoformat(text[:10])
     except ValueError:
         try:
-            return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
+            return datetime.fromisoformat(text).date()
         except ValueError as exc:
             raise ValueError(f"invalid ISO date for C1602 monitoring: {text}") from exc
 
