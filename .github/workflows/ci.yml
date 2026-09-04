@@ -59,3 +59,33 @@ jobs:
       - name: Run pytest
         working-directory: engine/python
         run: python -m pytest
+
+  windows-package:
+    name: Windows installer packaging gate
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install desktop dependencies
+        run: npm install
+
+      - name: Build NSIS x64 installer
+        run: npm run dist:win
+
+      - name: Verify installer artifact
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer artifact was not produced.' }
+          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes)"
