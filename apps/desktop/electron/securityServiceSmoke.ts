@@ -75,19 +75,16 @@ try {
     assert.ok(!serialized.includes('viewer-password-2026'));
   }
 
-  assert.throws(() => database.prepare('UPDATE security_audit_events SET action = ? WHERE 1 = 0').run('tamper'), /never-match-security-audit-immutability/, 'placeholder');
+  const auditId = (database.prepare('SELECT id FROM security_audit_events LIMIT 1').get() as { id: string }).id;
+  assert.throws(() => database.prepare('UPDATE security_audit_events SET action = ? WHERE id = ?').run('tamper', auditId), /append-only/i);
+  assert.throws(() => database.prepare('DELETE FROM security_audit_events WHERE id = ?').run(auditId), /append-only/i);
 
   assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
   assert.equal((database.pragma('foreign_key_check') as unknown[]).length, 0);
   database.close();
-  console.log('Gate 09 security smoke passed: bootstrap, scrypt credentials, RBAC, disabled-user enforcement, last-admin protection, live role checks and audit traceability verified.');
+  console.log('Gate 09 security smoke passed: bootstrap, scrypt credentials, RBAC, disabled-user enforcement, last-admin protection, live role checks and append-only audit traceability verified.');
 } catch (error) {
-  // The immutability assertion above intentionally needs a database-level guard before Gate 09 can close.
-  if (error instanceof assert.AssertionError && String(error.message).includes('never-match-security-audit-immutability')) {
-    console.error('Security audit immutability guard is not implemented yet.');
-  } else {
-    console.error(error);
-  }
+  console.error(error);
   process.exitCode = 1;
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
