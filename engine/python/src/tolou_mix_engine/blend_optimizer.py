@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from itertools import product
+
+DEFAULT_MAX_CANDIDATES = 250_000
+ABSOLUTE_MAX_CANDIDATES = 1_000_000
 
 
 def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> dict:
@@ -16,6 +18,8 @@ def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> di
             "status": "disabled",
             "search_step_percent": None,
             "evaluated_candidate_count": 0,
+            "estimated_candidate_count": 0,
+            "candidate_limit": None,
             "common_sieve_count": 0,
             "constraints_applied": False,
             "combined_limits_applied": False,
@@ -82,11 +86,43 @@ def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> di
     }
     fine_range = options.get("fine_aggregate_share_range") or None
 
+    candidate_limit = int(options.get("aggregate_blend_optimizer_max_candidates") or DEFAULT_MAX_CANDIDATES)
+    if candidate_limit < 1 or candidate_limit > ABSOLUTE_MAX_CANDIDATES:
+        raise ValueError(
+            f"aggregate_blend_optimizer_max_candidates must be between 1 and {ABSOLUTE_MAX_CANDIDATES}"
+        )
+
+    estimated_candidate_count = _count_feasible_vectors(min_units, max_units, units, candidate_limit + 1)
+    if estimated_candidate_count > candidate_limit:
+        return {
+            "status": "needs_review",
+            "search_step_percent": step,
+            "evaluated_candidate_count": 0,
+            "estimated_candidate_count": estimated_candidate_count,
+            "candidate_limit": candidate_limit,
+            "common_sieve_count": len(common_sieves),
+            "constraints_applied": bool(constraints),
+            "combined_limits_applied": bool(combined_limits),
+            "candidates": [],
+            "warnings": warnings + [
+                _warning(
+                    "BLEND_OPTIMIZER_SEARCH_BUDGET_EXCEEDED",
+                    "needs_review",
+                    (
+                        f"شبکه جست‌وجو بیش از سقف ایمن {candidate_limit:,} ترکیب قابل‌بررسی دارد. "
+                        "گام جست‌وجو را بزرگ‌تر یا Min/Max منابع را محدودتر کنید؛ هیچ Candidate ناقصی رتبه‌بندی نشد."
+                    ),
+                )
+            ],
+            "references": [
+                "ASTM C136/C136M-25 - Sieve Analysis of Fine and Coarse Aggregates",
+                "ACI PRC-211.1-22 - Selecting Proportions for Normal-Density and High-Density Concrete",
+            ],
+            "note": "Blend Optimizer پیش از جست‌وجوی پرهزینه متوقف شد تا زمان اجرا و حافظه نرم‌افزار کنترل شود.",
+        }
+
     candidates: list[dict] = []
-    ranges = [range(min_units[index], max_units[index] + 1) for index in range(len(active))]
-    for vector in product(*ranges):
-        if sum(vector) != units:
-            continue
+    for vector in _feasible_vectors(min_units, max_units, units):
         shares = [value * step for value in vector]
         curve = []
         for sieve in common_sieves:
@@ -132,6 +168,8 @@ def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> di
         "status": "pass" if ranked and combined_limits else "needs_review",
         "search_step_percent": step,
         "evaluated_candidate_count": len(candidates),
+        "estimated_candidate_count": estimated_candidate_count,
+        "candidate_limit": candidate_limit,
         "common_sieve_count": len(common_sieves),
         "constraints_applied": bool(constraints),
         "combined_limits_applied": bool(combined_limits),
@@ -143,6 +181,49 @@ def optimize_aggregate_blend(materials: dict, options: dict | None = None) -> di
         ],
         "note": "Score یک شاخص مقایسه‌ای برای رتبه‌بندی Blend است و معادل Packing Density، Pumpability acceptance یا تایید تولید نیست؛ Trial Mix الزامی است.",
     }
+
+
+def _count_feasible_vectors(min_units: list[int], max_units: list[int], target_units: int, stop_after: int) -> int:
+    """Count bounded integer compositions, stopping once the requested cap is reached."""
+    if sum(min_units) > target_units or sum(max_units) < target_units:
+        return 0
+    counts = [0] * (target_units + 1)
+    counts[0] = 1
+    for minimum, maximum in zip(min_units, max_units, strict=True):
+        next_counts = [0] * (target_units + 1)
+        for subtotal, count in enumerate(counts):
+            if count == 0:
+                continue
+            upper = min(maximum, target_units - subtotal)
+            for value in range(minimum, upper + 1):
+                index = subtotal + value
+                next_counts[index] = min(stop_after, next_counts[index] + count)
+        counts = next_counts
+    return counts[target_units]
+
+
+def _feasible_vectors(min_units: list[int], max_units: list[int], target_units: int):
+    """Yield only bounded vectors whose unit shares sum exactly to target_units."""
+    suffix_min = [0] * (len(min_units) + 1)
+    suffix_max = [0] * (len(max_units) + 1)
+    for index in range(len(min_units) - 1, -1, -1):
+        suffix_min[index] = suffix_min[index + 1] + min_units[index]
+        suffix_max[index] = suffix_max[index + 1] + max_units[index]
+
+    vector = [0] * len(min_units)
+
+    def visit(index: int, remaining: int):
+        if index == len(vector):
+            if remaining == 0:
+                yield tuple(vector)
+            return
+        lower = max(min_units[index], remaining - suffix_max[index + 1])
+        upper = min(max_units[index], remaining - suffix_min[index + 1])
+        for value in range(lower, upper + 1):
+            vector[index] = value
+            yield from visit(index + 1, remaining - value)
+
+    yield from visit(0, target_units)
 
 
 def _envelope_penalty(curve: list[dict], limits: dict[float, tuple[float, float]]) -> tuple[float, int]:
@@ -213,6 +294,8 @@ def _review(code: str, message: str) -> dict:
         "status": "needs_review",
         "search_step_percent": None,
         "evaluated_candidate_count": 0,
+        "estimated_candidate_count": 0,
+        "candidate_limit": None,
         "common_sieve_count": 0,
         "constraints_applied": False,
         "combined_limits_applied": False,
