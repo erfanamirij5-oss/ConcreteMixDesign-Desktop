@@ -27,26 +27,28 @@ def water(**overrides):
 
 
 def nonpotable(**overrides):
-    return water(
-        name="آب چاه غیرآشامیدنی",
-        material_subtype="other",
-        water_source_class="nonpotable",
-        c1602_last_qualification_date=today().isoformat(),
-        **overrides,
-    )
+    item = {
+        "name": "آب چاه غیرآشامیدنی",
+        "material_subtype": "other",
+        "water_source_class": "nonpotable",
+        "c1602_last_qualification_date": today().isoformat(),
+    }
+    item.update(overrides)
+    return water(**item)
 
 
 def recycled(**overrides):
-    return water(
-        name="آب بازیافتی کارخانه",
-        material_subtype="wash_water",
-        water_source_class="concrete_production",
-        density_kg_m3=1020.0,
-        c1602_last_qualification_date=today().isoformat(),
-        c1602_last_density_check_date=today().isoformat(),
-        c1602_density_monitoring_method="astm_c1603",
-        **overrides,
-    )
+    item = {
+        "name": "آب بازیافتی کارخانه",
+        "material_subtype": "wash_water",
+        "water_source_class": "concrete_production",
+        "density_kg_m3": 1020.0,
+        "c1602_last_qualification_date": today().isoformat(),
+        "c1602_last_density_check_date": today().isoformat(),
+        "c1602_density_monitoring_method": "astm_c1603",
+    }
+    item.update(overrides)
+    return water(**item)
 
 
 def test_single_potable_source_passes_without_performance_test_requirement():
