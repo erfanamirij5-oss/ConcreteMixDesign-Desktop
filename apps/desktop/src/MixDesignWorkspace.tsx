@@ -38,15 +38,26 @@ function concreteTypeLabel(type: string) {
   return type === 'pumped' ? 'بتن پمپی' : type === 'normal_weight' ? 'بتن معمولی' : type || '-';
 }
 
+function normalizedStatus(status: string) {
+  const value = (status || 'draft').toLowerCase();
+  if (value === 'trial') return 'trial_required';
+  if (value === 'review' || value === 'needs_review') return 'under_review';
+  return value;
+}
+
 function statusLabel(status: string) {
-  const normalized = (status || 'draft').toLowerCase();
-  if (normalized === 'approved') return 'تأییدشده';
-  if (normalized === 'production') return 'تولید';
-  if (normalized === 'superseded') return 'جایگزین‌شده';
-  if (normalized === 'trial') return 'Trial';
-  if (normalized === 'review' || normalized === 'needs_review') return 'نیازمند بازبینی';
-  if (normalized === 'archived') return 'بایگانی';
-  return 'پیش‌نویس';
+  const labels: Record<string, string> = {
+    draft: 'پیش‌نویس',
+    trial_required: 'Trial موردنیاز',
+    trial_completed: 'Trial تکمیل',
+    under_review: 'در بازبینی',
+    approved: 'تأییدشده',
+    production: 'تولید',
+    superseded: 'جایگزین‌شده',
+    archived: 'بایگانی'
+  };
+  const normalized = normalizedStatus(status);
+  return labels[normalized] ?? normalized;
 }
 
 const sections: Array<{ key: WorkspaceSection; label: string }> = [
@@ -82,7 +93,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
     revisionNumber: 0
   };
 
-  const locked = useMemo(() => ['approved', 'production', 'superseded', 'archived'].includes((current.status || '').toLowerCase()), [current.status]);
+  const locked = useMemo(() => ['approved', 'production', 'superseded', 'archived'].includes(normalizedStatus(current.status)), [current.status]);
 
   async function loadRecord() {
     try {
@@ -140,7 +151,7 @@ export function MixDesignWorkspace({ project, activeSection, onSectionChange, on
           <span>{concreteTypeLabel(current.concreteType)}</span>
           <span>{current.targetStrengthMpa} MPa</span>
           <span>{current.city || '-'}</span>
-          <span className={`status-chip status-${(current.status || 'draft').toLowerCase()}`}>{statusLabel(current.status)}</span>
+          <span className={`status-chip status-${normalizedStatus(current.status)}`}>{statusLabel(current.status)}</span>
         </div>
       </div>
       <div className="workspace-actions">
