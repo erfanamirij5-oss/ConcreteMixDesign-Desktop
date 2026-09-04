@@ -11,7 +11,7 @@ import { getManagementSummary, getRecentManagementActivity } from './managementA
 import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalculationInput } from './calculationResultStore';
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
 import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
-import { hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
+import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -164,6 +164,7 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
 app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   const database = getDatabase();
+  ensureTrialMixMigration(database);
   assertDatabaseReadyForRuntime(database);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
