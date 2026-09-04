@@ -1,0 +1,11 @@
+ALTER TABLE materials ADD COLUMN la_abrasion_method TEXT;
+ALTER TABLE materials ADD COLUMN la_abrasion_loss_percent REAL;
+ALTER TABLE materials ADD COLUMN la_abrasion_limit_percent REAL;
+ALTER TABLE materials ADD COLUMN soundness_salt TEXT;
+ALTER TABLE materials ADD COLUMN astm_c88_soundness_loss_percent REAL;
+ALTER TABLE materials ADD COLUMN soundness_limit_percent REAL;
+ALTER TABLE materials ADD COLUMN astm_c142_clay_lumps_percent REAL;
+ALTER TABLE materials ADD COLUMN clay_lumps_limit_percent REAL;
+ALTER TABLE materials ADD COLUMN astm_c123_lightweight_particles_percent REAL;
+ALTER TABLE materials ADD COLUMN lightweight_particles_limit_percent REAL;
+ALTER TABLE materials ADD COLUMN advanced_aggregate_evidence_ref TEXT;
