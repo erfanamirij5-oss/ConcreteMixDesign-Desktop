@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('tolouGradation', {
   listByMaterial: (materialId: string) => ipcRenderer.invoke('gradation:list-by-material', materialId)
 });
 
+contextBridge.exposeInMainWorld('tolouBlendOptimizer', {
+  save: (payload: unknown) => ipcRenderer.invoke('blend-optimizer:save', payload),
+  get: (mixDesignId: string) => ipcRenderer.invoke('blend-optimizer:get', mixDesignId)
+});
+
 contextBridge.exposeInMainWorld('tolouDurability', {
   save: (payload: unknown) => ipcRenderer.invoke('durability:save', payload),
   get: (mixDesignId: string) => ipcRenderer.invoke('durability:get', mixDesignId)
