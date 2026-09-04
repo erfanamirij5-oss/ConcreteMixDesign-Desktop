@@ -7,6 +7,7 @@ import { getDurabilityInput, saveDurabilityInput } from './durabilityStore';
 import { buildNormalMixPayload } from './enginePayload';
 
 const isDev = process.env.NODE_ENV === 'development';
+type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -28,7 +29,19 @@ function createWindow() {
 
 ipcMain.handle('engine:health', async () => runPythonCommand('health'));
 ipcMain.handle('engine:calculate-normal-mix', async (_event, payload) => runPythonCommand('calculate-normal-mix', payload));
-ipcMain.handle('engine:evaluate-durability', async (_event, payload) => runPythonCommand('evaluate-durability', payload));
+ipcMain.handle('engine:evaluate-durability', async (_event, payload: DurabilityEvaluationPayload) => {
+  try {
+    const normalized: DurabilityEvaluationPayload = { ...(payload ?? {}) };
+    const mixDesignId = typeof normalized.mix_design_id === 'string' ? normalized.mix_design_id.trim() : '';
+    if (mixDesignId) {
+      const savedPayload = buildNormalMixPayload(mixDesignId);
+      normalized.max_aggregate_size_mm = savedPayload.requirements.max_aggregate_size_mm;
+    }
+    return await runPythonCommand('evaluate-durability', normalized);
+  } catch (error) {
+    return { status: 'fail', error: error instanceof Error ? error.message : 'خطای ناشناخته در تحلیل دوام طرح ذخیره‌شده' };
+  }
+});
 ipcMain.handle('engine:calculate-saved-mix', async (_event, mixDesignId: string) => {
   try {
     const payload = buildNormalMixPayload(mixDesignId);
