@@ -66,9 +66,7 @@ def evaluate_asr_compliance(materials: dict, binder_system: dict) -> dict:
         status = "fail"
     elif not binder_data_complete or not aggregate_data_complete or mitigation["status"] == "needs_review" or any_unknown:
         status = "needs_review"
-    elif any_reactive and mitigation["status"] == "pass":
-        status = "pass"
-    elif not any_reactive:
+    elif (any_reactive and mitigation["status"] == "pass") or not any_reactive:
         status = "pass"
     else:
         status = "needs_review"
