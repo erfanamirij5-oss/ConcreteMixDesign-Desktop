@@ -17,7 +17,11 @@ declare global {
       updateBasics: (payload: unknown) => Promise<unknown>;
       createRevision: (payload: unknown) => Promise<unknown>;
       listRevisions: (mixDesignId: string) => Promise<unknown>;
+      allowedStatuses: (mixDesignId: string) => Promise<unknown>;
+      transitionStatus: (payload: unknown) => Promise<unknown>;
+      duplicate: (payload: unknown) => Promise<unknown>;
       archive: (mixDesignId: string, actorName?: string) => Promise<unknown>;
+      restore: (mixDesignId: string, actorName?: string) => Promise<unknown>;
     };
     tolouMaterials?: {
       save: (payload: unknown) => Promise<unknown>;
