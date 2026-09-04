@@ -32,3 +32,21 @@ export function assertDatabaseSchemaCompatibility(database: Database.Database) {
     throw new Error(`Database schema is newer or incompatible with this application build. Unknown migrations: ${unknown.join(', ')}`);
   }
 }
+
+export function assertDatabaseHealth(database: Database.Database) {
+  const quickCheck = database.pragma('quick_check') as Array<Record<string, unknown>>;
+  const quickCheckValues = quickCheck.flatMap(row => Object.values(row).map(value => String(value)));
+  if (quickCheckValues.length !== 1 || quickCheckValues[0].toLowerCase() !== 'ok') {
+    throw new Error(`Database integrity check failed: ${quickCheckValues.join('; ') || 'no quick_check result'}`);
+  }
+
+  const foreignKeyViolations = database.pragma('foreign_key_check') as Array<Record<string, unknown>>;
+  if (foreignKeyViolations.length) {
+    throw new Error(`Database foreign key integrity check failed with ${foreignKeyViolations.length} violation(s).`);
+  }
+}
+
+export function assertDatabaseReadyForRuntime(database: Database.Database) {
+  assertDatabaseSchemaCompatibility(database);
+  assertDatabaseHealth(database);
+}
