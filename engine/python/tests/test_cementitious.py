@@ -27,6 +27,16 @@ def test_binder_shares_must_sum_to_100():
     assert any(item["code"] == "BINDER_SHARES_NOT_100" for item in result["warnings"])
 
 
+def test_missing_binder_specific_gravity_is_traced_as_preliminary_default():
+    result = allocate_cementitious(
+        [{"id": "fa1", "name": "Fly ash", "material_type": "scm", "material_subtype": "fly_ash", "binder_share_percent": 100}],
+        400,
+    )
+    assert result["components"][0]["specific_gravity"] == 2.35
+    assert result["components"][0]["specific_gravity_source"] == "default_preliminary"
+    assert any(item["code"] == "DEFAULT_BINDER_SG_USED" and item["severity"] == "needs_review" for item in result["warnings"])
+
+
 def test_integrated_mix_reports_binder_components():
     result = calculate_integrated_normal_mix(
         {
