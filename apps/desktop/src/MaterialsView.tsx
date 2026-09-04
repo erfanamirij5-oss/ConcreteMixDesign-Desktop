@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AggregateRole, AsrQualificationMethod, AsrReactivityClass, LaAbrasionMethod, MaterialInput, MaterialRecord, MaterialSubtype, MaterialType, MoistureCondition, SaveMaterialResponse, SoundnessSalt, SulfateQualificationMethod, SulfateResistanceClass, WaterDensityMonitoringMethod, WaterSourceClass } from './types/material';
 
 const materialTypes: Array<{ value: MaterialType; label: string }> = [
@@ -56,6 +56,18 @@ export function MaterialsView(props: { mixDesignId: string | null }) {
   const isAdmixture = material.materialType === 'admixture'; const isFiber = material.materialType === 'fiber'; const isWater = material.materialType === 'water';
   const visibleRoles = aggregateRoles.filter(role => role.materialType === 'both' || role.materialType === material.materialType);
   const visibleSubtypes = subtypes.filter(item => item.types.includes(material.materialType));
+
+  useEffect(() => { void loadMaterials(); }, [props.mixDesignId]);
+
+  async function loadMaterials() {
+    if (!props.mixDesignId) { setMaterials([]); return; }
+    try {
+      if (!window.tolouMaterials) throw new Error('API مصالح در دسترس نیست.');
+      const list = await window.tolouMaterials.listByMixDesign(props.mixDesignId) as { status: string; materials?: MaterialRecord[]; error?: string };
+      if (list.status !== 'pass') throw new Error(list.error ?? 'خواندن مصالح ذخیره‌شده ناموفق بود.');
+      setMaterials(list.materials ?? []);
+    } catch (error) { setStatus('error'); setMessage(error instanceof Error ? error.message : 'خطای ناشناخته در خواندن مصالح ذخیره‌شده'); }
+  }
 
   async function saveMaterial() {
     setStatus('saving'); setMessage('');
