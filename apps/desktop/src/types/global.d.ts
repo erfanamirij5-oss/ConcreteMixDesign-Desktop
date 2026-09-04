@@ -12,6 +12,13 @@ declare global {
       saveIntake: (payload: unknown) => Promise<unknown>;
       listRecent: () => Promise<unknown>;
     };
+    tolouMixDesigns?: {
+      getManagementRecord: (mixDesignId: string) => Promise<unknown>;
+      updateBasics: (payload: unknown) => Promise<unknown>;
+      createRevision: (payload: unknown) => Promise<unknown>;
+      listRevisions: (mixDesignId: string) => Promise<unknown>;
+      archive: (mixDesignId: string, actorName?: string) => Promise<unknown>;
+    };
     tolouMaterials?: {
       save: (payload: unknown) => Promise<unknown>;
       listByMixDesign: (mixDesignId: string) => Promise<unknown>;
