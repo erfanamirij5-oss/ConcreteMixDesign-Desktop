@@ -49,6 +49,9 @@ jobs:
       - name: Referential integrity delete policy smoke test
         run: node dist/electron/dataIntegrityConstraintsSmoke.js
 
+      - name: Persistent database path contract smoke test
+        run: node dist/electron/dataPathContractSmoke.js
+
   python-engine:
     name: Python engine tests
     runs-on: ubuntu-latest
