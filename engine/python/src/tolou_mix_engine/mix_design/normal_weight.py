@@ -65,6 +65,67 @@ def calculate_normal_weight_mix(payload: dict) -> dict:
         w_cm_ratio = positive_float(provided_w_cm, "w_cm_ratio")
         w_cm_source = "project_input"
 
+    if w_cm_ratio is None:
+        strength_table = AIR_STRENGTH_W_CM if air_entrained else NON_AIR_STRENGTH_W_CM
+        lookup_min_mpa = strength_table[0][0]
+        lookup_max_mpa = strength_table[-1][0]
+        return {
+            "status": "fail",
+            "engine_version": ENGINE_VERSION,
+            "calculation_method": "aci_211_1_absolute_volume_with_coarse_volume_option",
+            "mix_proportions": {
+                "water_kg_m3": water_kg_m3,
+                "cementitious_kg_m3": None,
+                "w_cm_ratio": None,
+                "strength_based_w_cm_ratio": None,
+                "fine_aggregate_kg_m3": None,
+                "coarse_aggregate_kg_m3": None,
+                "aggregate_ssd_kg_m3": None,
+                "aggregate_batch_kg_m3": None,
+                "batch_water_adjustment_kg_m3": None,
+                "water_to_add_kg_m3": None,
+                "air_content_percent": air_content_percent,
+            },
+            "aggregate_analysis": [],
+            "aggregate_proportioning": {},
+            "engineering_notes": [
+                "برای مقاومت خارج از محدوده جدول مقاومت–w/cm، موتور از برون‌یابی یا clamp خودکار استفاده نمی‌کند.",
+                "برای ادامه طراحی باید w/cm صریح از مشخصات پروژه، الزامات دوام یا داده‌های معتبر آزمایشگاهی وارد شود.",
+            ],
+            "warnings": [
+                {
+                    "code": "W_CM_EXPLICIT_REQUIRED_OUTSIDE_STRENGTH_LOOKUP",
+                    "severity": "fail",
+                    "message": (
+                        f"مقاومت هدف {target_strength_mpa:g} MPa خارج از محدوده lookup "
+                        f"{lookup_min_mpa:g} تا {lookup_max_mpa:g} MPa است؛ w/cm باید صریح وارد شود."
+                    ),
+                    "reference": "ACI PRC-211.1 preliminary proportioning; project/durability requirements govern",
+                }
+            ],
+            "standard_references": [
+                "ACI PRC-211.1-22 - Selecting Proportions for Normal-Density and High-Density Concrete",
+                "ACI 318 - Exposure categories and durability requirements",
+                "ACI 301 - Specifications for Concrete Construction",
+            ],
+            "assumptions": [
+                f"target_strength_mpa={target_strength_mpa}",
+                f"slump_mm={slump_mm}",
+                f"requested_max_aggregate_size_mm={max_aggregate_size_mm}",
+                f"lookup_nmsa_mm={selected_nmsa}",
+                f"mixing_water_lookup_band={water_band}",
+                f"air_entrained={air_entrained}",
+                f"air_content_percent={air_content_percent}",
+                "w_cm_source=explicit_input_required",
+                f"strength_lookup_range_mpa={lookup_min_mpa:g}-{lookup_max_mpa:g}",
+            ],
+            "limitations": [
+                "هیچ w/cm خارج از محدوده جدول مقاومت به‌صورت خودکار برون‌یابی نشده است.",
+                "تا زمان ورود w/cm معتبر، جرم مواد سیمانی و تخصیص سنگدانه‌ها محاسبه نمی‌شود.",
+                "w/cm نهایی باید با دوام، مشخصات پروژه و Trial Mix تایید شود.",
+            ],
+        }
+
     cement_specific_gravity = positive_float(
         materials.get("cement_specific_gravity", DEFAULT_CEMENT_SPECIFIC_GRAVITY),
         "cement_specific_gravity",
