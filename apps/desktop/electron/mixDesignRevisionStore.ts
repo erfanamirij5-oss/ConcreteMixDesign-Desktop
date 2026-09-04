@@ -12,6 +12,15 @@ type MixDesignEditInput = {
   clientName?: string;
   contractorName?: string;
   consultantName?: string;
+  laboratoryName?: string;
+  laboratoryLicenseNumber?: string;
+  laboratoryAddress?: string;
+  laboratoryPhone?: string;
+  designerFullName?: string;
+  designerRole?: string;
+  designerLicenseNumber?: string;
+  designerPhone?: string;
+  designerEmail?: string;
   concreteType: string;
   targetStrengthMpa: number;
   requiredSlumpMm: number;
@@ -39,9 +48,13 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 export function getMixDesignManagementRecord(mixDesignId: string) {
   const database = managementDatabase();
   const row = database.prepare(`
-    SELECT md.id AS mixDesignId, md.project_id AS projectId, p.project_name AS projectName, p.city,
+    SELECT md.id AS mixDesignId, md.project_id AS projectId, md.laboratory_id AS laboratoryId, md.designer_id AS designerId,
+      p.project_name AS projectName, p.city,
       p.location_description AS locationDescription, p.structure_type AS structureType, p.element_type AS elementType,
       p.client_name AS clientName, p.contractor_name AS contractorName, p.consultant_name AS consultantName,
+      l.lab_name AS laboratoryName, l.license_number AS laboratoryLicenseNumber, l.address AS laboratoryAddress, l.phone AS laboratoryPhone,
+      d.full_name AS designerFullName, d.role AS designerRole, d.license_or_membership_number AS designerLicenseNumber,
+      d.phone AS designerPhone, d.email AS designerEmail,
       md.concrete_type AS concreteType, md.target_strength_mpa AS targetStrengthMpa,
       md.required_slump_mm AS requiredSlumpMm, md.max_aggregate_size_mm AS maxAggregateSizeMm,
       md.exposure_summary AS exposureSummary, md.design_standard AS designStandard, md.engineer_notes AS engineerNotes,
@@ -49,7 +62,11 @@ export function getMixDesignManagementRecord(mixDesignId: string) {
       md.source_mix_design_id AS sourceMixDesignId, md.archived_from_status AS archivedFromStatus,
       md.archived_at AS archivedAt, md.engine_version AS engineVersion, md.standards_version AS standardsVersion,
       md.created_at AS createdAt, md.updated_at AS updatedAt
-    FROM mix_designs md INNER JOIN projects p ON p.id = md.project_id WHERE md.id = ?
+    FROM mix_designs md
+    INNER JOIN projects p ON p.id = md.project_id
+    LEFT JOIN laboratories l ON l.id = md.laboratory_id
+    LEFT JOIN designers d ON d.id = md.designer_id
+    WHERE md.id = ?
   `).get(mixDesignId);
   if (!row) throw new Error('طرح اختلاط موردنظر پیدا نشد.');
   return row;
@@ -58,7 +75,7 @@ export function getMixDesignManagementRecord(mixDesignId: string) {
 export function updateMixDesignBasics(input: MixDesignEditInput) {
   validateEdit(input);
   const database = managementDatabase();
-  const current = getMixDesignManagementRecord(input.mixDesignId) as { projectId: string; status: string; revisionNumber: number };
+  const current = getMixDesignManagementRecord(input.mixDesignId) as { projectId: string; laboratoryId?: string | null; designerId?: string | null; status: string; revisionNumber: number };
   if (isLockedStatus(current.status)) throw new Error('این نسخه برای ویرایش مستقیم قفل است. ابتدا Revision جدید ایجاد کنید.');
   const now = new Date().toISOString();
   database.transaction(() => {
@@ -70,6 +87,12 @@ export function updateMixDesignBasics(input: MixDesignEditInput) {
       input.structureType?.trim() || null, input.elementType?.trim() || null, input.clientName?.trim() || null,
       input.contractorName?.trim() || null, input.consultantName?.trim() || null, now, current.projectId
     );
+    if (current.laboratoryId) {
+      database.prepare('UPDATE laboratories SET lab_name = ?, license_number = ?, address = ?, phone = ?, updated_at = ? WHERE id = ?').run(input.laboratoryName?.trim() || '', input.laboratoryLicenseNumber?.trim() || null, input.laboratoryAddress?.trim() || null, input.laboratoryPhone?.trim() || null, now, current.laboratoryId);
+    }
+    if (current.designerId) {
+      database.prepare('UPDATE designers SET full_name = ?, role = ?, license_or_membership_number = ?, phone = ?, email = ?, updated_at = ? WHERE id = ?').run(input.designerFullName?.trim() || '', input.designerRole?.trim() || null, input.designerLicenseNumber?.trim() || null, input.designerPhone?.trim() || null, input.designerEmail?.trim() || null, now, current.designerId);
+    }
     database.prepare('UPDATE mix_designs SET concrete_type = ?, target_strength_mpa = ?, required_slump_mm = ?, max_aggregate_size_mm = ?, exposure_summary = ?, design_standard = ?, engineer_notes = ?, updated_at = ? WHERE id = ?').run(input.concreteType, input.targetStrengthMpa, input.requiredSlumpMm, input.maxAggregateSizeMm, input.exposureSummary.trim(), input.designStandard?.trim() || null, input.engineerNotes?.trim() || null, now, input.mixDesignId);
     insertAudit(database, input.mixDesignId, 'mix_design_basics_updated', {
       revisionNumber: current.revisionNumber,
@@ -77,6 +100,8 @@ export function updateMixDesignBasics(input: MixDesignEditInput) {
       locationDescription: input.locationDescription?.trim() || null, structureType: input.structureType?.trim() || null,
       elementType: input.elementType?.trim() || null, clientName: input.clientName?.trim() || null,
       contractorName: input.contractorName?.trim() || null, consultantName: input.consultantName?.trim() || null,
+      laboratoryName: input.laboratoryName?.trim() || null, laboratoryLicenseNumber: input.laboratoryLicenseNumber?.trim() || null,
+      designerFullName: input.designerFullName?.trim() || null, designerRole: input.designerRole?.trim() || null,
       concreteType: input.concreteType, targetStrengthMpa: input.targetStrengthMpa,
       requiredSlumpMm: input.requiredSlumpMm, maxAggregateSizeMm: input.maxAggregateSizeMm,
       designStandard: input.designStandard?.trim() || null, engineerNotes: input.engineerNotes?.trim() || null
