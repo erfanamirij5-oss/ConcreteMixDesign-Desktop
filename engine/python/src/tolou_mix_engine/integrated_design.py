@@ -34,7 +34,6 @@ def calculate_integrated_normal_mix(payload: dict) -> dict:
     result = calculate_normal_weight_mix(source)
     warnings = list(result.get("warnings", []))
     warnings.extend(durability.get("warnings", []))
-    warnings.extend(binder_preview.get("warnings", []))
 
     mix = result.setdefault("mix_proportions", {})
     cementitious_total = float(mix.get("cementitious_kg_m3") or 0)
