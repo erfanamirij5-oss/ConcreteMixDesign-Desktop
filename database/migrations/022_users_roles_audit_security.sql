@@ -1,6 +1,4 @@
 -- Gate 09 — Users / Roles / Audit Security
--- Runtime creation/seeding is implemented by apps/desktop/electron/securityMigration.ts.
--- This packaged migration resource establishes the same schema contract for installer/runtime traceability.
 
 CREATE TABLE IF NOT EXISTS security_roles (
   id TEXT PRIMARY KEY,
@@ -65,3 +63,28 @@ BEFORE DELETE ON security_audit_events
 BEGIN
   SELECT RAISE(ABORT, 'security audit is append-only');
 END;
+
+INSERT OR IGNORE INTO security_roles (id, name, is_system, created_at) VALUES
+  ('administrator', 'Administrator', 1, strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  ('engineer', 'Engineer', 1, strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  ('viewer', 'Viewer', 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+
+INSERT OR IGNORE INTO security_permissions (id, description) VALUES
+  ('security.users.manage', 'Manage users and role assignments'),
+  ('security.audit.view', 'View security audit events'),
+  ('engineering.read', 'Read engineering records and reports'),
+  ('engineering.write', 'Create and modify engineering records'),
+  ('engineering.calculate', 'Execute engineering calculations'),
+  ('engineering.trial.manage', 'Create and manage trial mix records'),
+  ('engineering.report.generate', 'Generate engineering reports');
+
+INSERT OR IGNORE INTO security_role_permissions (role_id, permission_id)
+SELECT 'administrator', id FROM security_permissions;
+
+INSERT OR IGNORE INTO security_role_permissions (role_id, permission_id) VALUES
+  ('engineer', 'engineering.read'),
+  ('engineer', 'engineering.write'),
+  ('engineer', 'engineering.calculate'),
+  ('engineer', 'engineering.trial.manage'),
+  ('engineer', 'engineering.report.generate'),
+  ('viewer', 'engineering.read');
