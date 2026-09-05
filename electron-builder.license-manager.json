@@ -1,0 +1,30 @@
+{
+  "appId": "ir.tolou.licenseManager",
+  "productName": "Tolou License Manager",
+  "copyright": "Copyright © 2026 Tolou. All rights reserved.",
+  "directories": { "output": "release-license-manager" },
+  "files": ["apps/license-manager/**/*"],
+  "extraMetadata": { "main": "apps/license-manager/main.js" },
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "artifactName": "Tolou-License-Manager-${version}-Setup.${ext}",
+    "executableName": "TolouLicenseManager",
+    "icon": "build/tolou.generated.ico",
+    "legalTrademarks": "Tolou",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "build/tolou.generated.ico",
+    "uninstallerIcon": "build/tolou.generated.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Tolou License Manager",
+    "uninstallDisplayName": "Tolou License Manager ${version}",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true
+  }
+}

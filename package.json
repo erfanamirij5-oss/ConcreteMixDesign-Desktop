@@ -29,7 +29,8 @@
     "test:trial-mix": "npm run build:electron && node dist/electron/trialMixSmoke.js",
     "test:trial-workflow": "npm run build:electron && node dist/electron/trialWorkflowSmoke.js",
     "test:backup-restore": "npm run build:electron && node dist/electron/backupRestoreSmoke.js",
-    "dist:win": "npm run build && npm run build:engine:win && npm run prepare:win-icon && electron-builder --config electron-builder.json --win --publish never"
+    "dist:win": "npm run build && npm run build:engine:win && npm run prepare:win-icon && electron-builder --config electron-builder.json --win --publish never",
+    "dist:license-manager:win": "npm run prepare:win-icon && electron-builder --config electron-builder.license-manager.json --win --publish never"
   },
   "dependencies": {
     "react": "latest",
@@ -49,15 +50,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest"
   },
-  "keywords": [
-    "concrete",
-    "mix-design",
-    "aci",
-    "electron",
-    "react",
-    "python",
-    "sqlite"
-  ],
+  "keywords": ["concrete", "mix-design", "aci", "electron", "react", "python", "sqlite"],
   "author": "Erfan Amiri / Tolou",
   "license": "UNLICENSED"
 }
