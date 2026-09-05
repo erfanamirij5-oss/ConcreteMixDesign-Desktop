@@ -34,6 +34,7 @@
     "dist:license-manager:win": "npm run prepare:win-icon && electron-builder --config electron-builder.license-manager.json --win --publish never"
   },
   "dependencies": {
+    "@fontsource/vazirmatn": "latest",
     "react": "latest",
     "react-dom": "latest",
     "echarts": "latest",
