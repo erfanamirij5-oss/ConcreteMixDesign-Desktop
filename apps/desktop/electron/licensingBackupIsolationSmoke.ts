@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
@@ -14,6 +14,8 @@ const licensing = buildLicensingPaths(tempDir);
 
 async function run() {
   try {
+    mkdirSync(path.dirname(activePath), { recursive: true });
+    mkdirSync(licensing.licensingDir, { recursive: true });
     const database = new Database(activePath);
     database.pragma('foreign_keys = ON');
     database.exec(`
@@ -24,7 +26,7 @@ async function run() {
     for (const id of KNOWN_MIGRATIONS) insertMigration.run(id, new Date().toISOString());
     database.prepare('INSERT INTO marker (id, value) VALUES (?, ?)').run('engineering', 'before-backup');
 
-    writeFileSync(licensing.licensePath, 'license-before-backup', { encoding: 'utf8', flag: 'w' });
+    writeFileSync(licensing.licensePath, 'license-before-backup', 'utf8');
     await createValidatedBackup(database, backupPath);
 
     database.prepare('UPDATE marker SET value = ? WHERE id = ?').run('after-backup', 'engineering');
