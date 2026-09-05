@@ -3,185 +3,45 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import path from 'node:path';
 import { TOLOU_LICENSE_PRODUCT_ID, TOLOU_LICENSE_PUBLIC_KEY_PEM, TOLOU_LICENSE_SCHEMA_VERSION } from './licensePublicKey';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
 export type LicenseState = 'unlicensed' | 'active' | 'trial' | 'grace' | 'expired' | 'invalid' | 'wrong_machine' | 'incompatible' | 'clock_rollback';
 export type LicenseType = 'commercial' | 'trial' | 'grace';
-
-export type LicensePayload = {
-  schemaVersion: number;
-  productId: string;
-  licenseId: string;
-  customerName: string;
-  edition: string;
-  licenseType: LicenseType;
-  issuedAt: string;
-  expiresAt: string | null;
-  perpetual: boolean;
-  machineFingerprint: string;
-  features: string[];
-};
-
+export type LicensePayload = { schemaVersion:number; productId:string; licenseId:string; customerName:string; edition:string; licenseType:LicenseType; issuedAt:string; durationDays:number|null; expiresAt:string|null; perpetual:boolean; machineFingerprint:string; features:string[] };
 export type SignedLicenseDocument = { payload: LicensePayload; signature: string };
-export type LicenseStatus = {
-  state: LicenseState; licensed: boolean; reason?: string; licenseId?: string; customerName?: string; edition?: string;
-  licenseType?: LicenseType; expiresAt?: string | null; perpetual?: boolean; features?: string[];
-};
-
-type ClockState = { lastSeenAt: string };
-type LicensingServiceOptions = {
-  licensePath: string; clockStatePath: string; machineFingerprint: () => string; publicKeyPem?: string;
-  now?: () => Date; rollbackToleranceMs?: number;
-};
+export type LicenseStatus = { state:LicenseState; licensed:boolean; reason?:string; licenseId?:string; customerName?:string; edition?:string; licenseType?:LicenseType; issuedAt?:string; durationDays?:number|null; expiresAt?:string|null; remainingDays?:number|null; perpetual?:boolean; features?:string[] };
+type ClockState={lastSeenAt:string};
+type LicensingServiceOptions={licensePath:string;clockStatePath:string;machineFingerprint:()=>string;publicKeyPem?:string;now?:()=>Date;rollbackToleranceMs?:number};
 
 export class LicensingService {
-  private readonly publicKeyPem: string;
-  private readonly now: () => Date;
-  private readonly rollbackToleranceMs: number;
-
-  constructor(private readonly options: LicensingServiceOptions) {
-    this.publicKeyPem = options.publicKeyPem ?? TOLOU_LICENSE_PUBLIC_KEY_PEM;
-    this.now = options.now ?? (() => new Date());
-    this.rollbackToleranceMs = options.rollbackToleranceMs ?? 5 * 60 * 1000;
-  }
-
-  getLicensePath() { return this.options.licensePath; }
-
-  getStatus(): LicenseStatus {
-    if (!existsSync(this.options.licensePath)) return { state: 'unlicensed', licensed: false, reason: 'No license is installed.' };
-    let document: SignedLicenseDocument;
-    try { document = parseLicenseDocument(readFileSync(this.options.licensePath, 'utf8')); }
-    catch (error) { return { state: 'invalid', licensed: false, reason: error instanceof Error ? error.message : 'License file is invalid.' }; }
-    const status = verifyLicenseDocument(document, { publicKeyPem: this.publicKeyPem, machineFingerprint: this.options.machineFingerprint(), now: this.now() });
-    if (!status.licensed) return status;
-    const clockStatus = this.checkAndAdvanceClock();
-    return clockStatus ?? status;
-  }
-
-  importLicense(raw: string): LicenseStatus {
-    const document = parseLicenseDocument(raw);
-    const status = verifyLicenseDocument(document, { publicKeyPem: this.publicKeyPem, machineFingerprint: this.options.machineFingerprint(), now: this.now() });
-    if (!status.licensed) throw new Error(status.reason ?? `License cannot be activated: ${status.state}`);
-    this.assertClockNotRolledBack();
-    replaceFileWithRollback(this.options.licensePath, `${JSON.stringify(document, null, 2)}\n`);
-    this.advanceClock(this.now());
-    return status;
-  }
-
-  removeLicense() { if (existsSync(this.options.licensePath)) rmSync(this.options.licensePath, { force: true }); }
-
-  requireActiveLicense() {
-    const status = this.getStatus();
-    if (!status.licensed) throw new Error(`Active product license required (${status.state}).`);
-    return status;
-  }
-
-  requireFeature(feature = 'engineering') {
-    const status = this.requireActiveLicense();
-    const features = new Set(status.features ?? []);
-    if (!features.has('engineering')) throw new Error('License feature required: engineering.');
-    if (feature !== 'engineering' && !features.has(feature)) throw new Error(`License feature required: ${feature}.`);
-    return status;
-  }
-
-  private checkAndAdvanceClock(): LicenseStatus | null {
-    try { this.assertClockNotRolledBack(); }
-    catch (error) { return { state: 'clock_rollback', licensed: false, reason: error instanceof Error ? error.message : 'System clock rollback detected.' }; }
-    this.advanceClock(this.now());
-    return null;
-  }
-
-  private assertClockNotRolledBack() {
-    if (!existsSync(this.options.clockStatePath)) return;
-    let parsed: ClockState;
-    try { parsed = JSON.parse(readFileSync(this.options.clockStatePath, 'utf8')) as ClockState; }
-    catch { throw new Error('License clock state is corrupted.'); }
-    const lastSeen = Date.parse(parsed.lastSeenAt);
-    if (!Number.isFinite(lastSeen)) throw new Error('License clock state is invalid.');
-    if (this.now().getTime() + this.rollbackToleranceMs < lastSeen) throw new Error('System clock rollback exceeds the allowed tolerance.');
-  }
-
-  private advanceClock(now: Date) {
-    const current = now.getTime();
-    let lastSeen = 0;
-    if (existsSync(this.options.clockStatePath)) {
-      try {
-        const parsed = JSON.parse(readFileSync(this.options.clockStatePath, 'utf8')) as ClockState;
-        const value = Date.parse(parsed.lastSeenAt);
-        if (Number.isFinite(value)) lastSeen = value;
-      } catch { /* Replaced after successful validation. */ }
-    }
-    replaceFileWithRollback(this.options.clockStatePath, `${JSON.stringify({ lastSeenAt: new Date(Math.max(current, lastSeen)).toISOString() }, null, 2)}\n`);
-  }
+ private readonly publicKeyPem:string; private readonly now:()=>Date; private readonly rollbackToleranceMs:number;
+ constructor(private readonly options:LicensingServiceOptions){this.publicKeyPem=options.publicKeyPem??TOLOU_LICENSE_PUBLIC_KEY_PEM;this.now=options.now??(()=>new Date());this.rollbackToleranceMs=options.rollbackToleranceMs??5*60*1000}
+ getLicensePath(){return this.options.licensePath}
+ getStatus():LicenseStatus{if(!existsSync(this.options.licensePath))return{state:'unlicensed',licensed:false,reason:'لایسنس روی این دستگاه نصب نشده است.'};let document:SignedLicenseDocument;try{document=parseLicenseDocument(readFileSync(this.options.licensePath,'utf8'))}catch(error){return{state:'invalid',licensed:false,reason:error instanceof Error?error.message:'فایل لایسنس نامعتبر است.'}}const status=verifyLicenseDocument(document,{publicKeyPem:this.publicKeyPem,machineFingerprint:this.options.machineFingerprint(),now:this.now()});if(!status.licensed)return status;const clockStatus=this.checkAndAdvanceClock();return clockStatus??status}
+ importLicense(raw:string):LicenseStatus{const document=parseLicenseDocument(raw);const status=verifyLicenseDocument(document,{publicKeyPem:this.publicKeyPem,machineFingerprint:this.options.machineFingerprint(),now:this.now()});if(!status.licensed)throw new Error(status.reason??`فعال‌سازی لایسنس ممکن نیست: ${status.state}`);this.assertClockNotRolledBack();replaceFileWithRollback(this.options.licensePath,`${JSON.stringify(document,null,2)}\n`);this.advanceClock(this.now());return status}
+ removeLicense(){if(existsSync(this.options.licensePath))rmSync(this.options.licensePath,{force:true})}
+ requireActiveLicense(){const status=this.getStatus();if(!status.licensed)throw new Error(`لایسنس فعال نرم‌افزار موردنیاز است (${status.state}).`);return status}
+ requireFeature(feature='engineering'){const status=this.requireActiveLicense();const features=new Set(status.features??[]);if(!features.has('engineering'))throw new Error('قابلیت مهندسی در این لایسنس فعال نیست.');if(feature!=='engineering'&&!features.has(feature))throw new Error(`قابلیت ${feature} در این لایسنس فعال نیست.`);return status}
+ private checkAndAdvanceClock():LicenseStatus|null{try{this.assertClockNotRolledBack()}catch(error){return{state:'clock_rollback',licensed:false,reason:error instanceof Error?error.message:'عقب‌گرد ساعت سیستم شناسایی شد.'}}this.advanceClock(this.now());return null}
+ private assertClockNotRolledBack(){if(!existsSync(this.options.clockStatePath))return;let parsed:ClockState;try{parsed=JSON.parse(readFileSync(this.options.clockStatePath,'utf8')) as ClockState}catch{throw new Error('اطلاعات کنترل ساعت لایسنس آسیب دیده است.')}const lastSeen=Date.parse(parsed.lastSeenAt);if(!Number.isFinite(lastSeen))throw new Error('اطلاعات کنترل ساعت لایسنس نامعتبر است.');if(this.now().getTime()+this.rollbackToleranceMs<lastSeen)throw new Error('ساعت سیستم بیش از محدوده مجاز به عقب برگردانده شده است.')}
+ private advanceClock(now:Date){const current=now.getTime();let lastSeen=0;if(existsSync(this.options.clockStatePath)){try{const parsed=JSON.parse(readFileSync(this.options.clockStatePath,'utf8')) as ClockState;const value=Date.parse(parsed.lastSeenAt);if(Number.isFinite(value))lastSeen=value}catch{}}replaceFileWithRollback(this.options.clockStatePath,`${JSON.stringify({lastSeenAt:new Date(Math.max(current,lastSeen)).toISOString()},null,2)}\n`)}
 }
 
-export function verifyLicenseDocument(document: SignedLicenseDocument, input: { publicKeyPem: string; machineFingerprint: string; now: Date }): LicenseStatus {
-  const payload = document.payload;
-  if (!payload || typeof payload !== 'object') return invalid('License payload is missing.');
-  if (payload.schemaVersion !== TOLOU_LICENSE_SCHEMA_VERSION) return { state: 'incompatible', licensed: false, reason: 'License schema version is not supported.' };
-  if (payload.productId !== TOLOU_LICENSE_PRODUCT_ID) return { state: 'incompatible', licensed: false, reason: 'License belongs to another product.' };
-  if (!payload.licenseId?.trim() || !payload.customerName?.trim() || !payload.edition?.trim()) return invalid('License identity fields are incomplete.');
-  if (!['commercial', 'trial', 'grace'].includes(payload.licenseType)) return invalid('License type is invalid.');
-  if (!Array.isArray(payload.features) || !payload.features.every(value => typeof value === 'string' && value.trim().length > 0)) return invalid('License feature list is invalid.');
-  if (!/^[a-f0-9]{64}$/i.test(payload.machineFingerprint ?? '')) return invalid('License machine binding is invalid.');
-  if (payload.machineFingerprint.toLowerCase() !== input.machineFingerprint.toLowerCase()) return { state: 'wrong_machine', licensed: false, reason: 'License is bound to another machine.' };
-  const issuedAt = Date.parse(payload.issuedAt);
-  if (!Number.isFinite(issuedAt)) return invalid('License issue timestamp is invalid.');
-  if (issuedAt > input.now.getTime() + 5 * 60 * 1000) return invalid('License issue timestamp is in the future.');
-  if (payload.perpetual) {
-    if (payload.licenseType !== 'commercial') return invalid('Trial or grace licenses cannot be perpetual.');
-    if (payload.expiresAt !== null) return invalid('Perpetual license must not contain an expiry timestamp.');
-  } else {
-    const expiresAt = payload.expiresAt ? Date.parse(payload.expiresAt) : Number.NaN;
-    if (!Number.isFinite(expiresAt)) return invalid('License expiry timestamp is invalid.');
-    if (expiresAt <= issuedAt) return invalid('License expiry must be later than its issue timestamp.');
-  }
-  let signature: Buffer;
-  try { signature = Buffer.from(document.signature, 'base64'); } catch { return invalid('License signature encoding is invalid.'); }
-  if (!signature.length) return invalid('License signature is missing.');
-  let signatureValid = false;
-  try { signatureValid = crypto.verify(null, Buffer.from(canonicalize(payload), 'utf8'), input.publicKeyPem, signature); }
-  catch { return invalid('License signature verification failed.'); }
-  if (!signatureValid) return invalid('License signature is invalid.');
-  if (!payload.perpetual && input.now.getTime() > Date.parse(payload.expiresAt as string)) return { state: 'expired', licensed: false, reason: 'License has expired.', ...publicFields(payload) };
-  const state: LicenseState = payload.licenseType === 'trial' ? 'trial' : payload.licenseType === 'grace' ? 'grace' : 'active';
-  return { state, licensed: true, ...publicFields(payload) };
+export function verifyLicenseDocument(document:SignedLicenseDocument,input:{publicKeyPem:string;machineFingerprint:string;now:Date}):LicenseStatus{
+ const payload=document.payload;if(!payload||typeof payload!=='object')return invalid('اطلاعات اصلی لایسنس وجود ندارد.');
+ if(payload.schemaVersion!==TOLOU_LICENSE_SCHEMA_VERSION)return{state:'incompatible',licensed:false,reason:'نسخه ساختار لایسنس با این نرم‌افزار سازگار نیست.'};
+ if(payload.productId!==TOLOU_LICENSE_PRODUCT_ID)return{state:'incompatible',licensed:false,reason:'این لایسنس متعلق به محصول دیگری است.'};
+ if(!payload.licenseId?.trim()||!payload.customerName?.trim()||!payload.edition?.trim())return invalid('مشخصات هویتی لایسنس ناقص است.');
+ if(!['commercial','trial','grace'].includes(payload.licenseType))return invalid('نوع لایسنس نامعتبر است.');
+ if(!Array.isArray(payload.features)||!payload.features.every(v=>typeof v==='string'&&v.trim().length>0))return invalid('فهرست قابلیت‌های لایسنس نامعتبر است.');
+ if(!/^[a-f0-9]{64}$/i.test(payload.machineFingerprint??''))return invalid('کد دستگاه داخل لایسنس نامعتبر است.');
+ if(payload.machineFingerprint.toLowerCase()!==input.machineFingerprint.toLowerCase())return{state:'wrong_machine',licensed:false,reason:'این لایسنس برای دستگاه دیگری صادر شده است.'};
+ const issuedAt=Date.parse(payload.issuedAt);if(!Number.isFinite(issuedAt))return invalid('تاریخ صدور لایسنس نامعتبر است.');if(issuedAt>input.now.getTime()+5*60*1000)return invalid('تاریخ صدور لایسنس از ساعت فعلی سیستم جلوتر است.');
+ if(payload.perpetual){if(payload.licenseType!=='commercial')return invalid('لایسنس آزمایشی یا مهلت تمدید نمی‌تواند دائمی باشد.');if(payload.expiresAt!==null||payload.durationDays!==null)return invalid('لایسنس دائمی نباید مدت یا تاریخ پایان داشته باشد.')}else{if(!Number.isInteger(payload.durationDays)||Number(payload.durationDays)<1||Number(payload.durationDays)>36500)return invalid('مدت اشتراک لایسنس نامعتبر است.');const expiresAt=payload.expiresAt?Date.parse(payload.expiresAt):NaN;if(!Number.isFinite(expiresAt))return invalid('تاریخ پایان لایسنس نامعتبر است.');const expected=issuedAt+Number(payload.durationDays)*DAY_MS;if(Math.abs(expiresAt-expected)>1000)return invalid('تاریخ پایان با مدت اشتراک امضاشده مطابقت ندارد.');}
+ let signature:Buffer;try{signature=Buffer.from(document.signature,'base64')}catch{return invalid('ساختار امضای لایسنس نامعتبر است.')}if(!signature.length)return invalid('امضای لایسنس وجود ندارد.');let signatureValid=false;try{signatureValid=crypto.verify(null,Buffer.from(canonicalize(payload),'utf8'),input.publicKeyPem,signature)}catch{return invalid('بررسی امضای لایسنس ناموفق بود.')}if(!signatureValid)return invalid('امضای دیجیتال لایسنس معتبر نیست.');
+ const fields=publicFields(payload,input.now);if(!payload.perpetual&&input.now.getTime()>=Date.parse(payload.expiresAt as string))return{state:'expired',licensed:false,reason:'مدت اشتراک این لایسنس به پایان رسیده است.',...fields};const state:LicenseState=payload.licenseType==='trial'?'trial':payload.licenseType==='grace'?'grace':'active';return{state,licensed:true,...fields};
 }
-
-export function canonicalize(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${canonicalize(child)}`).join(',')}}`;
-}
-
-export function parseLicenseDocument(raw: string): SignedLicenseDocument {
-  let value: unknown;
-  try { value = JSON.parse(raw); } catch { throw new Error('License file is not valid JSON.'); }
-  if (!value || typeof value !== 'object') throw new Error('License document is invalid.');
-  const document = value as Partial<SignedLicenseDocument>;
-  if (!document.payload || typeof document.signature !== 'string') throw new Error('License payload or signature is missing.');
-  return document as SignedLicenseDocument;
-}
-
-function publicFields(payload: LicensePayload) {
-  return { licenseId: payload.licenseId, customerName: payload.customerName, edition: payload.edition, licenseType: payload.licenseType, expiresAt: payload.expiresAt, perpetual: payload.perpetual, features: [...payload.features] };
-}
-function invalid(reason: string): LicenseStatus { return { state: 'invalid', licensed: false, reason }; }
-
-function replaceFileWithRollback(destination: string, content: string) {
-  mkdirSync(path.dirname(destination), { recursive: true });
-  const temp = `${destination}.tmp`;
-  const backup = `${destination}.replace-backup`;
-  rmSync(temp, { force: true }); rmSync(backup, { force: true });
-  writeFileSync(temp, content, 'utf8');
-  const hadExisting = existsSync(destination);
-  if (hadExisting) renameSync(destination, backup);
-  try {
-    renameSync(temp, destination);
-    if (existsSync(backup)) rmSync(backup, { force: true });
-  } catch (error) {
-    rmSync(destination, { force: true });
-    if (existsSync(backup)) renameSync(backup, destination);
-    rmSync(temp, { force: true });
-    throw error;
-  }
-}
+export function canonicalize(value:unknown):string{if(value===null||typeof value!=='object')return JSON.stringify(value);if(Array.isArray(value))return`[${value.map(canonicalize).join(',')}]`;const entries=Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a<b?-1:a>b?1:0);return`{${entries.map(([key,child])=>`${JSON.stringify(key)}:${canonicalize(child)}`).join(',')}}`}
+export function parseLicenseDocument(raw:string):SignedLicenseDocument{let value:unknown;try{value=JSON.parse(raw)}catch{throw new Error('فایل لایسنس JSON معتبر نیست.')}if(!value||typeof value!=='object')throw new Error('ساختار فایل لایسنس نامعتبر است.');const document=value as Partial<SignedLicenseDocument>;if(!document.payload||typeof document.signature!=='string')throw new Error('اطلاعات یا امضای لایسنس وجود ندارد.');return document as SignedLicenseDocument}
+function publicFields(payload:LicensePayload,now:Date){const remainingDays=payload.perpetual?null:Math.max(0,Math.ceil((Date.parse(payload.expiresAt as string)-now.getTime())/DAY_MS));return{licenseId:payload.licenseId,customerName:payload.customerName,edition:payload.edition,licenseType:payload.licenseType,issuedAt:payload.issuedAt,durationDays:payload.durationDays,expiresAt:payload.expiresAt,remainingDays,perpetual:payload.perpetual,features:[...payload.features]}}
+function invalid(reason:string):LicenseStatus{return{state:'invalid',licensed:false,reason}}
+function replaceFileWithRollback(destination:string,content:string){mkdirSync(path.dirname(destination),{recursive:true});const temp=`${destination}.tmp`,backup=`${destination}.replace-backup`;rmSync(temp,{force:true});rmSync(backup,{force:true});writeFileSync(temp,content,'utf8');const hadExisting=existsSync(destination);if(hadExisting)renameSync(destination,backup);try{renameSync(temp,destination);if(existsSync(backup))rmSync(backup,{force:true})}catch(error){rmSync(destination,{force:true});if(existsSync(backup))renameSync(backup,destination);rmSync(temp,{force:true});throw error}}
