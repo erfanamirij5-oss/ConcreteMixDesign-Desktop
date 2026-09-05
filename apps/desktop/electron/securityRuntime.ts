@@ -2,6 +2,7 @@ import type { WebContents } from 'electron';
 import type Database from 'better-sqlite3';
 import { SecurityService, type SecuritySession } from './securityService';
 import type { SecurityPermission } from './securityMigration';
+import { requireProductLicense } from './licensingRuntime';
 
 let securityService: SecurityService | null = null;
 const rendererSessions = new Map<number, string>();
@@ -38,7 +39,9 @@ export function clearRendererSession(sender: WebContents) {
 export function requireRendererPermission(sender: WebContents, permission: SecurityPermission) {
   const sessionId = rendererSessions.get(sender.id);
   if (!sessionId) throw new Error('Authentication required.');
-  return getSecurityService().requirePermission(sessionId, permission);
+  const session = getSecurityService().requirePermission(sessionId, permission);
+  if (permission.startsWith('engineering.')) requireProductLicense();
+  return session;
 }
 
 export function getRendererSession(sender: WebContents): SecuritySession | null {
