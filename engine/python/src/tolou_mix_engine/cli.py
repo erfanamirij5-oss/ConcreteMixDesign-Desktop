@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
+from tolou_mix_engine import __version__
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
@@ -38,7 +39,7 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
     return {
         "status": "fail",
         "engine": "tolou-mix-engine",
-        "engine_version": "0.3.0",
+        "engine_version": __version__,
         "error": "w_cm_ratio_required_outside_strength_lookup",
         "mix_proportions": {
             "water_kg_m3": None,
@@ -89,7 +90,7 @@ def main() -> int:
         response = {
             "status": "pass",
             "engine": "tolou-mix-engine",
-            "version": "0.3.0",
+            "version": __version__,
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
