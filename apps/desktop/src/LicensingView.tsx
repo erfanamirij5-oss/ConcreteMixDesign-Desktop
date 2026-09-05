@@ -13,9 +13,9 @@ export type LicenseStatus = {
   features?: string[];
 };
 
-type Props = { onActivated?: (status: LicenseStatus) => void; gateMode?: boolean };
+type Props = { onStatusChange?: (status: LicenseStatus) => void; gateMode?: boolean };
 
-export function LicensingView({ onActivated, gateMode = false }: Props) {
+export function LicensingView({ onStatusChange, gateMode = false }: Props) {
   const [license, setLicense] = useState<LicenseStatus | null>(null);
   const [machineCode, setMachineCode] = useState('');
   const [message, setMessage] = useState('');
@@ -23,15 +23,19 @@ export function LicensingView({ onActivated, gateMode = false }: Props) {
 
   useEffect(() => { void reload(); }, []);
 
+  function applyStatus(status: LicenseStatus) {
+    setLicense(status);
+    onStatusChange?.(status);
+  }
+
   async function reload() {
     setMessage('');
     try {
       const api = licensingApi();
       const response = await api.status() as { status?: string; license?: LicenseStatus; machineCode?: string; error?: string };
       if (response.status !== 'pass' || !response.license) throw new Error(response.error || 'خواندن وضعیت لایسنس ناموفق بود.');
-      setLicense(response.license);
+      applyStatus(response.license);
       setMachineCode(response.machineCode ?? '');
-      if (response.license.licensed) onActivated?.(response.license);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'خطا در خواندن وضعیت لایسنس');
     }
@@ -53,7 +57,7 @@ export function LicensingView({ onActivated, gateMode = false }: Props) {
     try {
       const response = await licensingApi().removeLicense() as { status?: string; license?: LicenseStatus; error?: string };
       if (response.status !== 'pass') throw new Error(response.error || 'حذف لایسنس ناموفق بود.');
-      setLicense(response.license ?? { state: 'unlicensed', licensed: false });
+      applyStatus(response.license ?? { state: 'unlicensed', licensed: false });
     } catch (error) { setMessage(error instanceof Error ? error.message : 'خطا در حذف لایسنس'); }
     finally { setBusy(false); }
   }
