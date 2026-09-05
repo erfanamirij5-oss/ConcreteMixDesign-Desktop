@@ -8,32 +8,57 @@ from PIL import Image
 
 
 SOURCE_ARTWORK_B64 = Path("build/tolou-source.jpg.b64")
+FALLBACK_ICON = Path("build/tolou.ico")
 OUTPUT_ICON = Path("build/tolou.generated.ico")
 ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 
 
-def load_source() -> Image.Image:
-    if not SOURCE_ARTWORK_B64.is_file():
-        raise SystemExit(f"Tolou source artwork is missing: {SOURCE_ARTWORK_B64}")
-
+def _load_image_bytes(raw: bytes, label: str) -> Image.Image:
     try:
-        encoded = SOURCE_ARTWORK_B64.read_text(encoding="ascii").strip()
-        raw = base64.b64decode(encoded, validate=True)
         source = Image.open(io.BytesIO(raw))
         source.load()
-    except Exception as exc:  # fail closed with a controlled build error
-        raise SystemExit(f"Tolou source artwork is invalid: {exc}") from exc
+    except Exception as exc:
+        raise ValueError(f"{label} is not a valid image: {exc}") from exc
 
     rgba = source.convert("RGBA")
     if rgba.width < 256 or rgba.height < 256:
-        raise SystemExit("Tolou source artwork must be at least 256x256 pixels.")
+        raise ValueError(f"{label} must be at least 256x256 pixels.")
     return rgba
+
+
+def load_source() -> Image.Image:
+    source_error: Exception | None = None
+
+    if SOURCE_ARTWORK_B64.is_file():
+        try:
+            encoded = SOURCE_ARTWORK_B64.read_text(encoding="ascii").strip()
+            raw = base64.b64decode(encoded, validate=True)
+            return _load_image_bytes(raw, str(SOURCE_ARTWORK_B64))
+        except Exception as exc:
+            source_error = exc
+
+    if FALLBACK_ICON.is_file():
+        try:
+            return _load_image_bytes(FALLBACK_ICON.read_bytes(), str(FALLBACK_ICON))
+        except Exception as fallback_exc:
+            detail = f"Primary source error: {source_error}; fallback error: {fallback_exc}"
+            raise SystemExit(f"Tolou icon sources are invalid. {detail}") from fallback_exc
+
+    if source_error is not None:
+        raise SystemExit(
+            f"Tolou source artwork is invalid and no fallback icon exists: {source_error}"
+        ) from source_error
+
+    raise SystemExit(
+        f"Tolou source artwork is missing: {SOURCE_ARTWORK_B64}; "
+        f"fallback icon is also missing: {FALLBACK_ICON}"
+    )
 
 
 def main() -> None:
     rgba = load_source()
 
-    # Re-encode each Windows icon size from the deterministic source artwork.
+    # Re-encode each Windows icon size from a deterministic repository source.
     # BMP-backed ICO entries are deliberately used because Electron Builder's
     # Windows resource editor is stricter than generic image viewers.
     rgba.save(
