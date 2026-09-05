@@ -1,6 +1,6 @@
 {
   "name": "concrete-mix-design-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Tolou Concrete Mix Design Desktop - professional concrete mix design software for Windows.",
   "main": "dist/electron/main.js",
@@ -13,6 +13,7 @@
     "prepare:win-icon": "python tools/prepare_windows_icon.py",
     "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test:renderer-build": "node tools/renderer-build-smoke.mjs",
     "test:engine": "cd engine/python && python -m pytest",
     "test:sqlite-material": "npm run build:electron && node dist/electron/materialPersistenceSmoke.js",
     "test:management-migrations": "npm run build:electron && node dist/electron/managementMigrationSmoke.js",

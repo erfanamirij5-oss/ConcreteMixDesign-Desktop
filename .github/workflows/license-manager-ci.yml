@@ -66,7 +66,7 @@ jobs:
       - name: Verify License Manager installer artifact
         shell: pwsh
         run: |
-          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-1.0.0-Setup.exe' -File | Select-Object -First 1
+          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-*-Setup.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Tolou License Manager installer was not produced.' }
           if ($installer.Length -lt 1000000) { throw 'Tolou License Manager installer is unexpectedly small.' }
           $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
@@ -75,7 +75,8 @@ jobs:
       - name: Silent install and launch smoke test
         shell: pwsh
         run: |
-          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-1.0.0-Setup.exe' -File | Select-Object -First 1
+          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Tolou License Manager installer was not produced.' }
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "License Manager installer exited with code $($install.ExitCode)." }
           $programRoot = Join-Path $env:LOCALAPPDATA 'Programs'
@@ -98,8 +99,8 @@ jobs:
         with:
           name: Tolou-License-Manager-Windows-Installer
           path: |
-            release-license-manager/Tolou-License-Manager-1.0.0-Setup.exe
-            release-license-manager/Tolou-License-Manager-1.0.0-Setup.exe.blockmap
+            release-license-manager/Tolou-License-Manager-*-Setup.exe
+            release-license-manager/Tolou-License-Manager-*-Setup.exe.blockmap
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

@@ -29,7 +29,9 @@ jobs:
         run: npm install
       - name: Build commercial Windows installer
         run: npm run dist:win
-      - name: Install, launch, and uninstall acceptance
+      - name: Verify packaged renderer asset contract
+        run: npm run test:renderer-build
+      - name: Install, render, launch, and uninstall acceptance
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -58,12 +60,18 @@ jobs:
           $sentinel = Join-Path $userData 'release-acceptance-preserve.txt'
           Set-Content -Path $sentinel -Value 'preserve-on-uninstall' -Encoding UTF8
 
-          Write-Host 'Launching installed application for first-launch smoke check...'
-          $app = Start-Process -FilePath $appExe.FullName -ArgumentList '--disable-gpu' -PassThru
-          Start-Sleep -Seconds 10
+          Write-Host 'Launching installed application with DevTools endpoint for renderer acceptance...'
+          $app = Start-Process -FilePath $appExe.FullName -ArgumentList '--disable-gpu', '--remote-debugging-port=9222' -PassThru
+          Start-Sleep -Seconds 3
           if ($app.HasExited) { throw "Installed application exited during first-launch smoke check with code $($app.ExitCode)." }
+
+          $env:TOLOU_DEBUG_PORT = '9222'
+          node tools/renderer-runtime-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Renderer runtime smoke failed with code $LASTEXITCODE." }
+
+          if ($app.HasExited) { throw "Installed application exited during renderer acceptance with code $($app.ExitCode)." }
           Stop-Process -Id $app.Id -Force
-          Write-Host 'First-launch process smoke check passed.'
+          Write-Host 'Installed renderer produced a non-blank React UI under file://.'
 
           $uninstaller = Get-ChildItem -Path $installDir -Filter 'Uninstall*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $uninstaller) { throw 'NSIS uninstaller was not found in the installed application directory.' }
@@ -74,7 +82,7 @@ jobs:
 
           if (Test-Path $appExe.FullName) { throw 'Application executable still exists after silent uninstall.' }
           if (-not (Test-Path $sentinel)) { throw 'User engineering data directory was deleted during uninstall.' }
-          Write-Host 'Silent install, first launch, bundled engine, uninstall, and user-data preservation acceptance passed.'
+          Write-Host 'Silent install, rendered UI, bundled engine, uninstall, and user-data preservation acceptance passed.'
       - name: Upload accepted installer
         uses: actions/upload-artifact@v4
         with:
