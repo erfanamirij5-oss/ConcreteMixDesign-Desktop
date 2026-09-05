@@ -1,0 +1,87 @@
+name: Release Acceptance
+
+on:
+  push:
+    branches: [v1.0/release-acceptance-main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installed-acceptance:
+    name: Windows installed application acceptance
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install desktop dependencies
+        run: npm install
+      - name: Build commercial Windows installer
+        run: npm run dist:win
+      - name: Install, launch, and uninstall acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Release acceptance cannot find the generated Windows installer.' }
+
+          Write-Host "Installing $($installer.Name) silently..."
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Installer exited with code $($install.ExitCode)." }
+
+          $programRoot = Join-Path $env:LOCALAPPDATA 'Programs'
+          $appExe = Get-ChildItem -Path $programRoot -Filter 'TolouConcreteMixDesign.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $appExe) { throw 'Installed TolouConcreteMixDesign.exe was not found under the per-user Programs directory.' }
+          $installDir = $appExe.Directory.FullName
+          Write-Host "Installed executable verified: $($appExe.FullName)"
+
+          $engine = Join-Path $installDir 'resources\engine\tolou-mix-engine.exe'
+          if (-not (Test-Path $engine)) { throw 'Installed engineering engine executable is missing.' }
+          $health = '{}' | & $engine health
+          $parsed = $health | ConvertFrom-Json
+          if ($parsed.status -ne 'pass') { throw "Installed engineering engine health check failed: $health" }
+          Write-Host "Installed engine health verified: $($parsed.engine) v$($parsed.version)"
+
+          $userData = Join-Path $env:APPDATA 'Tolou Concrete Mix Design'
+          New-Item -ItemType Directory -Path $userData -Force | Out-Null
+          $sentinel = Join-Path $userData 'release-acceptance-preserve.txt'
+          Set-Content -Path $sentinel -Value 'preserve-on-uninstall' -Encoding UTF8
+
+          Write-Host 'Launching installed application for first-launch smoke check...'
+          $app = Start-Process -FilePath $appExe.FullName -ArgumentList '--disable-gpu' -PassThru
+          Start-Sleep -Seconds 10
+          if ($app.HasExited) { throw "Installed application exited during first-launch smoke check with code $($app.ExitCode)." }
+          Stop-Process -Id $app.Id -Force
+          Write-Host 'First-launch process smoke check passed.'
+
+          $uninstaller = Get-ChildItem -Path $installDir -Filter 'Uninstall*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $uninstaller) { throw 'NSIS uninstaller was not found in the installed application directory.' }
+          Write-Host "Uninstalling with $($uninstaller.Name)..."
+          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exited with code $($uninstall.ExitCode)." }
+          Start-Sleep -Seconds 3
+
+          if (Test-Path $appExe.FullName) { throw 'Application executable still exists after silent uninstall.' }
+          if (-not (Test-Path $sentinel)) { throw 'User engineering data directory was deleted during uninstall.' }
+          Write-Host 'Silent install, first launch, bundled engine, uninstall, and user-data preservation acceptance passed.'
+      - name: Upload accepted installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tolou-v1-Release-Acceptance-Installer
+          path: |
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe.blockmap
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
