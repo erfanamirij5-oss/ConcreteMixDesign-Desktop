@@ -11,14 +11,10 @@ SOURCE_ARTWORK_B64 = Path("build/tolou-source.jpg.b64")
 FALLBACK_ICON = Path("build/tolou.ico")
 OUTPUT_ICON = Path("build/tolou.generated.ico")
 ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def _load_image_bytes(raw: bytes, label: str) -> Image.Image:
-    # The repository source artwork was transported through text/base64 and can
-    # contain a recoverable truncated JPEG stream. Pillow is instructed to load
-    # recoverable truncated images, after which the source is immediately
-    # re-encoded into a fresh deterministic ICO. This does not bypass the size,
-    # decode, ICO header or entry-count validation below.
     previous = ImageFile.LOAD_TRUNCATED_IMAGES
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     try:
@@ -64,31 +60,45 @@ def load_source() -> Image.Image:
     )
 
 
-def main() -> None:
-    rgba = load_source()
-
-    # Re-encode each Windows icon size from a deterministic repository source.
-    # BMP-backed ICO entries are deliberately used because Electron Builder's
-    # Windows resource editor is stricter than generic image viewers.
-    rgba.save(
-        OUTPUT_ICON,
-        format="ICO",
-        sizes=ICON_SIZES,
-        bitmap_format="bmp",
-    )
-
-    data = OUTPUT_ICON.read_bytes()
-    if len(data) < 10_000 or data[:4] != b"\x00\x00\x01\x00":
-        raise SystemExit("Generated Windows icon failed basic ICO validation.")
-
+def _validate_png_backed_entries(data: bytes) -> None:
     count = int.from_bytes(data[4:6], "little")
     if count != len(ICON_SIZES):
         raise SystemExit(
             f"Generated Windows icon has {count} entries; expected {len(ICON_SIZES)}."
         )
 
+    for index in range(count):
+        entry = 6 + index * 16
+        size = int.from_bytes(data[entry + 8:entry + 12], "little")
+        offset = int.from_bytes(data[entry + 12:entry + 16], "little")
+        payload = data[offset:offset + size]
+        if not payload.startswith(PNG_SIGNATURE):
+            raise SystemExit(
+                f"Generated Windows icon entry {index + 1} is not PNG-backed; "
+                "BMP-backed ICO entries can render with broken masks on Windows."
+            )
+
+
+def main() -> None:
+    rgba = load_source()
+
+    # PNG-backed ICO entries preserve alpha/mask semantics reliably for Windows
+    # shell shortcuts, taskbar icons, title-bar icons and Electron resources.
+    rgba.save(
+        OUTPUT_ICON,
+        format="ICO",
+        sizes=ICON_SIZES,
+    )
+
+    data = OUTPUT_ICON.read_bytes()
+    if len(data) < 10_000 or data[:4] != b"\x00\x00\x01\x00":
+        raise SystemExit("Generated Windows icon failed basic ICO validation.")
+
+    _validate_png_backed_entries(data)
+    count = int.from_bytes(data[4:6], "little")
+
     print(
-        f"Generated resource-compatible Tolou icon: {OUTPUT_ICON} "
+        f"Generated PNG-backed Tolou icon: {OUTPUT_ICON} "
         f"({len(data)} bytes, {count} sizes)"
     )
 
