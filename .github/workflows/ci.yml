@@ -68,6 +68,8 @@ jobs:
         run: node dist/electron/gate09UpgradeBackupSmoke.js
       - name: Gate 10 commercial licensing smoke test
         run: node dist/electron/licensingSmoke.js
+      - name: Gate 10 licensing backup isolation smoke test
+        run: node dist/electron/licensingBackupIsolationSmoke.js
       - name: Reject committed private license signing keys
         shell: bash
         run: |
