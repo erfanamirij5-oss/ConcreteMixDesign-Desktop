@@ -1,10 +1,12 @@
-let productAccessGuard: (() => unknown) | null = null;
+type ProductAccessGuard = (feature?: string) => unknown;
 
-export function installProductAccessGuard(guard: () => unknown) {
+let productAccessGuard: ProductAccessGuard | null = null;
+
+export function installProductAccessGuard(guard: ProductAccessGuard) {
   productAccessGuard = guard;
 }
 
-export function requireProductAccess() {
+export function requireProductAccess(feature?: string) {
   if (!productAccessGuard) throw new Error('Product licensing guard has not been initialized.');
-  return productAccessGuard();
+  return productAccessGuard(feature);
 }
