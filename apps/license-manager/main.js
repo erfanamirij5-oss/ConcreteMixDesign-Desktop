@@ -1,14 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
-const crypto = require('node:crypto');
 const { readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
-
-function canonicalize(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
-  const entries = Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${canonicalize(child)}`).join(',')}}`;
-}
+const { signPayload } = require('./licenseContract');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -52,7 +45,7 @@ ipcMain.handle('license:issue', async (_event, input) => {
     features: Array.isArray(input.features) ? input.features.filter(Boolean) : []
   };
   const privateKeyPem = readFileSync(input.privateKeyPath, 'utf8');
-  const signature = crypto.sign(null, Buffer.from(canonicalize(payload), 'utf8'), privateKeyPem).toString('base64');
+  const signature = signPayload(payload, privateKeyPem);
   const save = await dialog.showSaveDialog({
     defaultPath: `${payload.licenseId}.license.json`,
     filters: [{ name: 'Tolou License', extensions: ['json'] }]
