@@ -159,7 +159,9 @@ jobs:
           if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'Application must not request unnecessary administrator execution.' }
           if ($config.win.icon -ne 'build/tolou.generated.ico') { throw 'Generated Tolou Windows application icon is not configured.' }
           if ($config.nsis.installerIcon -ne 'build/tolou.generated.ico' -or $config.nsis.uninstallerIcon -ne 'build/tolou.generated.ico') { throw 'Generated Tolou installer/uninstaller icons are not configured.' }
-          if (-not (Test-Path 'build/tolou.ico')) { throw 'Tolou source icon asset is missing from the repository.' }
+          if (-not (Test-Path 'build/tolou-source.jpg.b64')) { throw 'Tolou source artwork asset is missing from the repository.' }
+          $sourceText = (Get-Content 'build/tolou-source.jpg.b64' -Raw).Trim()
+          if ($sourceText.Length -lt 10000 -or $sourceText -match '\[\.\.\.truncated') { throw 'Tolou source artwork asset is incomplete.' }
           if (-not (Test-Path 'build/tolou.generated.ico')) { throw 'Resource-compatible generated Tolou icon was not produced.' }
           if ((Get-Item 'build/tolou.generated.ico').Length -lt 10000) { throw 'Generated Tolou icon is unexpectedly small.' }
           $iconBytes = [System.IO.File]::ReadAllBytes('build/tolou.generated.ico')
