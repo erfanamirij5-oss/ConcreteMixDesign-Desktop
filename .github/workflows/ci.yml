@@ -72,6 +72,8 @@ jobs:
         run: node dist/electron/licensingBackupIsolationSmoke.js
       - name: Gate 11 engineering engine process hardening smoke test
         run: node dist/electron/engineProcessHardeningSmoke.js
+      - name: Gate 11 runtime lifecycle smoke test
+        run: node dist/electron/runtimeLifecycleSmoke.js
       - name: Reject committed private license signing keys
         shell: bash
         run: |
