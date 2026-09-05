@@ -149,9 +149,27 @@ jobs:
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
           Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present without private signing material.'
+      - name: Verify commercial installer contract
+        shell: pwsh
+        run: |
+          $config = Get-Content 'electron-builder.json' -Raw | ConvertFrom-Json
+          if ($config.appId -ne 'ir.tolou.concreteMixDesign') { throw 'Stable Windows appId changed unexpectedly.' }
+          if ($config.productName -ne 'Tolou Concrete Mix Design') { throw 'Product name changed unexpectedly.' }
+          if ($config.win.executableName -ne 'TolouConcreteMixDesign') { throw 'Stable executable name is missing.' }
+          if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'Application must not request unnecessary administrator execution.' }
+          if ($config.nsis.oneClick -ne $false) { throw 'Commercial installer must remain assisted NSIS installation.' }
+          if ($config.nsis.perMachine -ne $false) { throw 'Installer must remain per-user by default.' }
+          if ($config.nsis.deleteAppDataOnUninstall -ne $false) { throw 'Uninstall must preserve user engineering data by default.' }
+          if ($config.nsis.allowToChangeInstallationDirectory -ne $true) { throw 'Installer must allow selecting installation directory.' }
+          if ($config.nsis.createDesktopShortcut -ne $true -or $config.nsis.createStartMenuShortcut -ne $true) { throw 'Required Windows shortcuts are disabled.' }
+          $exe = 'release/win-unpacked/TolouConcreteMixDesign.exe'
+          if (-not (Test-Path $exe)) { throw 'Stable packaged application executable is missing.' }
+          Write-Host 'Commercial installer metadata, execution level, data-preservation policy, shortcuts, and executable identity verified.'
       - name: Verify installer artifact
         shell: pwsh
         run: |
           $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Windows installer artifact was not produced.' }
-          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes)"
+          if ($installer.Length -lt 1000000) { throw 'Windows installer artifact is unexpectedly small.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes) SHA256=$hash"
