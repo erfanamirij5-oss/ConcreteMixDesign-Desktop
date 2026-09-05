@@ -18,10 +18,7 @@ export function RootApp() {
   const [message, setMessage] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    if (session && license?.licensed && view === 'reports') void loadProjects();
-  }, [session, license?.licensed, view]);
-
+  useEffect(() => { if (session && license?.licensed && view === 'reports') void loadProjects(); }, [session, license?.licensed, view]);
   useEffect(() => {
     if (!session || !license?.licensed) return;
     let disposed = false;
@@ -31,7 +28,7 @@ export function RootApp() {
         if (!api) return;
         const response = await api.status() as { status?: string; license?: LicenseStatus };
         if (!disposed && response.status === 'pass' && response.license) setLicense(response.license);
-      } catch { /* The next interval/focus check retries without disrupting active engineering work. */ }
+      } catch { /* Retry on the next focus/interval without interrupting engineering work. */ }
     };
     const timer = window.setInterval(() => void refreshLicense(), 60_000);
     const onFocus = () => void refreshLicense();
@@ -46,8 +43,7 @@ export function RootApp() {
       const response = await window.tolouProjects.listRecent() as { status?: string; projects?: RecentProject[]; error?: string };
       if (response.status === 'fail') throw new Error(response.error || 'خواندن طرح‌ها ناموفق بود.');
       const rows = response.projects ?? [];
-      setProjects(rows);
-      setMixDesignId(previous => previous && rows.some(row => row.mixDesignId === previous) ? previous : rows[0]?.mixDesignId ?? null);
+      setProjects(rows); setMixDesignId(previous => previous && rows.some(row => row.mixDesignId === previous) ? previous : rows[0]?.mixDesignId ?? null);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'خطا در خواندن طرح‌ها'); }
   }
 
@@ -64,19 +60,11 @@ export function RootApp() {
   }
 
   if (!session) return <SecurityGate onAuthenticated={authenticated => { setSession(authenticated); setLicense(null); }} />;
-
   if (!license?.licensed) return <div className="app-shell"><div className="root-module-nav"><span className="badge blue">فعال‌سازی لایسنس</span><span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}><span className="badge green">{session.displayName} · {session.username}</span><button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button></span></div><LicensingView gateMode onStatusChange={setLicense} /></div>;
 
-  const navigation = <div className="root-module-nav">
-    <button className={view === 'application' ? 'active' : ''} onClick={() => setView('application')}>سامانه مهندسی</button>
-    <button className={view === 'reports' ? 'active' : ''} onClick={() => setView('reports')}>مرکز گزارش</button>
-    <button className={view === 'data-safety' ? 'active' : ''} onClick={() => setView('data-safety')}>پشتیبان‌گیری</button>
-    <button className={view === 'security' ? 'active' : ''} onClick={() => setView('security')}>امنیت و کاربران</button>
-    <button className={view === 'licensing' ? 'active' : ''} onClick={() => setView('licensing')}>لایسنس</button>
-    <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}><span className="badge green">{license.customerName ?? license.edition ?? 'اشتراک فعال'}</span>{!license.perpetual && <span className="badge orange">{license.remainingDays ?? 0} روز باقی‌مانده</span>}<span className="badge green">{session.displayName} · {session.username}</span><button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button></span>
-  </div>;
+  const navigation = <div className="root-module-nav"><button className={view === 'application' ? 'active' : ''} onClick={() => setView('application')}>سامانه مهندسی</button><button className={view === 'reports' ? 'active' : ''} onClick={() => setView('reports')}>مرکز گزارش</button><button className={view === 'data-safety' ? 'active' : ''} onClick={() => setView('data-safety')}>پشتیبان‌گیری</button><button className={view === 'security' ? 'active' : ''} onClick={() => setView('security')}>امنیت و کاربران</button><button className={view === 'licensing' ? 'active' : ''} onClick={() => setView('licensing')}>لایسنس</button><span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}><span className="badge green">{license.customerName ?? license.edition ?? 'اشتراک فعال'}</span>{!license.perpetual && <span className="badge orange">{license.remainingDays ?? 0} روز باقی‌مانده</span>}<span className="badge green">{session.displayName} · {session.username}</span><button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button></span></div>;
 
-  if (view === 'application') return <div>{navigation}<App license={license} /></div>;
+  if (view === 'application') return <div>{navigation}<App /></div>;
   if (view === 'data-safety') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<DataSafetyView /></div>;
   if (view === 'security') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<SecurityAdministrationView /></div>;
   if (view === 'licensing') return <div className="app-shell">{navigation}<LicensingView onStatusChange={setLicense} /></div>;
