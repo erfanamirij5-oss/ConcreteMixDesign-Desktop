@@ -67,7 +67,7 @@ export function RootApp() {
           <button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button>
         </span>
       </div>
-      <LicensingView gateMode onActivated={setLicense} />
+      <LicensingView gateMode onStatusChange={setLicense} />
     </div>;
   }
 
@@ -87,7 +87,7 @@ export function RootApp() {
   if (view === 'application') return <div>{navigation}<App /></div>;
   if (view === 'data-safety') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<DataSafetyView /></div>;
   if (view === 'security') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<SecurityAdministrationView /></div>;
-  if (view === 'licensing') return <div className="app-shell">{navigation}<LicensingView onActivated={setLicense} /></div>;
+  if (view === 'licensing') return <div className="app-shell">{navigation}<LicensingView onStatusChange={setLicense} /></div>;
 
   return <div className="app-shell">
     {navigation}
