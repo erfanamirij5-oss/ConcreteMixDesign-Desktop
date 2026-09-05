@@ -1,6 +1,6 @@
-import path from 'node:path';
 import { app } from 'electron';
 import { getMachineFingerprint } from './machineFingerprint';
+import { buildLicensingPaths } from './licensingPaths';
 import { LicensingService } from './licensingService';
 import { installProductAccessGuard } from './productAccessRuntime';
 
@@ -8,10 +8,10 @@ let licensingService: LicensingService | null = null;
 
 export function initializeLicensingRuntime() {
   if (!licensingService) {
-    const licensingDir = path.join(app.getPath('userData'), 'licensing');
+    const paths = buildLicensingPaths(app.getPath('userData'));
     licensingService = new LicensingService({
-      licensePath: path.join(licensingDir, 'license.json'),
-      clockStatePath: path.join(licensingDir, 'clock-state.json'),
+      licensePath: paths.licensePath,
+      clockStatePath: paths.clockStatePath,
       machineFingerprint: getMachineFingerprint
     });
     installProductAccessGuard(() => licensingService!.requireActiveLicense());
