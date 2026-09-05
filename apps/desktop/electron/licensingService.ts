@@ -4,6 +4,7 @@ import path from 'node:path';
 import { TOLOU_LICENSE_PRODUCT_ID, TOLOU_LICENSE_PUBLIC_KEY_PEM, TOLOU_LICENSE_SCHEMA_VERSION } from './licensePublicKey';
 
 export type LicenseState = 'unlicensed' | 'active' | 'trial' | 'grace' | 'expired' | 'invalid' | 'wrong_machine' | 'incompatible' | 'clock_rollback';
+export type LicenseType = 'commercial' | 'trial' | 'grace';
 
 export type LicensePayload = {
   schemaVersion: number;
@@ -11,6 +12,7 @@ export type LicensePayload = {
   licenseId: string;
   customerName: string;
   edition: string;
+  licenseType: LicenseType;
   issuedAt: string;
   expiresAt: string | null;
   perpetual: boolean;
@@ -30,6 +32,7 @@ export type LicenseStatus = {
   licenseId?: string;
   customerName?: string;
   edition?: string;
+  licenseType?: LicenseType;
   expiresAt?: string | null;
   perpetual?: boolean;
   features?: string[];
@@ -89,7 +92,7 @@ export class LicensingService {
     });
     if (!status.licensed) throw new Error(status.reason ?? `License cannot be activated: ${status.state}`);
     this.assertClockNotRolledBack();
-    atomicWrite(this.options.licensePath, `${JSON.stringify(document, null, 2)}\n`);
+    replaceFileWithRollback(this.options.licensePath, `${JSON.stringify(document, null, 2)}\n`);
     this.advanceClock(this.now());
     return status;
   }
@@ -134,11 +137,11 @@ export class LicensingService {
         const value = Date.parse(parsed.lastSeenAt);
         if (Number.isFinite(value)) lastSeen = value;
       } catch {
-        // Replaced below with a valid state after successful license validation.
+        // Replaced below after a successfully validated license.
       }
     }
     const next = new Date(Math.max(current, lastSeen)).toISOString();
-    atomicWrite(this.options.clockStatePath, `${JSON.stringify({ lastSeenAt: next }, null, 2)}\n`);
+    replaceFileWithRollback(this.options.clockStatePath, `${JSON.stringify({ lastSeenAt: next }, null, 2)}\n`);
   }
 }
 
@@ -148,14 +151,20 @@ export function verifyLicenseDocument(document: SignedLicenseDocument, input: { 
   if (payload.schemaVersion !== TOLOU_LICENSE_SCHEMA_VERSION) return { state: 'incompatible', licensed: false, reason: 'License schema version is not supported.' };
   if (payload.productId !== TOLOU_LICENSE_PRODUCT_ID) return { state: 'incompatible', licensed: false, reason: 'License belongs to another product.' };
   if (!payload.licenseId?.trim() || !payload.customerName?.trim() || !payload.edition?.trim()) return invalid('License identity fields are incomplete.');
-  if (!Array.isArray(payload.features) || !payload.features.every(value => typeof value === 'string')) return invalid('License feature list is invalid.');
+  if (!['commercial', 'trial', 'grace'].includes(payload.licenseType)) return invalid('License type is invalid.');
+  if (!Array.isArray(payload.features) || !payload.features.every(value => typeof value === 'string' && value.trim().length > 0)) return invalid('License feature list is invalid.');
   if (!/^[a-f0-9]{64}$/i.test(payload.machineFingerprint ?? '')) return invalid('License machine binding is invalid.');
   if (payload.machineFingerprint.toLowerCase() !== input.machineFingerprint.toLowerCase()) return { state: 'wrong_machine', licensed: false, reason: 'License is bound to another machine.' };
-  if (!Number.isFinite(Date.parse(payload.issuedAt))) return invalid('License issue timestamp is invalid.');
+  const issuedAt = Date.parse(payload.issuedAt);
+  if (!Number.isFinite(issuedAt)) return invalid('License issue timestamp is invalid.');
+  if (issuedAt > input.now.getTime() + 5 * 60 * 1000) return invalid('License issue timestamp is in the future.');
   if (payload.perpetual) {
+    if (payload.licenseType !== 'commercial') return invalid('Trial or grace licenses cannot be perpetual.');
     if (payload.expiresAt !== null) return invalid('Perpetual license must not contain an expiry timestamp.');
   } else {
-    if (!payload.expiresAt || !Number.isFinite(Date.parse(payload.expiresAt))) return invalid('License expiry timestamp is invalid.');
+    const expiresAt = payload.expiresAt ? Date.parse(payload.expiresAt) : Number.NaN;
+    if (!Number.isFinite(expiresAt)) return invalid('License expiry timestamp is invalid.');
+    if (expiresAt <= issuedAt) return invalid('License expiry must be later than its issue timestamp.');
   }
   let signature: Buffer;
   try { signature = Buffer.from(document.signature, 'base64'); }
@@ -166,7 +175,8 @@ export function verifyLicenseDocument(document: SignedLicenseDocument, input: { 
   catch { return invalid('License signature verification failed.'); }
   if (!signatureValid) return invalid('License signature is invalid.');
   if (!payload.perpetual && input.now.getTime() > Date.parse(payload.expiresAt as string)) return { state: 'expired', licensed: false, reason: 'License has expired.', ...publicFields(payload) };
-  return { state: 'active', licensed: true, ...publicFields(payload) };
+  const state: LicenseState = payload.licenseType === 'trial' ? 'trial' : payload.licenseType === 'grace' ? 'grace' : 'active';
+  return { state, licensed: true, ...publicFields(payload) };
 }
 
 export function canonicalize(value: unknown): string {
@@ -191,6 +201,7 @@ function publicFields(payload: LicensePayload) {
     licenseId: payload.licenseId,
     customerName: payload.customerName,
     edition: payload.edition,
+    licenseType: payload.licenseType,
     expiresAt: payload.expiresAt,
     perpetual: payload.perpetual,
     features: [...payload.features]
@@ -201,10 +212,22 @@ function invalid(reason: string): LicenseStatus {
   return { state: 'invalid', licensed: false, reason };
 }
 
-function atomicWrite(destination: string, content: string) {
+function replaceFileWithRollback(destination: string, content: string) {
   mkdirSync(path.dirname(destination), { recursive: true });
   const temp = `${destination}.tmp`;
+  const backup = `${destination}.replace-backup`;
+  rmSync(temp, { force: true });
+  rmSync(backup, { force: true });
   writeFileSync(temp, content, 'utf8');
-  if (existsSync(destination)) rmSync(destination, { force: true });
-  renameSync(temp, destination);
+  const hadExisting = existsSync(destination);
+  if (hadExisting) renameSync(destination, backup);
+  try {
+    renameSync(temp, destination);
+    if (existsSync(backup)) rmSync(backup, { force: true });
+  } catch (error) {
+    rmSync(destination, { force: true });
+    if (existsSync(backup)) renameSync(backup, destination);
+    rmSync(temp, { force: true });
+    throw error;
+  }
 }
