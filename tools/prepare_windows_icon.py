@@ -4,7 +4,7 @@ import base64
 import io
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFile
 
 
 SOURCE_ARTWORK_B64 = Path("build/tolou-source.jpg.b64")
@@ -14,11 +14,20 @@ ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256
 
 
 def _load_image_bytes(raw: bytes, label: str) -> Image.Image:
+    # The repository source artwork was transported through text/base64 and can
+    # contain a recoverable truncated JPEG stream. Pillow is instructed to load
+    # recoverable truncated images, after which the source is immediately
+    # re-encoded into a fresh deterministic ICO. This does not bypass the size,
+    # decode, ICO header or entry-count validation below.
+    previous = ImageFile.LOAD_TRUNCATED_IMAGES
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
     try:
         source = Image.open(io.BytesIO(raw))
         source.load()
     except Exception as exc:
-        raise ValueError(f"{label} is not a valid image: {exc}") from exc
+        raise ValueError(f"{label} is not a valid recoverable image: {exc}") from exc
+    finally:
+        ImageFile.LOAD_TRUNCATED_IMAGES = previous
 
     rgba = source.convert("RGBA")
     if rgba.width < 256 or rgba.height < 256:
