@@ -1,6 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, getDatabase, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
 import { assertDatabaseReadyForRuntime } from './databaseCompatibility';
@@ -18,10 +17,10 @@ import { initializeSecurityRuntime, requireRendererPermission } from './security
 import { registerSecurityIpc } from './securityIpc';
 import { initializeLicensingRuntime } from './licensingRuntime';
 import { registerLicensingIpc } from './licensingIpc';
+import { runBoundedEngineCommand, type EngineLaunch } from './engineProcess';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
-type EngineLaunch = { executable: string; prefixArgs: string[] };
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -33,9 +32,13 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', event => event.preventDefault());
 
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -147,23 +150,10 @@ function getEngineLaunch(): EngineLaunch {
 }
 
 function runPythonCommand(command: string, payload?: unknown): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let launch: EngineLaunch;
-    try { launch = getEngineLaunch(); } catch (error) { reject(error); return; }
-
-    const child = spawn(launch.executable, [...launch.prefixArgs, command], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) { reject(new Error(stderr || `Engineering engine exited with code ${code}`)); return; }
-      try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Engineering engine returned invalid JSON')); }
-    });
-    child.stdin.write(JSON.stringify(payload ?? {}));
-    child.stdin.end();
-  });
+  let launch: EngineLaunch;
+  try { launch = getEngineLaunch(); }
+  catch (error) { return Promise.reject(error); }
+  return runBoundedEngineCommand(launch, command, payload);
 }
 
 app.whenReady().then(() => {
