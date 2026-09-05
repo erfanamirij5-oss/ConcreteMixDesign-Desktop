@@ -48,7 +48,8 @@ jobs:
           if (-not (Test-Path 'apps/license-manager/preload.js')) { throw 'License Manager preload bridge is missing.' }
           if (-not (Test-Path 'apps/license-manager/index.html')) { throw 'License Manager UI is missing.' }
           $source = Get-Content 'apps/license-manager/main.js' -Raw
-          if ($source -match 'BEGIN PRIVATE KEY') { throw 'Private signing material must never be embedded in License Manager source.' }
+          $privateKeyMarker = 'BEGIN ' + 'PRIVATE KEY'
+          if ($source -match [regex]::Escape($privateKeyMarker)) { throw 'Private signing material must never be embedded in License Manager source.' }
           if ($source -notmatch "readFileSync\(input\.privateKeyPath") { throw 'License Manager must load the private key at runtime.' }
           if ($source -notmatch 'crypto\.sign') { throw 'License Manager signing implementation is missing.' }
           Write-Host 'License Manager application and signing contract verified.'
