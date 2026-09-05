@@ -28,7 +28,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          python -m pip install Pillow==11.3.0
 
       - name: Build License Manager NSIS installer
         run: npm run dist:license-manager:win
