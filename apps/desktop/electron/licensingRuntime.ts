@@ -14,7 +14,7 @@ export function initializeLicensingRuntime() {
       clockStatePath: paths.clockStatePath,
       machineFingerprint: getMachineFingerprint
     });
-    installProductAccessGuard(() => licensingService!.requireActiveLicense());
+    installProductAccessGuard(feature => licensingService!.requireFeature(feature));
   }
   return licensingService;
 }
