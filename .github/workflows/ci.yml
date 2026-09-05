@@ -157,6 +157,10 @@ jobs:
           if ($config.productName -ne 'Tolou Concrete Mix Design') { throw 'Product name changed unexpectedly.' }
           if ($config.win.executableName -ne 'TolouConcreteMixDesign') { throw 'Stable executable name is missing.' }
           if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'Application must not request unnecessary administrator execution.' }
+          if ($config.win.icon -ne 'build/tolou.ico') { throw 'Tolou Windows application icon is not configured.' }
+          if ($config.nsis.installerIcon -ne 'build/tolou.ico' -or $config.nsis.uninstallerIcon -ne 'build/tolou.ico') { throw 'Tolou installer/uninstaller icons are not configured.' }
+          if (-not (Test-Path 'build/tolou.ico')) { throw 'Tolou icon asset is missing from the repository.' }
+          if ((Get-Item 'build/tolou.ico').Length -lt 10000) { throw 'Tolou icon asset is unexpectedly small.' }
           if ($config.nsis.oneClick -ne $false) { throw 'Commercial installer must remain assisted NSIS installation.' }
           if ($config.nsis.perMachine -ne $false) { throw 'Installer must remain per-user by default.' }
           if ($config.nsis.deleteAppDataOnUninstall -ne $false) { throw 'Uninstall must preserve user engineering data by default.' }
@@ -164,7 +168,7 @@ jobs:
           if ($config.nsis.createDesktopShortcut -ne $true -or $config.nsis.createStartMenuShortcut -ne $true) { throw 'Required Windows shortcuts are disabled.' }
           $exe = 'release/win-unpacked/TolouConcreteMixDesign.exe'
           if (-not (Test-Path $exe)) { throw 'Stable packaged application executable is missing.' }
-          Write-Host 'Commercial installer metadata, execution level, data-preservation policy, shortcuts, and executable identity verified.'
+          Write-Host 'Commercial installer metadata, Tolou icon, execution level, data-preservation policy, shortcuts, and executable identity verified.'
       - name: Verify installer artifact
         shell: pwsh
         run: |
