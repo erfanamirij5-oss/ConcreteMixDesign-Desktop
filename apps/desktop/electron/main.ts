@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, getDatabase, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
@@ -18,9 +18,12 @@ import { registerSecurityIpc } from './securityIpc';
 import { initializeLicensingRuntime } from './licensingRuntime';
 import { registerLicensingIpc } from './licensingIpc';
 import { runBoundedEngineCommand, type EngineLaunch } from './engineProcess';
+import { closeDatabaseSafely, runStartupSequence, type ClosableDatabase } from './runtimeLifecycle';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
+let runtimeDatabase: ClosableDatabase | null = null;
+let shutdownStarted = false;
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -156,19 +159,48 @@ function runPythonCommand(command: string, payload?: unknown): Promise<unknown> 
   return runBoundedEngineCommand(launch, command, payload);
 }
 
-app.whenReady().then(() => {
-  if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
-  const database = getDatabase();
-  ensureTrialMixMigration(database);
-  initializeLicensingRuntime();
-  initializeSecurityRuntime(database);
-  registerSecurityIpc();
-  registerLicensingIpc();
-  registerReportCenterIpc();
-  registerBackupRestoreIpc();
-  assertDatabaseReadyForRuntime(database);
-  createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+function shutdownRuntime() {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  const result = closeDatabaseSafely(runtimeDatabase);
+  runtimeDatabase = null;
+  if (result.error) console.error(`Runtime database shutdown warning: ${result.error}`);
+}
+
+app.whenReady().then(async () => {
+  try {
+    if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
+    await runStartupSequence([
+      {
+        name: 'database initialization and migrations',
+        run: () => {
+          runtimeDatabase = getDatabase();
+          ensureTrialMixMigration(runtimeDatabase as ReturnType<typeof getDatabase>);
+        }
+      },
+      { name: 'licensing runtime', run: () => { initializeLicensingRuntime(); } },
+      { name: 'security runtime', run: () => { initializeSecurityRuntime(runtimeDatabase as ReturnType<typeof getDatabase>); } },
+      {
+        name: 'IPC registration',
+        run: () => {
+          registerSecurityIpc();
+          registerLicensingIpc();
+          registerReportCenterIpc();
+          registerBackupRestoreIpc();
+        }
+      },
+      { name: 'database compatibility validation', run: () => { assertDatabaseReadyForRuntime(runtimeDatabase as ReturnType<typeof getDatabase>); } },
+      { name: 'main window creation', run: () => { createWindow(); } }
+    ]);
+    app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  } catch (error) {
+    shutdownRuntime();
+    const message = error instanceof Error ? error.message : 'Unknown runtime startup failure.';
+    console.error(message);
+    dialog.showErrorBox('Tolou startup failure', `The application could not start safely.\n\n${message}`);
+    app.exit(1);
+  }
 });
 
+app.on('before-quit', shutdownRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
