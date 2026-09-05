@@ -1,4 +1,6 @@
 import { ipcMain } from 'electron';
+import { initializeLicensingRuntime } from './licensingRuntime';
+import { registerLicensingIpc } from './licensingIpc';
 import { bindRendererSession, clearRendererSession, getRendererSession, getSecurityService, requireRendererPermission } from './securityRuntime';
 
 let registered = false;
@@ -12,6 +14,8 @@ type UserActivePayload = { userId?: string; active?: boolean };
 export function registerSecurityIpc() {
   if (registered) return;
   registered = true;
+  initializeLicensingRuntime();
+  registerLicensingIpc();
 
   ipcMain.handle('security:status', event => safeCall(() => ({
     status: 'pass' as const,

@@ -1,0 +1,6 @@
+export const TOLOU_LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAXZHKOTcCMx9LRHFB5EOFoYYqtMHoSAfCK8XQWSZV5hk=
+-----END PUBLIC KEY-----`;
+
+export const TOLOU_LICENSE_PRODUCT_ID = 'tolou-concrete-mix-design';
+export const TOLOU_LICENSE_SCHEMA_VERSION = 1;

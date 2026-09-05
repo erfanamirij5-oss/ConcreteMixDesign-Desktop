@@ -165,6 +165,11 @@ export class SecurityService {
     `).all(bounded);
   }
 
+  recordAuthenticatedAudit(sessionId: string, input: { action: string; targetType?: string | null; targetId?: string | null; outcome: 'success' | 'denied' | 'failure'; detail?: Record<string, unknown> }) {
+    const actor = this.requirePermission(sessionId, 'security.users.manage');
+    this.writeAudit({ actorUserId: actor.userId, actorUsername: actor.username, ...input });
+  }
+
   private createUserInternal(username: string, displayName: string, password: string, roleId: 'administrator' | 'engineer' | 'viewer') {
     const normalized = normalizeUsername(username);
     if (!USERNAME_PATTERN.test(normalized)) throw new Error('Username must be 3-64 characters using letters, numbers, dot, underscore or hyphen.');

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import type { WebContents } from 'electron';
+import { installProductAccessGuard } from './productAccessRuntime';
 import { bindRendererSession, getRendererSession, initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 
 function fakeSender(id: number): WebContents {
@@ -40,7 +41,13 @@ bindRendererSession(authorizedRenderer, session);
 assert.equal(getRendererSession(authorizedRenderer)?.username, 'runtime.admin');
 assert.equal(getRendererSession(otherRenderer), null);
 assert.throws(() => requireRendererPermission(otherRenderer, 'engineering.read'), /Authentication required/i, 'A different renderer must not inherit another renderer session.');
-assert.doesNotThrow(() => requireRendererPermission(authorizedRenderer, 'security.users.manage'));
+
+installProductAccessGuard(() => { throw new Error('Active product license required (unlicensed).'); });
+assert.doesNotThrow(() => requireRendererPermission(authorizedRenderer, 'security.users.manage'), 'Security and license recovery operations must remain reachable while unlicensed.');
+assert.throws(() => requireRendererPermission(authorizedRenderer, 'engineering.read'), /license required|unlicensed/i, 'Engineering access must fail closed without an active product license.');
+
+installProductAccessGuard(() => ({ state: 'active', licensed: true }));
+assert.doesNotThrow(() => requireRendererPermission(authorizedRenderer, 'engineering.read'));
 
 const viewer = security.createUser(session.id, 'runtime.viewer', 'Runtime Viewer', 'Runtime-Viewer-Password-2026', 'viewer');
 assert.equal(viewer.username, 'runtime.viewer');
@@ -54,4 +61,4 @@ assert.throws(() => requireRendererPermission(viewerRenderer, 'security.users.ma
 assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
 assert.equal((database.pragma('foreign_key_check') as unknown[]).length, 0);
 database.close();
-console.log('Gate 09 renderer session isolation smoke passed: Gate08-dependent migration chain, renderer binding and direct authorization bypass protection verified.');
+console.log('Gate 09 renderer isolation + Gate 10 licensing boundary smoke passed: unlicensed engineering is blocked while security recovery remains reachable.');

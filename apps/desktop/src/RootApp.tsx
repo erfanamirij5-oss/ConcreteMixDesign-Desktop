@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { App } from './App';
 import { DataSafetyView } from './DataSafetyView';
+import { LicensingView, type LicenseStatus } from './LicensingView';
 import { ReportCenterView } from './ReportCenterView';
 import { SecurityAdministrationView } from './SecurityAdministrationView';
 import { SecurityGate, type SecuritySession } from './SecurityGate';
 
-type RootView = 'application' | 'reports' | 'data-safety' | 'security';
+type RootView = 'application' | 'reports' | 'data-safety' | 'security' | 'licensing';
 type RecentProject = { mixDesignId: string; projectName: string; status: string; targetStrengthMpa: number };
 
 export function RootApp() {
   const [session, setSession] = useState<SecuritySession | null>(null);
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
   const [view, setView] = useState<RootView>('application');
   const [projects, setProjects] = useState<RecentProject[]>([]);
   const [mixDesignId, setMixDesignId] = useState<string | null>(null);
@@ -17,8 +19,8 @@ export function RootApp() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (session && view === 'reports') void loadProjects();
-  }, [session, view]);
+    if (session && license?.licensed && view === 'reports') void loadProjects();
+  }, [session, license?.licensed, view]);
 
   async function loadProjects() {
     setMessage('');
@@ -42,6 +44,7 @@ export function RootApp() {
       const response = await api.logout() as { status?: string; error?: string };
       if (response?.status === 'fail') throw new Error(response.error || 'خروج از حساب ناموفق بود.');
       setSession(null);
+      setLicense(null);
       setView('application');
       setProjects([]);
       setMixDesignId(null);
@@ -53,14 +56,29 @@ export function RootApp() {
     }
   }
 
-  if (!session) return <SecurityGate onAuthenticated={setSession} />;
+  if (!session) return <SecurityGate onAuthenticated={authenticated => { setSession(authenticated); setLicense(null); }} />;
+
+  if (!license?.licensed) {
+    return <div className="app-shell">
+      <div className="root-module-nav">
+        <span className="badge blue">Gate 10 Licensing</span>
+        <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="badge green">{session.displayName} · {session.username}</span>
+          <button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button>
+        </span>
+      </div>
+      <LicensingView gateMode onStatusChange={setLicense} />
+    </div>;
+  }
 
   const navigation = <div className="root-module-nav">
     <button className={view === 'application' ? 'active' : ''} onClick={() => setView('application')}>سامانه مهندسی</button>
     <button className={view === 'reports' ? 'active' : ''} onClick={() => setView('reports')}>Report Center</button>
     <button className={view === 'data-safety' ? 'active' : ''} onClick={() => setView('data-safety')}>Data Safety</button>
     <button className={view === 'security' ? 'active' : ''} onClick={() => setView('security')}>امنیت و کاربران</button>
+    <button className={view === 'licensing' ? 'active' : ''} onClick={() => setView('licensing')}>لایسنس</button>
     <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span className="badge green">{license.edition ?? 'Licensed'}</span>
       <span className="badge green">{session.displayName} · {session.username}</span>
       <button onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'خروج...' : 'خروج امن'}</button>
     </span>
@@ -69,6 +87,7 @@ export function RootApp() {
   if (view === 'application') return <div>{navigation}<App /></div>;
   if (view === 'data-safety') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<DataSafetyView /></div>;
   if (view === 'security') return <div className="app-shell">{navigation}{message && <div className="alert danger">{message}</div>}<SecurityAdministrationView /></div>;
+  if (view === 'licensing') return <div className="app-shell">{navigation}<LicensingView onStatusChange={setLicense} /></div>;
 
   return <div className="app-shell">
     {navigation}

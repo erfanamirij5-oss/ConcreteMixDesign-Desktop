@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('tolouSecurity', {
   listAudit: (limit?: number) => ipcRenderer.invoke('security:list-audit', limit)
 });
 
+contextBridge.exposeInMainWorld('tolouLicensing', {
+  status: () => ipcRenderer.invoke('licensing:status'),
+  importLicense: () => ipcRenderer.invoke('licensing:import'),
+  removeLicense: () => ipcRenderer.invoke('licensing:remove')
+});
+
 contextBridge.exposeInMainWorld('tolouEngine', {
   health: () => ipcRenderer.invoke('engine:health'),
   calculateNormalMix: (payload: unknown) => ipcRenderer.invoke('engine:calculate-normal-mix', payload),
