@@ -15,7 +15,7 @@
     "target": [{ "target": "nsis", "arch": ["x64"] }],
     "artifactName": "Tolou-License-Manager-${version}-Setup.${ext}",
     "executableName": "TolouLicenseManager",
-    "icon": "build/tolou.generated.ico",
+    "icon": "build/tolou-canonical.png",
     "legalTrademarks": "Tolou",
     "requestedExecutionLevel": "asInvoker"
   },
@@ -24,8 +24,6 @@
     "perMachine": false,
     "allowElevation": true,
     "allowToChangeInstallationDirectory": true,
-    "installerIcon": "build/tolou.generated.ico",
-    "uninstallerIcon": "build/tolou.generated.ico",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Tolou License Manager",
