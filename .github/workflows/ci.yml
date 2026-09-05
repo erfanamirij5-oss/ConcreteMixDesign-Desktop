@@ -149,9 +149,48 @@ jobs:
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
           Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present without private signing material.'
+      - name: Verify commercial installer contract
+        shell: pwsh
+        run: |
+          $config = Get-Content 'electron-builder.json' -Raw | ConvertFrom-Json
+          if ($config.appId -ne 'ir.tolou.concreteMixDesign') { throw 'Stable Windows appId changed unexpectedly.' }
+          if ($config.productName -ne 'Tolou Concrete Mix Design') { throw 'Product name changed unexpectedly.' }
+          if ($config.win.executableName -ne 'TolouConcreteMixDesign') { throw 'Stable executable name is missing.' }
+          if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'Application must not request unnecessary administrator execution.' }
+          if ($config.win.icon -ne 'build/tolou.generated.ico') { throw 'Generated Tolou Windows application icon is not configured.' }
+          if ($config.nsis.installerIcon -ne 'build/tolou.generated.ico' -or $config.nsis.uninstallerIcon -ne 'build/tolou.generated.ico') { throw 'Generated Tolou installer/uninstaller icons are not configured.' }
+          if (-not (Test-Path 'build/tolou-source.jpg.b64')) { throw 'Tolou source artwork asset is missing from the repository.' }
+          $sourceText = (Get-Content 'build/tolou-source.jpg.b64' -Raw).Trim()
+          if ($sourceText.Length -lt 10000 -or $sourceText -match '\[\.\.\.truncated') { throw 'Tolou source artwork asset is incomplete.' }
+          if (-not (Test-Path 'build/tolou.generated.ico')) { throw 'Resource-compatible generated Tolou icon was not produced.' }
+          if ((Get-Item 'build/tolou.generated.ico').Length -lt 10000) { throw 'Generated Tolou icon is unexpectedly small.' }
+          $iconBytes = [System.IO.File]::ReadAllBytes('build/tolou.generated.ico')
+          if ($iconBytes[0] -ne 0 -or $iconBytes[1] -ne 0 -or $iconBytes[2] -ne 1 -or $iconBytes[3] -ne 0) { throw 'Generated Tolou icon has an invalid ICO header.' }
+          $iconCount = [BitConverter]::ToUInt16($iconBytes, 4)
+          if ($iconCount -ne 7) { throw "Generated Tolou icon must contain seven resource sizes; found $iconCount." }
+          if ($config.nsis.oneClick -ne $false) { throw 'Commercial installer must remain assisted NSIS installation.' }
+          if ($config.nsis.perMachine -ne $false) { throw 'Installer must remain per-user by default.' }
+          if ($config.nsis.deleteAppDataOnUninstall -ne $false) { throw 'Uninstall must preserve user engineering data by default.' }
+          if ($config.nsis.allowToChangeInstallationDirectory -ne $true) { throw 'Installer must allow selecting installation directory.' }
+          if ($config.nsis.createDesktopShortcut -ne $true -or $config.nsis.createStartMenuShortcut -ne $true) { throw 'Required Windows shortcuts are disabled.' }
+          $exe = 'release/win-unpacked/TolouConcreteMixDesign.exe'
+          if (-not (Test-Path $exe)) { throw 'Stable packaged application executable is missing.' }
+          Write-Host "Commercial installer metadata and seven-size Tolou icon verified ($((Get-Item 'build/tolou.generated.ico').Length) bytes)."
       - name: Verify installer artifact
         shell: pwsh
         run: |
           $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Windows installer artifact was not produced.' }
-          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes)"
+          if ($installer.Length -lt 1000000) { throw 'Windows installer artifact is unexpectedly small.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes) SHA256=$hash"
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tolou-Concrete-Mix-Design-Windows-Installer
+          path: |
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe.blockmap
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

@@ -10,6 +10,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:ui && npm run build:electron",
     "build:engine:win": "python -m pip install -e \"engine/python[build]\" && python -m PyInstaller --noconfirm --clean --onefile --name tolou-mix-engine --distpath dist-engine --workpath build-engine --specpath build-engine --paths engine/python/src engine/python/src/tolou_mix_engine/cli.py",
+    "prepare:win-icon": "python tools/prepare_windows_icon.py",
     "dev:electron": "npm run build:electron && cross-env NODE_ENV=development electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test:engine": "cd engine/python && python -m pytest",
@@ -28,7 +29,7 @@
     "test:trial-mix": "npm run build:electron && node dist/electron/trialMixSmoke.js",
     "test:trial-workflow": "npm run build:electron && node dist/electron/trialWorkflowSmoke.js",
     "test:backup-restore": "npm run build:electron && node dist/electron/backupRestoreSmoke.js",
-    "dist:win": "npm run build && npm run build:engine:win && electron-builder --config electron-builder.json --win"
+    "dist:win": "npm run build && npm run build:engine:win && npm run prepare:win-icon && electron-builder --config electron-builder.json --win --publish never"
   },
   "dependencies": {
     "react": "latest",
