@@ -1,6 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { getAggregateBlendOptimizer, getDatabase, listGradationByMaterial, listMaterialsByMixDesign, listRecentProjects, saveAggregateBlendOptimizer, saveGradation, saveMaterial, saveProjectIntake } from './database';
 import { assertDatabaseReadyForRuntime } from './databaseCompatibility';
@@ -16,10 +15,15 @@ import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
 import { initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 import { registerSecurityIpc } from './securityIpc';
+import { initializeLicensingRuntime } from './licensingRuntime';
+import { registerLicensingIpc } from './licensingIpc';
+import { runBoundedEngineCommand, type EngineLaunch } from './engineProcess';
+import { closeDatabaseSafely, runStartupSequence, type ClosableDatabase } from './runtimeLifecycle';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
-type EngineLaunch = { executable: string; prefixArgs: string[] };
+let runtimeDatabase: ClosableDatabase | null = null;
+let shutdownStarted = false;
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -31,9 +35,13 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', event => event.preventDefault());
 
   if (isDev) mainWindow.loadURL('http://localhost:5173');
   else mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -60,7 +68,7 @@ ipcMain.handle('trial-mix:save', async (event, payload) => safeCall(() => { cons
 ipcMain.handle('trial-mix:list', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, records: listTrialMixRecords(mixDesignId) }; }, 'خطا در خواندن Trial Mix'));
 ipcMain.handle('trial-mix:has-completed', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, completed: hasCompletedTrialMixRecord(mixDesignId) }; }, 'خطا در بررسی تکمیل Trial Mix'));
 
-ipcMain.handle('engine:health', async () => runPythonCommand('health'));
+ipcMain.handle('engine:health', async event => { requireRendererPermission(event.sender, 'engineering.read'); return runPythonCommand('health'); });
 ipcMain.handle('engine:calculate-normal-mix', async (event, payload) => { requireRendererPermission(event.sender, 'engineering.calculate'); return runPythonCommand('calculate-normal-mix', payload); });
 ipcMain.handle('engine:evaluate-durability', async (event, payload: DurabilityEvaluationPayload) => {
   try {
@@ -145,36 +153,54 @@ function getEngineLaunch(): EngineLaunch {
 }
 
 function runPythonCommand(command: string, payload?: unknown): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let launch: EngineLaunch;
-    try { launch = getEngineLaunch(); } catch (error) { reject(error); return; }
-
-    const child = spawn(launch.executable, [...launch.prefixArgs, command], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) { reject(new Error(stderr || `Engineering engine exited with code ${code}`)); return; }
-      try { resolve(JSON.parse(stdout)); } catch { reject(new Error('Engineering engine returned invalid JSON')); }
-    });
-    child.stdin.write(JSON.stringify(payload ?? {}));
-    child.stdin.end();
-  });
+  let launch: EngineLaunch;
+  try { launch = getEngineLaunch(); }
+  catch (error) { return Promise.reject(error); }
+  return runBoundedEngineCommand(launch, command, payload);
 }
 
-app.whenReady().then(() => {
-  if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
-  const database = getDatabase();
-  ensureTrialMixMigration(database);
-  initializeSecurityRuntime(database);
-  registerSecurityIpc();
-  registerReportCenterIpc();
-  registerBackupRestoreIpc();
-  assertDatabaseReadyForRuntime(database);
-  createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+function shutdownRuntime() {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  const result = closeDatabaseSafely(runtimeDatabase);
+  runtimeDatabase = null;
+  if (result.error) console.error(`Runtime database shutdown warning: ${result.error}`);
+}
+
+app.whenReady().then(async () => {
+  try {
+    if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
+    await runStartupSequence([
+      {
+        name: 'database initialization and migrations',
+        run: () => {
+          runtimeDatabase = getDatabase();
+          ensureTrialMixMigration(runtimeDatabase as ReturnType<typeof getDatabase>);
+        }
+      },
+      { name: 'licensing runtime', run: () => { initializeLicensingRuntime(); } },
+      { name: 'security runtime', run: () => { initializeSecurityRuntime(runtimeDatabase as ReturnType<typeof getDatabase>); } },
+      {
+        name: 'IPC registration',
+        run: () => {
+          registerSecurityIpc();
+          registerLicensingIpc();
+          registerReportCenterIpc();
+          registerBackupRestoreIpc();
+        }
+      },
+      { name: 'database compatibility validation', run: () => { assertDatabaseReadyForRuntime(runtimeDatabase as ReturnType<typeof getDatabase>); } },
+      { name: 'main window creation', run: () => { createWindow(); } }
+    ]);
+    app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  } catch (error) {
+    shutdownRuntime();
+    const message = error instanceof Error ? error.message : 'Unknown runtime startup failure.';
+    console.error(message);
+    dialog.showErrorBox('Tolou startup failure', `The application could not start safely.\n\n${message}`);
+    app.exit(1);
+  }
 });
 
+app.on('before-quit', shutdownRuntime);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

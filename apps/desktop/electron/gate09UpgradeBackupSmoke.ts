@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
@@ -20,7 +20,17 @@ async function run() {
     database.pragma('foreign_keys = ON');
     database.exec('CREATE TABLE schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);');
     const insert = database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)');
-    for (const id of gate08Migrations) insert.run(id, new Date().toISOString());
+    for (const id of gate08Migrations) {
+      const migrationPath = path.join(process.cwd(), `database/migrations/${id}.sql`);
+      database.transaction(() => {
+        database.exec(readFileSync(migrationPath, 'utf8'));
+        insert.run(id, new Date().toISOString());
+      })();
+    }
+
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'mix_designs'").get() as { count: number }).count, 1, 'Representative Gate08 baseline must contain engineering schema, not migration markers only');
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'report_snapshots'").get() as { count: number }).count, 1, 'Representative Gate08 baseline must include Gate07 report snapshots');
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'trial_mix_records'").get() as { count: number }).count, 1, 'Representative Gate08 baseline must include minimum Trial Mix schema');
 
     ensureRuntimeMigrations(database);
     ensureRuntimeMigrations(database);
@@ -60,7 +70,7 @@ async function run() {
       restoredDatabase.close();
     }
 
-    console.log('Gate 09 upgrade/backup smoke passed: Gate08 schema upgrades once to 022 and users, password verifiers, roles and append-only audit survive validated backup/restore.');
+    console.log('Gate 09 upgrade/backup smoke passed: representative Gate08 schema upgrades once to 022 and users, password verifiers, roles and append-only audit survive validated backup/restore.');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
