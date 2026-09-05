@@ -1,0 +1,93 @@
+name: License Manager Windows Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  license-manager-windows:
+    name: License Manager Windows installer gate
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build License Manager NSIS installer
+        run: npm run dist:license-manager:win
+
+      - name: Verify License Manager package contract
+        shell: pwsh
+        run: |
+          $config = Get-Content 'electron-builder.license-manager.json' -Raw | ConvertFrom-Json
+          if ($config.appId -ne 'ir.tolou.licenseManager') { throw 'License Manager appId is incorrect.' }
+          if ($config.productName -ne 'Tolou License Manager') { throw 'License Manager product name is incorrect.' }
+          if ($config.win.executableName -ne 'TolouLicenseManager') { throw 'License Manager executable name is incorrect.' }
+          if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'License Manager must not request administrator execution by default.' }
+          if ($config.win.artifactName -ne 'Tolou-License-Manager-${version}-Setup.${ext}') { throw 'License Manager artifact naming contract changed.' }
+          if (-not (Test-Path 'apps/license-manager/main.js')) { throw 'License Manager main process is missing.' }
+          if (-not (Test-Path 'apps/license-manager/preload.js')) { throw 'License Manager preload bridge is missing.' }
+          if (-not (Test-Path 'apps/license-manager/index.html')) { throw 'License Manager UI is missing.' }
+          $source = Get-Content 'apps/license-manager/main.js' -Raw
+          if ($source -match 'BEGIN PRIVATE KEY') { throw 'Private signing material must never be embedded in License Manager source.' }
+          if ($source -notmatch "readFileSync\(input\.privateKeyPath") { throw 'License Manager must load the private key at runtime.' }
+          if ($source -notmatch 'crypto\.sign') { throw 'License Manager signing implementation is missing.' }
+          Write-Host 'License Manager application and signing contract verified.'
+
+      - name: Verify License Manager installer artifact
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-1.0.0-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Tolou License Manager installer was not produced.' }
+          if ($installer.Length -lt 1000000) { throw 'Tolou License Manager installer is unexpectedly small.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          Write-Host "License Manager installer verified: $($installer.FullName) ($($installer.Length) bytes) SHA256=$hash"
+
+      - name: Silent install and launch smoke test
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-1.0.0-Setup.exe' -File | Select-Object -First 1
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "License Manager installer exited with code $($install.ExitCode)." }
+          $programRoot = Join-Path $env:LOCALAPPDATA 'Programs'
+          $appExe = Get-ChildItem -Path $programRoot -Filter 'TolouLicenseManager.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $appExe) { throw 'Installed TolouLicenseManager.exe was not found.' }
+          $app = Start-Process -FilePath $appExe.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($app.HasExited) { throw "License Manager exited during launch smoke test with code $($app.ExitCode)." }
+          Stop-Process -Id $app.Id -Force
+          $uninstaller = Get-ChildItem -Path $appExe.Directory.FullName -Filter 'Uninstall*.exe' -File | Select-Object -First 1
+          if (-not $uninstaller) { throw 'License Manager uninstaller was not found.' }
+          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "License Manager uninstaller exited with code $($uninstall.ExitCode)." }
+          Start-Sleep -Seconds 2
+          if (Test-Path $appExe.FullName) { throw 'License Manager executable still exists after uninstall.' }
+          Write-Host 'License Manager silent install, launch and uninstall smoke test passed.'
+
+      - name: Upload License Manager installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tolou-License-Manager-Windows-Installer
+          path: |
+            release-license-manager/Tolou-License-Manager-1.0.0-Setup.exe
+            release-license-manager/Tolou-License-Manager-1.0.0-Setup.exe.blockmap
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
