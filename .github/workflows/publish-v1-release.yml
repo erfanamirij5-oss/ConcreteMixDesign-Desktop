@@ -1,0 +1,157 @@
+name: Publish Tolou v1.0.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type PUBLISH-v1.0.0 to publish the official release'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-tolou-v1.0.0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish accepted v1.0.0 installer
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: v1.0.0
+      RELEASE_SHA: 5e87c7b49ea50a5ac222f40585618e667867936d
+      ACCEPTANCE_RUN_ID: '33980126036'
+      ACCEPTANCE_ARTIFACT_ID: '9973546156'
+      ACCEPTANCE_ARTIFACT_DIGEST: sha256:2194732ef12d8a143d14149349eac52609f7e87ba07a78a95ccf743aa21536be
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require explicit release confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ '${{ inputs.confirmation }}' != 'PUBLISH-v1.0.0' ]]; then
+            echo 'Release confirmation did not match PUBLISH-v1.0.0.'
+            exit 1
+          fi
+
+      - name: Checkout exact release commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Verify release identity and acceptance run
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$(node -p "require('./package.json').version")" = '1.0.0'
+          run_json="$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$ACCEPTANCE_RUN_ID")"
+          test "$(jq -r '.status' <<< "$run_json")" = 'completed'
+          test "$(jq -r '.conclusion' <<< "$run_json")" = 'success'
+          test "$(jq -r '.head_branch' <<< "$run_json")" = 'main'
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$RELEASE_SHA"
+          artifact_json="$(gh api "/repos/$GITHUB_REPOSITORY/actions/artifacts/$ACCEPTANCE_ARTIFACT_ID")"
+          test "$(jq -r '.expired' <<< "$artifact_json")" = 'false'
+          test "$(jq -r '.name' <<< "$artifact_json")" = 'Tolou-v1-Release-Acceptance-Installer'
+          test "$(jq -r '.digest' <<< "$artifact_json")" = "$ACCEPTANCE_ARTIFACT_DIGEST"
+          test "$(jq -r '.workflow_run.id' <<< "$artifact_json")" = "$ACCEPTANCE_RUN_ID"
+          test "$(jq -r '.workflow_run.head_sha' <<< "$artifact_json")" = "$RELEASE_SHA"
+          echo 'Exact accepted v1.0.0 artifact identity verified.'
+
+      - name: Refuse overwrite of an existing official release or tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to overwrite it."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists; refusing to move or reuse it."
+            exit 1
+          fi
+
+      - name: Download exact accepted installer artifact from GitHub Actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/$GITHUB_REPOSITORY/actions/artifacts/$ACCEPTANCE_ARTIFACT_ID/zip" \
+            > accepted-installer.zip
+          unzip -q accepted-installer.zip -d release-assets
+          find release-assets -maxdepth 2 -type f -print
+
+      - name: Verify customer release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          installer="$(find release-assets -type f -name 'Tolou-Concrete-Mix-Design-1.0.0-Setup.exe' -print -quit)"
+          blockmap="$(find release-assets -type f -name 'Tolou-Concrete-Mix-Design-1.0.0-Setup.exe.blockmap' -print -quit)"
+          test -n "$installer" && test -f "$installer"
+          test -n "$blockmap" && test -f "$blockmap"
+          test "$(stat -c%s "$installer")" -gt 1000000
+          sha256sum "$installer"
+          echo "INSTALLER_PATH=$installer" >> "$GITHUB_ENV"
+          echo "BLOCKMAP_PATH=$blockmap" >> "$GITHUB_ENV"
+
+      - name: Prepare official release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          # Tolou Concrete Mix Design v1.0.0
+
+          First official commercial release of Tolou Concrete Mix Design.
+
+          ## Highlights
+          - Professional Concrete Mix Design Workspace
+          - Material Library and local SQLite engineering database
+          - Python Engineering Engine v1.0.0
+          - Management Dashboard
+          - Report Center
+          - Trial Mix & Validation infrastructure
+          - User Management & Security
+          - Offline Ed25519 licensing architecture
+          - Standalone Tolou License Manager for authorized license administration
+          - Windows NSIS installer
+
+          ## Release validation
+          - CI Validation passed
+          - Windows Installer Gate passed
+          - License Manager Windows Gate passed
+          - Release Acceptance passed on the exact release commit
+          - Installed Engineering Engine verified as v1.0.0
+          - Silent install, first launch, uninstall, and user-data preservation verified
+          - License Manager ↔ runtime cryptographic contract verified
+
+          Release commit: `5e87c7b49ea50a5ac222f40585618e667867936d`
+
+          The public release asset contains the customer application installer. The License Manager is an administrative licensing tool and is not distributed as a customer release asset.
+          EOF
+
+      - name: Publish official GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "$INSTALLER_PATH#Tolou Concrete Mix Design v1.0.0 Windows Setup" \
+            "$BLOCKMAP_PATH#Tolou Concrete Mix Design v1.0.0 blockmap" \
+            --target "$RELEASE_SHA" \
+            --title 'Tolou Concrete Mix Design v1.0.0' \
+            --notes-file release-notes.md \
+            --latest
+
+      - name: Verify published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<< "$release_json")" = 'false'
+          test "$(jq -r '.prerelease' <<< "$release_json")" = 'false'
+          test "$(jq -r '.target_commitish' <<< "$release_json")" = "$RELEASE_SHA"
+          jq -r '.html_url' <<< "$release_json"
+          jq -r '.assets[].name' <<< "$release_json"
