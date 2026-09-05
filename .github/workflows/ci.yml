@@ -184,3 +184,13 @@ jobs:
           if ($installer.Length -lt 1000000) { throw 'Windows installer artifact is unexpectedly small.' }
           $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           Write-Host "Installer verified: $($installer.FullName) ($($installer.Length) bytes) SHA256=$hash"
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tolou-Concrete-Mix-Design-Windows-Installer
+          path: |
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe.blockmap
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
