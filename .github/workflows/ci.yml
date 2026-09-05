@@ -146,7 +146,7 @@ jobs:
           if ($asarText -match 'PRIVATE KEY') { throw 'Private signing material must never be packaged.' }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
-          if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
+          if ($parsed.status -ne 'pass' -or $parsed.version -ne '1.0.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
           Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present without private signing material.'
       - name: Verify commercial installer contract
