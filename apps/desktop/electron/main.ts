@@ -16,6 +16,8 @@ import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
 import { initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 import { registerSecurityIpc } from './securityIpc';
+import { initializeLicensingRuntime } from './licensingRuntime';
+import { registerLicensingIpc } from './licensingIpc';
 
 const isDev = process.env.NODE_ENV === 'development';
 type DurabilityEvaluationPayload = { mix_design_id?: string; max_aggregate_size_mm?: number; conditions?: unknown };
@@ -60,7 +62,7 @@ ipcMain.handle('trial-mix:save', async (event, payload) => safeCall(() => { cons
 ipcMain.handle('trial-mix:list', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, records: listTrialMixRecords(mixDesignId) }; }, 'خطا در خواندن Trial Mix'));
 ipcMain.handle('trial-mix:has-completed', async (event, mixDesignId: string) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass' as const, completed: hasCompletedTrialMixRecord(mixDesignId) }; }, 'خطا در بررسی تکمیل Trial Mix'));
 
-ipcMain.handle('engine:health', async () => runPythonCommand('health'));
+ipcMain.handle('engine:health', async event => { requireRendererPermission(event.sender, 'engineering.read'); return runPythonCommand('health'); });
 ipcMain.handle('engine:calculate-normal-mix', async (event, payload) => { requireRendererPermission(event.sender, 'engineering.calculate'); return runPythonCommand('calculate-normal-mix', payload); });
 ipcMain.handle('engine:evaluate-durability', async (event, payload: DurabilityEvaluationPayload) => {
   try {
@@ -168,8 +170,10 @@ app.whenReady().then(() => {
   if (app.isPackaged) process.chdir(path.dirname(app.getPath('exe')));
   const database = getDatabase();
   ensureTrialMixMigration(database);
+  initializeLicensingRuntime();
   initializeSecurityRuntime(database);
   registerSecurityIpc();
+  registerLicensingIpc();
   registerReportCenterIpc();
   registerBackupRestoreIpc();
   assertDatabaseReadyForRuntime(database);
