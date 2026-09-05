@@ -31,6 +31,7 @@
     ],
     "artifactName": "Tolou-Concrete-Mix-Design-${version}-Setup.${ext}",
     "executableName": "TolouConcreteMixDesign",
+    "icon": "build/tolou.ico",
     "legalTrademarks": "Tolou",
     "requestedExecutionLevel": "asInvoker"
   },
@@ -39,6 +40,8 @@
     "perMachine": false,
     "allowElevation": true,
     "allowToChangeInstallationDirectory": true,
+    "installerIcon": "build/tolou.ico",
+    "uninstallerIcon": "build/tolou.ico",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "طلوع بتن",
