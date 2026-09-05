@@ -41,7 +41,7 @@ try {
   assert.equal(verifyLicenseDocument(tampered, { publicKeyPem, machineFingerprint: machine, now }).state, 'invalid');
   assert.equal(verifyLicenseDocument(sign(payload({ productId: 'other-product' })), { publicKeyPem, machineFingerprint: machine, now }).state, 'incompatible');
   assert.equal(verifyLicenseDocument(sign(payload({ machineFingerprint: 'b'.repeat(64) })), { publicKeyPem, machineFingerprint: machine, now }).state, 'wrong_machine');
-  assert.equal(verifyLicenseDocument(sign(payload({ expiresAt: '2026-01-01T00:00:00.000Z' })), { publicKeyPem, machineFingerprint: machine, now }).state, 'expired');
+  assert.equal(verifyLicenseDocument(sign(payload({ expiresAt: '2026-09-03T00:00:00.000Z' })), { publicKeyPem, machineFingerprint: machine, now }).state, 'expired');
   assert.equal(verifyLicenseDocument(sign(payload({ perpetual: true, expiresAt: null })), { publicKeyPem, machineFingerprint: machine, now }).state, 'active');
   assert.equal(verifyLicenseDocument(sign(payload({ licenseType: 'trial', perpetual: true, expiresAt: null })), { publicKeyPem, machineFingerprint: machine, now }).state, 'invalid');
   assert.equal(verifyLicenseDocument(sign(payload({ schemaVersion: TOLOU_LICENSE_SCHEMA_VERSION + 1 })), { publicKeyPem, machineFingerprint: machine, now }).state, 'incompatible');
