@@ -1,7 +1,14 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
-const { readFileSync, writeFileSync } = require('node:fs');
+const { existsSync, readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 const { signPayload } = require('./licenseContract');
+
+function runtimeIconPath() {
+  const candidate = app.isPackaged
+    ? path.join(process.resourcesPath, 'branding', 'tolou-canonical.png')
+    : path.join(process.cwd(), 'build', 'tolou-canonical.png');
+  return existsSync(candidate) ? candidate : undefined;
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -10,6 +17,7 @@ function createWindow() {
     minWidth: 820,
     minHeight: 680,
     title: 'Tolou License Manager',
+    icon: runtimeIconPath(),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   win.removeMenu();

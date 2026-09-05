@@ -13,6 +13,10 @@
     {
       "from": "dist-engine/tolou-mix-engine.exe",
       "to": "engine/tolou-mix-engine.exe"
+    },
+    {
+      "from": "build/tolou-canonical.png",
+      "to": "branding/tolou-canonical.png"
     }
   ],
   "extraFiles": [

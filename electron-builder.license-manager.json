@@ -4,6 +4,12 @@
   "copyright": "Copyright © 2026 Tolou. All rights reserved.",
   "directories": { "output": "release-license-manager" },
   "files": ["apps/license-manager/**/*"],
+  "extraResources": [
+    {
+      "from": "build/tolou-canonical.png",
+      "to": "branding/tolou-canonical.png"
+    }
+  ],
   "extraMetadata": { "main": "apps/license-manager/main.js" },
   "win": {
     "target": [{ "target": "nsis", "arch": ["x64"] }],

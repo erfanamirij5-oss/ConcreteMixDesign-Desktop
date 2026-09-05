@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 from pathlib import Path
 
 from PIL import Image, ImageFile
 
 
-SOURCE_ARTWORK_B64 = Path("build/tolou-source.jpg.b64")
+SOURCE_ARTWORK_B64 = Path("build/tolou-canonical.png.b64")
+LEGACY_SOURCE_ARTWORK_B64 = Path("build/tolou-source.jpg.b64")
 FALLBACK_ICON = Path("build/tolou.ico")
+OUTPUT_PNG = Path("build/tolou-canonical.png")
 OUTPUT_ICON = Path("build/tolou.generated.ico")
 ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+CANONICAL_PNG_SHA256 = "86fb0e54312f88105e16c0f80597cc9cdabcfbab2111e870cc0d588ff7e38534"
 
 
 def _load_image_bytes(raw: bytes, label: str) -> Image.Image:
@@ -31,32 +35,49 @@ def _load_image_bytes(raw: bytes, label: str) -> Image.Image:
     return rgba
 
 
-def load_source() -> Image.Image:
+def _decode_source(path: Path) -> bytes:
+    encoded = path.read_text(encoding="ascii").strip()
+    return base64.b64decode(encoded, validate=True)
+
+
+def load_source() -> tuple[Image.Image, bytes, str]:
     source_error: Exception | None = None
 
     if SOURCE_ARTWORK_B64.is_file():
         try:
-            encoded = SOURCE_ARTWORK_B64.read_text(encoding="ascii").strip()
-            raw = base64.b64decode(encoded, validate=True)
-            return _load_image_bytes(raw, str(SOURCE_ARTWORK_B64))
+            raw = _decode_source(SOURCE_ARTWORK_B64)
+            digest = hashlib.sha256(raw).hexdigest()
+            if digest != CANONICAL_PNG_SHA256:
+                raise ValueError(
+                    f"canonical Tolou PNG digest mismatch: {digest}; expected {CANONICAL_PNG_SHA256}"
+                )
+            if not raw.startswith(PNG_SIGNATURE):
+                raise ValueError("canonical Tolou artwork is not PNG data")
+            return _load_image_bytes(raw, str(SOURCE_ARTWORK_B64)), raw, "canonical PNG"
         except Exception as exc:
             source_error = exc
 
+    # Legacy sources remain recovery-only. Production builds should always use
+    # the canonical PNG above so the customer app and License Manager share the
+    # exact approved Tolou artwork.
+    if LEGACY_SOURCE_ARTWORK_B64.is_file():
+        try:
+            raw = _decode_source(LEGACY_SOURCE_ARTWORK_B64)
+            return _load_image_bytes(raw, str(LEGACY_SOURCE_ARTWORK_B64)), raw, "legacy artwork fallback"
+        except Exception as exc:
+            source_error = exc if source_error is None else source_error
+
     if FALLBACK_ICON.is_file():
         try:
-            return _load_image_bytes(FALLBACK_ICON.read_bytes(), str(FALLBACK_ICON))
+            raw = FALLBACK_ICON.read_bytes()
+            return _load_image_bytes(raw, str(FALLBACK_ICON)), raw, "legacy ICO fallback"
         except Exception as fallback_exc:
             detail = f"Primary source error: {source_error}; fallback error: {fallback_exc}"
             raise SystemExit(f"Tolou icon sources are invalid. {detail}") from fallback_exc
 
-    if source_error is not None:
-        raise SystemExit(
-            f"Tolou source artwork is invalid and no fallback icon exists: {source_error}"
-        ) from source_error
-
     raise SystemExit(
-        f"Tolou source artwork is missing: {SOURCE_ARTWORK_B64}; "
-        f"fallback icon is also missing: {FALLBACK_ICON}"
+        f"Tolou canonical artwork is missing or invalid: {SOURCE_ARTWORK_B64}. "
+        f"Last source error: {source_error}"
     )
 
 
@@ -80,15 +101,20 @@ def _validate_png_backed_entries(data: bytes) -> None:
 
 
 def main() -> None:
-    rgba = load_source()
+    rgba, raw_source, source_label = load_source()
 
-    # PNG-backed ICO entries preserve alpha/mask semantics reliably for Windows
-    # shell shortcuts, taskbar icons, title-bar icons and Electron resources.
-    rgba.save(
-        OUTPUT_ICON,
-        format="ICO",
-        sizes=ICON_SIZES,
-    )
+    # Materialize the exact approved PNG for BrowserWindow/taskbar branding and
+    # package it as a runtime resource. For a canonical source, preserve bytes
+    # exactly instead of re-encoding the artwork.
+    if source_label == "canonical PNG":
+        OUTPUT_PNG.write_bytes(raw_source)
+    else:
+        rgba.save(OUTPUT_PNG, format="PNG")
+
+    # PNG-backed ICO entries preserve alpha semantics across Electron resources
+    # and Windows shell surfaces. Real Windows visual acceptance remains the
+    # release criterion; this validation only protects the binary structure.
+    rgba.save(OUTPUT_ICON, format="ICO", sizes=ICON_SIZES)
 
     data = OUTPUT_ICON.read_bytes()
     if len(data) < 10_000 or data[:4] != b"\x00\x00\x01\x00":
@@ -98,8 +124,8 @@ def main() -> None:
     count = int.from_bytes(data[4:6], "little")
 
     print(
-        f"Generated PNG-backed Tolou icon: {OUTPUT_ICON} "
-        f"({len(data)} bytes, {count} sizes)"
+        f"Prepared Tolou branding from {source_label}: {OUTPUT_PNG}, {OUTPUT_ICON} "
+        f"({len(data)} ICO bytes, {count} sizes)"
     )
 
 
