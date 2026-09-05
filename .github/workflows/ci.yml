@@ -66,6 +66,15 @@ jobs:
         run: node dist/electron/securityRuntimeIsolationSmoke.js
       - name: Gate 09 upgrade and security backup smoke test
         run: node dist/electron/gate09UpgradeBackupSmoke.js
+      - name: Gate 10 commercial licensing smoke test
+        run: node dist/electron/licensingSmoke.js
+      - name: Reject committed private license signing keys
+        shell: bash
+        run: |
+          if git grep -n 'BEGIN PRIVATE KEY' -- ':!package-lock.json'; then
+            echo 'Private signing material must never be committed.'
+            exit 1
+          fi
 
   python-engine:
     name: Python engine tests
@@ -123,11 +132,16 @@ jobs:
           foreach ($migration in @($migration015, $migration016, $migration017, $migration018, $migration019, $migration020, $migration021, $migration022)) {
             if (-not (Test-Path $migration)) { throw "Required database migration is missing from packaged application: $migration" }
           }
+          $asar = 'release/win-unpacked/resources/app.asar'
+          if (-not (Test-Path $asar)) { throw 'Packaged app.asar is missing.' }
+          $asarList = npx --yes asar list $asar
+          if ($asarList -notmatch 'dist\\electron\\licensingService.js' -and $asarList -notmatch 'dist/electron/licensingService.js') { throw 'Licensing runtime is missing from app.asar.' }
+          if ($asarList -notmatch 'dist\\electron\\licensePublicKey.js' -and $asarList -notmatch 'dist/electron/licensePublicKey.js') { throw 'License public verification key module is missing from app.asar.' }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
-          Write-Host 'Packaged migration chain verified through migration 022.'
+          Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present.'
       - name: Verify installer artifact
         shell: pwsh
         run: |
