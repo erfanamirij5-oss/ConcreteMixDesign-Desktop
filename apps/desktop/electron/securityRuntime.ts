@@ -40,7 +40,8 @@ export function requireRendererPermission(sender: WebContents, permission: Secur
   const sessionId = rendererSessions.get(sender.id);
   if (!sessionId) throw new Error('Authentication required.');
   const session = getSecurityService().requirePermission(sessionId, permission);
-  if (permission.startsWith('engineering.')) requireProductAccess();
+  const feature = featureForPermission(permission);
+  if (feature) requireProductAccess(feature);
   return session;
 }
 
@@ -53,4 +54,10 @@ export function getRendererSession(sender: WebContents): SecuritySession | null 
     rendererSessions.delete(sender.id);
     return null;
   }
+}
+
+function featureForPermission(permission: SecurityPermission): string | null {
+  if (permission === 'engineering.report.generate') return 'reports';
+  if (permission === 'engineering.trial.manage') return 'trial-mix';
+  return permission.startsWith('engineering.') ? 'engineering' : null;
 }
