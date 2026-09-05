@@ -22,6 +22,7 @@ function payload(overrides: Partial<LicensePayload> = {}): LicensePayload {
     licenseId: 'LIC-GATE10-001',
     customerName: 'Tolou Commercial Customer',
     edition: 'professional',
+    licenseType: 'commercial',
     issuedAt: '2026-09-01T00:00:00.000Z',
     expiresAt: '2027-09-01T00:00:00.000Z',
     perpetual: false,
@@ -43,6 +44,12 @@ try {
   assert.equal(activeStatus.licensed, true);
   assert.equal(activeStatus.customerName, 'Tolou Commercial Customer');
 
+  const trial = sign(payload({ licenseId: 'LIC-TRIAL-001', licenseType: 'trial', edition: 'trial' }));
+  assert.equal(verifyLicenseDocument(trial, { publicKeyPem, machineFingerprint: machine, now }).state, 'trial');
+
+  const grace = sign(payload({ licenseId: 'LIC-GRACE-001', licenseType: 'grace', edition: 'grace' }));
+  assert.equal(verifyLicenseDocument(grace, { publicKeyPem, machineFingerprint: machine, now }).state, 'grace');
+
   const tampered = structuredClone(active);
   tampered.payload.customerName = 'Tampered Customer';
   assert.equal(verifyLicenseDocument(tampered, { publicKeyPem, machineFingerprint: machine, now }).state, 'invalid');
@@ -58,6 +65,7 @@ try {
 
   const perpetual = sign(payload({ perpetual: true, expiresAt: null }));
   assert.equal(verifyLicenseDocument(perpetual, { publicKeyPem, machineFingerprint: machine, now }).state, 'active');
+  assert.equal(verifyLicenseDocument(sign(payload({ licenseType: 'trial', perpetual: true, expiresAt: null })), { publicKeyPem, machineFingerprint: machine, now }).state, 'invalid');
 
   const futureSchema = sign(payload({ schemaVersion: TOLOU_LICENSE_SCHEMA_VERSION + 1 }));
   assert.equal(verifyLicenseDocument(futureSchema, { publicKeyPem, machineFingerprint: machine, now }).state, 'incompatible');
@@ -78,6 +86,10 @@ try {
   assert.ok(existsSync(clockStatePath));
   assert.equal(JSON.parse(readFileSync(licensePath, 'utf8')).payload.licenseId, 'LIC-GATE10-001');
 
+  const replacement = sign(payload({ licenseId: 'LIC-GATE10-002', customerName: 'Replacement Customer' }));
+  assert.equal(service.importLicense(JSON.stringify(replacement)).licenseId, 'LIC-GATE10-002');
+  assert.equal(JSON.parse(readFileSync(licensePath, 'utf8')).payload.customerName, 'Replacement Customer');
+
   const bytesBeforeRejectedImport = readFileSync(licensePath);
   assert.throws(() => service.importLicense(JSON.stringify(tampered)), /signature/i);
   assert.deepEqual(readFileSync(licensePath), bytesBeforeRejectedImport, 'Rejected license replacement must not modify the installed license.');
@@ -92,7 +104,7 @@ try {
   assert.equal(service.getStatus().state, 'unlicensed');
   assert.ok(!existsSync(licensePath));
 
-  console.log('Gate 10 licensing smoke passed: Ed25519 signature, tamper/product/machine/expiry/schema rejection, perpetual license, persistence, rejected replacement preservation and clock rollback protection verified.');
+  console.log('Gate 10 licensing smoke passed: Ed25519 signature, active/trial/grace states, tamper/product/machine/expiry/schema rejection, perpetual license, safe replacement, persistence and clock rollback protection verified.');
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
 }
