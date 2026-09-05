@@ -136,14 +136,15 @@ jobs:
           }
           $asar = 'release/win-unpacked/resources/app.asar'
           if (-not (Test-Path $asar)) { throw 'Packaged app.asar is missing.' }
-          $asarList = npx --yes asar list $asar
-          if ($asarList -notmatch 'dist\\electron\\licensingService.js' -and $asarList -notmatch 'dist/electron/licensingService.js') { throw 'Licensing runtime is missing from app.asar.' }
-          if ($asarList -notmatch 'dist\\electron\\licensePublicKey.js' -and $asarList -notmatch 'dist/electron/licensePublicKey.js') { throw 'License public verification key module is missing from app.asar.' }
+          $asarText = (npx --yes asar list $asar) -join "`n"
+          if ($asarText -notmatch 'dist[\\/]electron[\\/]licensingService.js') { throw 'Licensing runtime is missing from app.asar.' }
+          if ($asarText -notmatch 'dist[\\/]electron[\\/]licensePublicKey.js') { throw 'License public verification key module is missing from app.asar.' }
+          if ($asarText -match 'PRIVATE KEY') { throw 'Private signing material must never be packaged.' }
           $health = '{}' | & $engine health
           $parsed = $health | ConvertFrom-Json
           if ($parsed.status -ne 'pass' -or $parsed.version -ne '0.3.0') { throw "Bundled engineering engine health check failed: $health" }
           Write-Host "Bundled engine health verified: $($parsed.engine) v$($parsed.version)"
-          Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present.'
+          Write-Host 'Packaged migration chain verified through migration 022; Gate 10 licensing runtime present without private signing material.'
       - name: Verify installer artifact
         shell: pwsh
         run: |
