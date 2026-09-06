@@ -26,8 +26,8 @@ Automated verification is not Windows verification, and Windows verification is 
 | G02 | Concrete engineering master matrix | AUTOMATED_VERIFIED | Verified head `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`; workflow run `34049796758` completed successfully, including Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
 | G03 | Versioned standards rule engine | AUTOMATED_VERIFIED | Verified head `c7c76e28930dfb7eef4b61b4150af37a42eadb76`; workflow run `34052032937` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No unverified normative numerical limits were added. |
 | G04 | Tolou Engineering Advisor | AUTOMATED_VERIFIED | Verified head `f37638b0d850d3b9e6d726b96080a97046cea482`; workflow run `34053839949` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
-| G05 | Universal material intelligence | IN_PROGRESS | Provenance-preserving material property contract, confidence classification, fail-closed categories, deterministic source warnings, tests and architecture contract implemented on `feature/g05-universal-material-intelligence`; awaiting full CI evidence. |
-| G06 | Normal / HSC / HPC engines | NOT_STARTED | Depends on G03/G05. |
+| G05 | Universal material intelligence | AUTOMATED_VERIFIED | Verified head `0d343edb73623129b00cbae2947475216547eecc`; workflow run `34054187760` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. Provenance and confidence remain explicit; no normative limits were added. |
+| G06 | Normal / HSC / HPC engines | PLANNED | Next gate. Depends on G03/G05; family-specific strategies must remain separate and fail closed when unsupported. |
 | G07 | SCC / pumpable engines | NOT_STARTED | Depends on G06. |
 | G08 | Lightweight / heavyweight engines | NOT_STARTED | Depends on G05/G06. |
 | G09 | FRC / shotcrete / RCC / pervious / mass / special placement | NOT_STARTED | Depends on preceding material/design foundations. |
@@ -131,12 +131,13 @@ Automated verification is not Windows verification, and Windows verification is 
 - Golden baseline changed: no
 - Merge/tag/release performed: no
 
-## G05 current record
+## G05 completion record
 
 - Gate: `G05`
-- Status: `IN_PROGRESS`
+- Status: `AUTOMATED_VERIFIED`
 - Branch: `feature/g05-universal-material-intelligence`
 - Parent verified state commit: `362c4f10b49d600b1961f7fd88cd4c68dfc65c55`
+- Verified implementation head: `0d343edb73623129b00cbae2947475216547eecc`
 - Core module: `engine/python/src/tolou_mix_engine/material_intelligence.py`
 - Tests: `engine/python/tests/test_material_intelligence.py`
 - Contract: `docs/upgrade/G05_UNIVERSAL_MATERIAL_INTELLIGENCE.md`
@@ -144,11 +145,14 @@ Automated verification is not Windows verification, and Windows verification is 
 - Confidence: verified / material-specific / declared / preliminary
 - Existing material engineering/compliance modules replaced: no
 - New normative numerical limits added: none
+- CI run: `34054187760`
+- Python engineering regression: PASS
+- Golden baseline and desktop regression: PASS
+- Windows packaging evidence: PASS
 - Database migrations changed: none
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
-- Final CI evidence: pending
 
 ## Change-control rules
 
