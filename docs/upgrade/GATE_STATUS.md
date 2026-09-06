@@ -7,7 +7,7 @@ This file is the repository source of truth for the G00–G24 upgrade program. C
 - Golden accepted branch: `release/v1.0.1-accepted`
 - Golden accepted commit: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
 - Development branch: `upgrade/v1.1`
-- Current implementation branch: `feature/g01-universal-concrete-architecture`
+- Current implementation branch: `feature/g03-versioned-standards-rule-engine`
 - Existing database migration ceiling at program start: `022_users_roles_audit_security`
 - Owner: Engineer Erfan Amiri
 
@@ -23,8 +23,8 @@ Automated verification is not Windows verification, and Windows verification is 
 |---|---|---|---|
 | G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
 | G01 | Universal concrete family architecture | AUTOMATED_VERIFIED | Implementation verified at head `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`; workflow run `34049408496` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No planned family is exposed as an implemented production engine. |
-| G02 | Concrete engineering master matrix | PLANNED | Next gate. Scientific scope/reference matrix before family-specific algorithms. |
-| G03 | Versioned standards rule engine | NOT_STARTED | Depends on G02. |
+| G02 | Concrete engineering master matrix | AUTOMATED_VERIFIED | Verified head `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`; workflow run `34049796758` completed successfully, including Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
+| G03 | Versioned standards rule engine | IN_PROGRESS | Implementation branch `feature/g03-versioned-standards-rule-engine`. Adds edition-pinned rule-pack infrastructure; no unverified normative numerical limits are permitted. |
 | G04 | Tolou Engineering Advisor | NOT_STARTED | Depends on G02/G03. |
 | G05 | Universal material intelligence | NOT_STARTED | Depends on G02. |
 | G06 | Normal / HSC / HPC engines | NOT_STARTED | Depends on G03/G05. |
@@ -54,12 +54,7 @@ Automated verification is not Windows verification, and Windows verification is 
 - Branch: `feature/g00-upgrade-foundation`
 - Golden baseline: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
 - Implementation head: `feee70317dc0051f71edad0d81cd41bd34cbd1d8`
-- New regression: `apps/desktop/electron/v101GoldenBaselineUpgradeSmoke.ts`
-- CI workflow: `.github/workflows/upgrade-v1.1-foundation.yml`
 - CI run: `34048919939`
-- Desktop golden-baseline/regression job: PASS
-- Python engineering regression job: PASS
-- Windows packaging evidence job: PASS
 - Database migrations changed: none
 - Licensing changed: no
 - Golden baseline changed: no
@@ -70,13 +65,22 @@ Automated verification is not Windows verification, and Windows verification is 
 - Gate: `G01`
 - Status: `AUTOMATED_VERIFIED`
 - Branch: `feature/g01-universal-concrete-architecture`
-- Parent head: `3f737c9a4da19487733414586b26d96d5ead5d01`
 - Verified implementation head: `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`
-- New engine module: `engine/python/src/tolou_mix_engine/concrete_families.py`
-- CLI routing: `engine/python/src/tolou_mix_engine/cli.py`
-- Tests: `engine/python/tests/test_concrete_family_registry.py`
-- Architecture contract: `docs/upgrade/G01_UNIVERSAL_CONCRETE_ARCHITECTURE.md`
 - CI run: `34049408496`
+- Database migrations changed: none
+- Licensing changed: no
+- Golden baseline changed: no
+- Merge/tag/release performed: no
+
+## G02 completion record
+
+- Gate: `G02`
+- Status: `AUTOMATED_VERIFIED`
+- Branch: `feature/g02-concrete-engineering-master-matrix`
+- Verified implementation head: `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`
+- Engineering matrix: `engine/python/src/tolou_mix_engine/concrete_family_matrix.py`
+- Scientific architecture document: `docs/upgrade/G02_CONCRETE_ENGINEERING_MASTER_MATRIX.md`
+- CI run: `34049796758`
 - Python engineering regression: PASS
 - Golden baseline and desktop regression: PASS
 - Windows packaging evidence: PASS
@@ -84,7 +88,21 @@ Automated verification is not Windows verification, and Windows verification is 
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
-- Real installed-Windows verification: NOT REQUIRED/NOT CLAIMED for this non-user-visible architecture gate
+
+## G03 current record
+
+- Gate: `G03`
+- Status: `IN_PROGRESS`
+- Branch: `feature/g03-versioned-standards-rule-engine`
+- Parent verified head: `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`
+- Core module: `engine/python/src/tolou_mix_engine/standards.py`
+- Tests: `engine/python/tests/test_standards_rule_engine.py`
+- Contract: `docs/upgrade/G03_VERSIONED_STANDARDS_RULE_ENGINE.md`
+- Numerical production standard limits added: none; authoritative source review remains mandatory before such rules are registered.
+- Database migrations changed: none
+- Licensing changed: no
+- Golden baseline changed: no
+- Merge/tag/release performed: no
 
 ## Change-control rules
 
