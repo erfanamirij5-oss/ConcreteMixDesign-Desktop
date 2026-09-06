@@ -18,9 +18,6 @@ class ConcreteFamilyDefinition:
     aliases: tuple[str, ...] = ()
 
 
-# G01 establishes a stable, extensible family registry only. A family being listed here does
-# NOT mean its engineering algorithm is implemented. Only families with implementation_status
-# == "active" and an explicit supported command may be routed to a calculation engine.
 CONCRETE_FAMILIES: tuple[ConcreteFamilyDefinition, ...] = (
     ConcreteFamilyDefinition(
         id="normal_weight",
@@ -29,7 +26,7 @@ CONCRETE_FAMILIES: tuple[ConcreteFamilyDefinition, ...] = (
         category="conventional",
         design_strategy="normal_weight_absolute_volume",
         implementation_status="active",
-        supported_commands=("calculate-normal-mix",),
+        supported_commands=("calculate-normal-mix", "calculate-family-mix"),
         aliases=("normal", "normal_concrete"),
     ),
     ConcreteFamilyDefinition(
@@ -42,8 +39,26 @@ CONCRETE_FAMILIES: tuple[ConcreteFamilyDefinition, ...] = (
         supported_commands=("calculate-normal-mix",),
         aliases=("pumpable", "pumped_concrete"),
     ),
-    ConcreteFamilyDefinition("high_strength", "بتن پرمقاومت", "High-strength concrete", "performance", "high_strength", "planned", aliases=("hsc",)),
-    ConcreteFamilyDefinition("high_performance", "بتن توانمند", "High-performance concrete", "performance", "high_performance", "planned", aliases=("hpc",)),
+    ConcreteFamilyDefinition(
+        "high_strength",
+        "بتن پرمقاومت",
+        "High-strength concrete",
+        "performance",
+        "high_strength_explicit_input_absolute_volume",
+        "active",
+        supported_commands=("calculate-family-mix",),
+        aliases=("hsc",),
+    ),
+    ConcreteFamilyDefinition(
+        "high_performance",
+        "بتن توانمند",
+        "High-performance concrete",
+        "performance",
+        "high_performance_explicit_input_absolute_volume",
+        "active",
+        supported_commands=("calculate-family-mix",),
+        aliases=("hpc",),
+    ),
     ConcreteFamilyDefinition("self_consolidating", "بتن خودتراکم", "Self-consolidating concrete", "rheology", "self_consolidating", "planned", aliases=("scc", "self_compacting")),
     ConcreteFamilyDefinition("structural_lightweight", "بتن سبک سازه‌ای", "Structural lightweight concrete", "density_specialized", "structural_lightweight", "planned", aliases=("lightweight", "slwc")),
     ConcreteFamilyDefinition("heavyweight", "بتن سنگین", "Heavyweight concrete", "density_specialized", "heavyweight", "planned"),
