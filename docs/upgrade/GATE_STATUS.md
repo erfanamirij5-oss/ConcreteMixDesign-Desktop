@@ -7,7 +7,7 @@ This file is the repository source of truth for the G00–G24 upgrade program. C
 - Golden accepted branch: `release/v1.0.1-accepted`
 - Golden accepted commit: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
 - Development branch: `upgrade/v1.1`
-- Current implementation branch: `feature/g00-upgrade-foundation`
+- Current implementation branch: `feature/g01-universal-concrete-architecture`
 - Existing database migration ceiling at program start: `022_users_roles_audit_security`
 - Owner: Engineer Erfan Amiri
 
@@ -22,7 +22,7 @@ Automated verification is not Windows verification, and Windows verification is 
 | Gate | Title | Status | Evidence / Notes |
 |---|---|---|---|
 | G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
-| G01 | Universal concrete family architecture | PLANNED | Next gate after G00 automated verification. |
+| G01 | Universal concrete family architecture | IN_PROGRESS | Family registry, explicit capability routing, registry tests and G01 architecture contract implemented on `feature/g01-universal-concrete-architecture`; awaiting final branch CI evidence before status can become `AUTOMATED_VERIFIED`. |
 | G02 | Concrete engineering master matrix | NOT_STARTED | Depends on G01. |
 | G03 | Versioned standards rule engine | NOT_STARTED | Depends on G02. |
 | G04 | Tolou Engineering Advisor | NOT_STARTED | Depends on G02/G03. |
@@ -65,6 +65,22 @@ Automated verification is not Windows verification, and Windows verification is 
 - Golden baseline changed: no
 - Merge/tag/release performed: no
 - Real installed-Windows verification: NOT YET VERIFIED for this branch; not required to claim automated verification
+
+## G01 current record
+
+- Gate: `G01`
+- Status: `IN_PROGRESS`
+- Branch: `feature/g01-universal-concrete-architecture`
+- Parent head: `3f737c9a4da19487733414586b26d96d5ead5d01`
+- New engine module: `engine/python/src/tolou_mix_engine/concrete_families.py`
+- CLI routing: `engine/python/src/tolou_mix_engine/cli.py`
+- Tests: `engine/python/tests/test_concrete_family_registry.py`
+- Architecture contract: `docs/upgrade/G01_UNIVERSAL_CONCRETE_ARCHITECTURE.md`
+- Database migrations changed: none
+- Licensing changed: no
+- Golden baseline changed: no
+- Merge/tag/release performed: no
+- Final CI evidence: pending
 
 ## G00 acceptance criteria
 
