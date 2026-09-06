@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from tolou_mix_engine.concrete_family_matrix import get_family_matrix_entry
 from tolou_mix_engine.standards import RuleOutcome, RuleResult
