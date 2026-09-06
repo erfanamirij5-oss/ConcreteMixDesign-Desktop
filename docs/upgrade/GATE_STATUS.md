@@ -22,8 +22,8 @@ Automated verification is not Windows verification, and Windows verification is 
 | Gate | Title | Status | Evidence / Notes |
 |---|---|---|---|
 | G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
-| G01 | Universal concrete family architecture | IN_PROGRESS | Family registry, explicit capability routing, registry tests and G01 architecture contract implemented on `feature/g01-universal-concrete-architecture`; awaiting final branch CI evidence before status can become `AUTOMATED_VERIFIED`. |
-| G02 | Concrete engineering master matrix | NOT_STARTED | Depends on G01. |
+| G01 | Universal concrete family architecture | AUTOMATED_VERIFIED | Implementation verified at head `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`; workflow run `34049408496` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No planned family is exposed as an implemented production engine. |
+| G02 | Concrete engineering master matrix | PLANNED | Next gate. Scientific scope/reference matrix before family-specific algorithms. |
 | G03 | Versioned standards rule engine | NOT_STARTED | Depends on G02. |
 | G04 | Tolou Engineering Advisor | NOT_STARTED | Depends on G02/G03. |
 | G05 | Universal material intelligence | NOT_STARTED | Depends on G02. |
@@ -64,34 +64,27 @@ Automated verification is not Windows verification, and Windows verification is 
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
-- Real installed-Windows verification: NOT YET VERIFIED for this branch; not required to claim automated verification
 
-## G01 current record
+## G01 completion record
 
 - Gate: `G01`
-- Status: `IN_PROGRESS`
+- Status: `AUTOMATED_VERIFIED`
 - Branch: `feature/g01-universal-concrete-architecture`
 - Parent head: `3f737c9a4da19487733414586b26d96d5ead5d01`
+- Verified implementation head: `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`
 - New engine module: `engine/python/src/tolou_mix_engine/concrete_families.py`
 - CLI routing: `engine/python/src/tolou_mix_engine/cli.py`
 - Tests: `engine/python/tests/test_concrete_family_registry.py`
 - Architecture contract: `docs/upgrade/G01_UNIVERSAL_CONCRETE_ARCHITECTURE.md`
+- CI run: `34049408496`
+- Python engineering regression: PASS
+- Golden baseline and desktop regression: PASS
+- Windows packaging evidence: PASS
 - Database migrations changed: none
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
-- Final CI evidence: pending
-
-## G00 acceptance criteria
-
-1. Accepted v1.0.1 representative engineering data is preserved through the upgrade path.
-2. A validated pre-upgrade database backup is produced before migration execution.
-3. Re-running runtime migrations is idempotent.
-4. SQLite `quick_check` and foreign-key integrity remain clean after upgrade.
-5. Existing desktop/security/licensing/report/backup/persistence regression gates pass.
-6. Python engineering regression passes.
-7. CI runs automatically for `upgrade/v1.1` and `feature/**` branches.
-8. Windows installer packaging/resources are automatically checked, without claiming real installed-Windows acceptance.
+- Real installed-Windows verification: NOT REQUIRED/NOT CLAIMED for this non-user-visible architecture gate
 
 ## Change-control rules
 
