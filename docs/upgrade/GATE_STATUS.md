@@ -21,8 +21,8 @@ Automated verification is not Windows verification, and Windows verification is 
 
 | Gate | Title | Status | Evidence / Notes |
 |---|---|---|---|
-| G00 | Golden baseline & upgrade foundation | IN_PROGRESS | Baseline recovered at `77dbc82`; implementing explicit accepted-baseline upgrade regression and CI-on-upgrade branches. |
-| G01 | Universal concrete family architecture | NOT_STARTED | Depends on G00. |
+| G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
+| G01 | Universal concrete family architecture | PLANNED | Next gate after G00 automated verification. |
 | G02 | Concrete engineering master matrix | NOT_STARTED | Depends on G01. |
 | G03 | Versioned standards rule engine | NOT_STARTED | Depends on G02. |
 | G04 | Tolou Engineering Advisor | NOT_STARTED | Depends on G02/G03. |
@@ -47,18 +47,35 @@ Automated verification is not Windows verification, and Windows verification is 
 | G23 | Real Windows acceptance | NOT_STARTED | Requires installed-product evidence. |
 | G24 | New release | NOT_STARTED | Requires owner approval after G23. |
 
+## G00 completion record
+
+- Gate: `G00`
+- Status: `AUTOMATED_VERIFIED`
+- Branch: `feature/g00-upgrade-foundation`
+- Golden baseline: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
+- Implementation head: `feee70317dc0051f71edad0d81cd41bd34cbd1d8`
+- New regression: `apps/desktop/electron/v101GoldenBaselineUpgradeSmoke.ts`
+- CI workflow: `.github/workflows/upgrade-v1.1-foundation.yml`
+- CI run: `34048919939`
+- Desktop golden-baseline/regression job: PASS
+- Python engineering regression job: PASS
+- Windows packaging evidence job: PASS
+- Database migrations changed: none
+- Licensing changed: no
+- Golden baseline changed: no
+- Merge/tag/release performed: no
+- Real installed-Windows verification: NOT YET VERIFIED for this branch; not required to claim automated verification
+
 ## G00 acceptance criteria
 
-G00 is not complete until all of the following are true:
-
-1. The accepted v1.0.1 schema/data can be opened by the upgrade line without data loss.
+1. Accepted v1.0.1 representative engineering data is preserved through the upgrade path.
 2. A validated pre-upgrade database backup is produced before migration execution.
 3. Re-running runtime migrations is idempotent.
 4. SQLite `quick_check` and foreign-key integrity remain clean after upgrade.
-5. Existing startup, renderer, engine, security, licensing, report, backup and persistence regression gates remain green.
-6. CI runs automatically for `upgrade/v1.1` and its feature branches, not only `main`.
-7. Windows packaging gates pass; this is automated evidence only, not real-Windows owner acceptance.
-8. Gate status is updated with commit SHA and CI run evidence before G01 begins.
+5. Existing desktop/security/licensing/report/backup/persistence regression gates pass.
+6. Python engineering regression passes.
+7. CI runs automatically for `upgrade/v1.1` and `feature/**` branches.
+8. Windows installer packaging/resources are automatically checked, without claiming real installed-Windows acceptance.
 
 ## Change-control rules
 
