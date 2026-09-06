@@ -4,6 +4,12 @@ import json
 import sys
 
 from tolou_mix_engine import __version__
+from tolou_mix_engine.concrete_families import (
+    get_concrete_family,
+    list_concrete_families,
+    normalize_concrete_family_id,
+    supports_engine_command,
+)
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
@@ -78,6 +84,49 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
     }
 
 
+def validate_family_command_request(payload: dict, command: str) -> tuple[dict | None, dict]:
+    source = dict(payload if isinstance(payload, dict) else {})
+    requested = source.get("concrete_type") or "normal_weight"
+    canonical_id = normalize_concrete_family_id(requested)
+    source["concrete_type"] = canonical_id
+    if supports_engine_command(canonical_id, command):
+        return None, source
+
+    family = get_concrete_family(canonical_id)
+    return (
+        {
+            "status": "fail",
+            "engine": "tolou-mix-engine",
+            "engine_version": __version__,
+            "error": "unsupported_concrete_type_for_current_engine",
+            "concrete_family": canonical_id,
+            "implementation_status": family.implementation_status if family else "unknown",
+            "design_strategy": family.design_strategy if family else None,
+            "mix_proportions": {},
+            "warnings": [
+                {
+                    "code": "CONCRETE_TYPE_NOT_IMPLEMENTED",
+                    "severity": "fail",
+                    "message": (
+                        f"خانواده بتن '{canonical_id}' در کاتالوگ مهندسی Tolou ثبت شده است، "
+                        "اما هنوز برای این فرمان یک موتور محاسباتی اعتبارسنجی‌شده فعال ندارد."
+                    ),
+                    "reference": "Tolou concrete-family capability registry",
+                }
+            ],
+            "engineering_notes": [
+                "ثبت یک خانواده در کاتالوگ به معنی پیاده‌سازی الگوریتم آن نیست.",
+                "سیستم عمداً از عبور خانواده‌های پشتیبانی‌نشده از موتور بتن معمولی جلوگیری می‌کند.",
+            ],
+            "limitations": [
+                "تا زمان پیاده‌سازی و اعتبارسنجی Strategy اختصاصی این خانواده، نسبت اختلاط Production تولید نمی‌شود."
+            ],
+            "calculation_pipeline": ["concrete_family_registry", "engineering_scope_guard"],
+        },
+        source,
+    )
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(json.dumps({"status": "fail", "error": "missing command"}, ensure_ascii=False))
@@ -93,8 +142,17 @@ def main() -> int:
             "version": __version__,
             "message": "Python engineering engine is ready.",
         }
+    elif command == "list-concrete-families":
+        response = {
+            "status": "pass",
+            "engine": "tolou-mix-engine",
+            "engine_version": __version__,
+            "schema_version": 1,
+            "families": list_concrete_families(),
+        }
     elif command == "calculate-normal-mix":
-        response = validate_normal_mix_request(payload) or calculate_integrated_normal_mix(payload)
+        family_error, normalized_payload = validate_family_command_request(payload, command)
+        response = family_error or validate_normal_mix_request(normalized_payload) or calculate_integrated_normal_mix(normalized_payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
