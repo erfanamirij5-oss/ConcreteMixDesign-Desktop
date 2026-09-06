@@ -5,10 +5,17 @@ const { signPayload } = require('./licenseContract');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function getWindowIconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'branding', 'tolou-standard.ico')
+    : path.join(process.cwd(), 'build', 'tolou-standard.ico');
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 920, height: 760, minWidth: 820, minHeight: 680,
     title: 'مدیریت لایسنس طلوع',
+    icon: getWindowIconPath(),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   win.removeMenu();
