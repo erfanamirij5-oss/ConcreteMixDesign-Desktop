@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
-const { signPayload } = require('./licenseContract');
+const { createPersianLicenseDocument } = require('./licenseContract');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -54,10 +54,10 @@ ipcMain.handle('license:issue', async (_event, input) => {
     features: Array.isArray(input.features) ? input.features.filter(Boolean) : []
   };
   const privateKeyPem = readFileSync(input.privateKeyPath, 'utf8');
-  const signature = signPayload(payload, privateKeyPem);
+  const document = createPersianLicenseDocument(payload, privateKeyPem);
   const save = await dialog.showSaveDialog({ defaultPath: `${payload.licenseId}.license.json`, filters: [{ name: 'فایل لایسنس طلوع', extensions: ['json'] }] });
   if (save.canceled || !save.filePath) return { canceled: true };
-  writeFileSync(save.filePath, `${JSON.stringify({ payload, signature }, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  writeFileSync(save.filePath, `${JSON.stringify(document, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
   return { canceled: false, filePath: save.filePath, licenseId: payload.licenseId, issuedAt: payload.issuedAt, expiresAt: payload.expiresAt, durationDays };
 });
 
