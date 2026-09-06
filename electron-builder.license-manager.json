@@ -5,17 +5,14 @@
   "directories": { "output": "release-license-manager" },
   "files": ["apps/license-manager/**/*"],
   "extraResources": [
-    {
-      "from": "build/tolou-canonical.png",
-      "to": "branding/tolou-canonical.png"
-    }
+    { "from": "build/tolou-standard.ico", "to": "branding/tolou-standard.ico" }
   ],
   "extraMetadata": { "main": "apps/license-manager/main.js" },
   "win": {
     "target": [{ "target": "nsis", "arch": ["x64"] }],
     "artifactName": "Tolou-License-Manager-${version}-Setup.${ext}",
     "executableName": "TolouLicenseManager",
-    "icon": "build/tolou.generated.ico",
+    "icon": "build/tolou-standard.ico",
     "legalTrademarks": "Tolou",
     "requestedExecutionLevel": "asInvoker"
   },
@@ -24,8 +21,9 @@
     "perMachine": false,
     "allowElevation": true,
     "allowToChangeInstallationDirectory": true,
-    "installerIcon": "build/tolou.generated.ico",
-    "uninstallerIcon": "build/tolou.generated.ico",
+    "installerIcon": "build/tolou-standard.ico",
+    "uninstallerIcon": "build/tolou-standard.ico",
+    "installerHeaderIcon": "build/tolou-standard.ico",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Tolou License Manager",
