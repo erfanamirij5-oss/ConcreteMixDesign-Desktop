@@ -22,13 +22,13 @@ Automated verification is not Windows verification, and Windows verification is 
 | Gate | Title | Status | Evidence / Notes |
 |---|---|---|---|
 | G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
-| G01 | Universal concrete family architecture | AUTOMATED_VERIFIED | Implementation verified at head `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`; workflow run `34049408496` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No planned family is exposed as an implemented production engine. |
-| G02 | Concrete engineering master matrix | AUTOMATED_VERIFIED | Verified head `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`; workflow run `34049796758` completed successfully, including Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
-| G03 | Versioned standards rule engine | AUTOMATED_VERIFIED | Verified head `c7c76e28930dfb7eef4b61b4150af37a42eadb76`; workflow run `34052032937` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No unverified normative numerical limits were added. |
-| G04 | Tolou Engineering Advisor | AUTOMATED_VERIFIED | Verified head `f37638b0d850d3b9e6d726b96080a97046cea482`; workflow run `34053839949` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
-| G05 | Universal material intelligence | AUTOMATED_VERIFIED | Verified head `0d343edb73623129b00cbae2947475216547eecc`; workflow run `34054187760` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. Provenance and confidence remain explicit; no normative limits were added. |
-| G06 | Normal / HSC / HPC engines | IN_PROGRESS | Family-level command and separate Normal/HSC/HPC strategies implemented on `feature/g06-normal-hsc-hpc-engines`; HSC/HPC require explicit water, w/cm, air and material systems and remain Preliminary until Trial/Calibration. Awaiting full CI evidence. |
-| G07 | SCC / pumpable engines | NOT_STARTED | Depends on G06. |
+| G01 | Universal concrete family architecture | AUTOMATED_VERIFIED | Implementation verified at head `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`; workflow run `34049408496` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
+| G02 | Concrete engineering master matrix | AUTOMATED_VERIFIED | Verified head `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`; workflow run `34049796758` completed successfully. |
+| G03 | Versioned standards rule engine | AUTOMATED_VERIFIED | Verified head `c7c76e28930dfb7eef4b61b4150af37a42eadb76`; workflow run `34052032937` passed all upgrade jobs. No unverified normative numerical limits were added. |
+| G04 | Tolou Engineering Advisor | AUTOMATED_VERIFIED | Verified head `f37638b0d850d3b9e6d726b96080a97046cea482`; workflow run `34053839949` passed all upgrade jobs. |
+| G05 | Universal material intelligence | AUTOMATED_VERIFIED | Verified head `0d343edb73623129b00cbae2947475216547eecc`; workflow run `34054187760` passed all upgrade jobs. |
+| G06 | Normal / HSC / HPC engines | AUTOMATED_VERIFIED | Verified head `4ec95a040394fcbaeffac076e6b6dd12a3087907`; workflow run `34055382662` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. HSC/HPC remain Preliminary until Trial/Calibration. |
+| G07 | SCC / pumpable engines | PLANNED | Depends on verified G06. SCC must use an explicit rheology/stability strategy; pumpable concrete must remain a placement-specific overlay with explicit pumpability requirements and trial verification. |
 | G08 | Lightweight / heavyweight engines | NOT_STARTED | Depends on G05/G06. |
 | G09 | FRC / shotcrete / RCC / pervious / mass / special placement | NOT_STARTED | Depends on preceding material/design foundations. |
 | G10 | UHPC / UHPFRC engine | NOT_STARTED | Depends on G05/G06. |
@@ -47,134 +47,30 @@ Automated verification is not Windows verification, and Windows verification is 
 | G23 | Real Windows acceptance | NOT_STARTED | Requires installed-product evidence. |
 | G24 | New release | NOT_STARTED | Requires owner approval after G23. |
 
-## G00 completion record
-
-- Gate: `G00`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g00-upgrade-foundation`
-- Golden baseline: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
-- Implementation head: `feee70317dc0051f71edad0d81cd41bd34cbd1d8`
-- CI run: `34048919939`
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G01 completion record
-
-- Gate: `G01`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g01-universal-concrete-architecture`
-- Verified implementation head: `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`
-- CI run: `34049408496`
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G02 completion record
-
-- Gate: `G02`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g02-concrete-engineering-master-matrix`
-- Verified implementation head: `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`
-- Engineering matrix: `engine/python/src/tolou_mix_engine/concrete_family_matrix.py`
-- Scientific architecture document: `docs/upgrade/G02_CONCRETE_ENGINEERING_MASTER_MATRIX.md`
-- CI run: `34049796758`
-- Python engineering regression: PASS
-- Golden baseline and desktop regression: PASS
-- Windows packaging evidence: PASS
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G03 completion record
-
-- Gate: `G03`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g03-versioned-standards-rule-engine`
-- Parent verified head: `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`
-- Verified implementation head: `c7c76e28930dfb7eef4b61b4150af37a42eadb76`
-- Core module: `engine/python/src/tolou_mix_engine/standards.py`
-- Tests: `engine/python/tests/test_standards_rule_engine.py`
-- Contract: `docs/upgrade/G03_VERSIONED_STANDARDS_RULE_ENGINE.md`
-- CI run: `34052032937`
-- Python engineering regression: PASS
-- Golden baseline and desktop regression: PASS
-- Windows packaging evidence: PASS
-- Numerical production standard limits added: none; authoritative source review remains mandatory before such rules are registered.
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G04 completion record
-
-- Gate: `G04`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g04-tolou-engineering-advisor`
-- Parent verified state commit: `8605b6ab25d91de472240c32dbf834f6accac7f4`
-- Verified implementation head: `f37638b0d850d3b9e6d726b96080a97046cea482`
-- Core module: `engine/python/src/tolou_mix_engine/engineering_advisor.py`
-- Tests: `engine/python/tests/test_engineering_advisor.py`
-- Contract: `docs/upgrade/G04_TOLOU_ENGINEERING_ADVISOR.md`
-- Message classes: REQUIRED / RECOMMENDED / WARNING / ENGINEERING_INSIGHT / NEXT_ACTION
-- Confidence classes: A_VERIFIED / B_MATERIAL_SPECIFIC / C_PRELIMINARY / D_CONCEPTUAL
-- Automatic approved-revision mutation: prohibited
-- CI run: `34053839949`
-- Python engineering regression: PASS
-- Golden baseline and desktop regression: PASS
-- Windows packaging evidence: PASS
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G05 completion record
-
-- Gate: `G05`
-- Status: `AUTOMATED_VERIFIED`
-- Branch: `feature/g05-universal-material-intelligence`
-- Parent verified state commit: `362c4f10b49d600b1961f7fd88cd4c68dfc65c55`
-- Verified implementation head: `0d343edb73623129b00cbae2947475216547eecc`
-- Core module: `engine/python/src/tolou_mix_engine/material_intelligence.py`
-- Tests: `engine/python/tests/test_material_intelligence.py`
-- Contract: `docs/upgrade/G05_UNIVERSAL_MATERIAL_INTELLIGENCE.md`
-- Provenance: lab / supplier / project specification / user declared / reference default / derived
-- Confidence: verified / material-specific / declared / preliminary
-- Existing material engineering/compliance modules replaced: no
-- New normative numerical limits added: none
-- CI run: `34054187760`
-- Python engineering regression: PASS
-- Golden baseline and desktop regression: PASS
-- Windows packaging evidence: PASS
-- Database migrations changed: none
-- Licensing changed: no
-- Golden baseline changed: no
-- Merge/tag/release performed: no
-
-## G06 current record
+## G06 completion record
 
 - Gate: `G06`
-- Status: `IN_PROGRESS`
+- Status: `AUTOMATED_VERIFIED`
 - Branch: `feature/g06-normal-hsc-hpc-engines`
-- Parent verified state commit: `1969b9462f9b4b0928943b5922285274360dd8f1`
+- Verified implementation head: `4ec95a040394fcbaeffac076e6b6dd12a3087907`
 - Core module: `engine/python/src/tolou_mix_engine/family_mix.py`
 - Capability registry: `engine/python/src/tolou_mix_engine/concrete_families.py`
 - CLI command: `calculate-family-mix`
-- Tests: `engine/python/tests/test_family_mix.py`
+- Tests: `engine/python/tests/test_family_mix.py`, `engine/python/tests/test_concrete_family_registry.py`
 - Contract: `docs/upgrade/G06_NORMAL_HSC_HPC_ENGINES.md`
 - HSC/HPC normal-strength lookup fallback: prohibited
 - HSC/HPC explicit water/w_cm/air/material inputs: required
 - HPC performance requirements: required
 - Confidence before Trial/Calibration: Preliminary
 - New normative numerical HSC/HPC limits added: none
+- CI run: `34055382662`
+- Python engineering regression: PASS
+- Golden baseline and desktop regression: PASS
+- Windows packaging evidence: PASS
 - Database migrations changed: none
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
-- Final CI evidence: pending
 
 ## Change-control rules
 
