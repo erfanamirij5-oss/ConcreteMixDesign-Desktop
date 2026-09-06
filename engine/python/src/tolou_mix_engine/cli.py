@@ -13,6 +13,7 @@ from tolou_mix_engine.concrete_families import (
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.family_mix import calculate_family_mix
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
+from tolou_mix_engine.placement_families import calculate_placement_family
 
 NON_AIR_STRENGTH_RANGE_MPA = (15.0, 40.0)
 AIR_STRENGTH_RANGE_MPA = (15.0, 35.0)
@@ -74,9 +75,7 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
             "ACI PRC-211.1-22 - Selecting Proportions for Normal-Density and High-Density Concrete",
             "ACI CODE-318-25 - Durability requirements where applicable",
         ],
-        "limitations": [
-            "پس از تعیین w/cm حاکم باید طرح مجدداً محاسبه و با Trial Mix تایید شود."
-        ],
+        "limitations": ["پس از تعیین w/cm حاکم باید طرح مجدداً محاسبه و با Trial Mix تایید شود."],
     }
 
 
@@ -148,10 +147,17 @@ def main() -> int:
         }
     elif command == "calculate-normal-mix":
         family_error, normalized_payload = validate_family_command_request(payload, command)
-        response = family_error or validate_normal_mix_request(normalized_payload) or calculate_integrated_normal_mix(normalized_payload)
+        response = (
+            family_error
+            or validate_normal_mix_request(normalized_payload)
+            or calculate_integrated_normal_mix(normalized_payload)
+        )
     elif command == "calculate-family-mix":
         family_error, normalized_payload = validate_family_command_request(payload, command)
         response = family_error or calculate_family_mix(normalized_payload)
+    elif command == "calculate-placement-family":
+        family_error, normalized_payload = validate_family_command_request(payload, command)
+        response = family_error or calculate_placement_family(normalized_payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
