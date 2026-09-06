@@ -31,12 +31,37 @@ jobs:
         run: npm run dist:win
       - name: Verify packaged renderer asset contract
         run: npm run test:renderer-build
-      - name: Install, render, launch, and uninstall acceptance
+      - name: Install, render, icon-check, launch, and uninstall acceptance
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.Drawing
+
+          function Assert-AssociatedIcon([string]$path, [string]$label) {
+            if (-not (Test-Path $path)) { throw "$label is missing: $path" }
+            $ico = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $path).Path)
+            if (-not $ico) { throw "$label does not expose an associated Windows icon resource." }
+            $bmp = $ico.ToBitmap()
+            if ($bmp.Width -lt 16 -or $bmp.Height -lt 16) { throw "$label icon dimensions are invalid: $($bmp.Width)x$($bmp.Height)" }
+            $samples = New-Object 'System.Collections.Generic.HashSet[string]'
+            foreach ($x in 0,([Math]::Floor($bmp.Width/4)),([Math]::Floor($bmp.Width/2)),([Math]::Floor(3*$bmp.Width/4)),($bmp.Width-1)) {
+              foreach ($y in 0,([Math]::Floor($bmp.Height/4)),([Math]::Floor($bmp.Height/2)),([Math]::Floor(3*$bmp.Height/4)),($bmp.Height-1)) {
+                $samples.Add($bmp.GetPixel([int]$x,[int]$y).ToArgb().ToString()) | Out-Null
+              }
+            }
+            if ($samples.Count -lt 3) { throw "$label associated icon appears blank or monochrome; sampled colors=$($samples.Count)." }
+            Write-Host "$label associated icon verified: $($bmp.Width)x$($bmp.Height), sampled colors=$($samples.Count)"
+            $bmp.Dispose(); $ico.Dispose()
+          }
+
+          $expectedIconHash = 'daff201a79004b201fbd97c9da1b169e2e805da1dcf3d8cc487bb830d9420c98'
+          $sourceIcon = 'build/tolou-standard.ico'
+          $sourceHash = (Get-FileHash -Algorithm SHA256 $sourceIcon).Hash.ToLowerInvariant()
+          if ($sourceHash -ne $expectedIconHash) { throw "Release acceptance fixed icon hash mismatch: $sourceHash" }
+
           $installer = Get-ChildItem -Path release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Release acceptance cannot find the generated Windows installer.' }
+          Assert-AssociatedIcon $installer.FullName 'Generated customer installer'
 
           Write-Host "Installing $($installer.Name) silently..."
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -PassThru -Wait
@@ -47,6 +72,12 @@ jobs:
           if (-not $appExe) { throw 'Installed TolouConcreteMixDesign.exe was not found under the per-user Programs directory.' }
           $installDir = $appExe.Directory.FullName
           Write-Host "Installed executable verified: $($appExe.FullName)"
+          Assert-AssociatedIcon $appExe.FullName 'Installed customer executable'
+
+          $packagedIcon = Join-Path $installDir 'resources\branding\tolou-standard.ico'
+          if (-not (Test-Path $packagedIcon)) { throw 'Fixed branding icon resource is missing from installed application.' }
+          $packagedHash = (Get-FileHash -Algorithm SHA256 $packagedIcon).Hash.ToLowerInvariant()
+          if ($packagedHash -ne $expectedIconHash) { throw "Installed fixed branding icon hash mismatch: $packagedHash" }
 
           $engine = Join-Path $installDir 'resources\engine\tolou-mix-engine.exe'
           if (-not (Test-Path $engine)) { throw 'Installed engineering engine executable is missing.' }
@@ -71,10 +102,11 @@ jobs:
 
           if ($app.HasExited) { throw "Installed application exited during renderer acceptance with code $($app.ExitCode)." }
           Stop-Process -Id $app.Id -Force
-          Write-Host 'Installed renderer produced a non-blank React UI under file://.'
+          Write-Host 'Installed renderer produced a non-blank React UI and installed EXE exposes a valid Windows icon.'
 
           $uninstaller = Get-ChildItem -Path $installDir -Filter 'Uninstall*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $uninstaller) { throw 'NSIS uninstaller was not found in the installed application directory.' }
+          Assert-AssociatedIcon $uninstaller.FullName 'Installed uninstaller'
           Write-Host "Uninstalling with $($uninstaller.Name)..."
           $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -PassThru -Wait
           if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exited with code $($uninstall.ExitCode)." }
@@ -82,7 +114,7 @@ jobs:
 
           if (Test-Path $appExe.FullName) { throw 'Application executable still exists after silent uninstall.' }
           if (-not (Test-Path $sentinel)) { throw 'User engineering data directory was deleted during uninstall.' }
-          Write-Host 'Silent install, rendered UI, bundled engine, uninstall, and user-data preservation acceptance passed.'
+          Write-Host 'Silent install, icon resources, rendered UI, bundled engine, uninstall, and user-data preservation acceptance passed.'
       - name: Upload accepted installer
         uses: actions/upload-artifact@v4
         with:
