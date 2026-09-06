@@ -58,12 +58,12 @@ try {
   const engineeringOnly = sign(payload({ licenseId: 'LIC-ENGINEERING-ONLY', features: ['engineering'] }));
   service.importLicense(JSON.stringify(engineeringOnly));
   assert.doesNotThrow(() => service.requireFeature('engineering'));
-  assert.throws(() => service.requireFeature('reports'), /reports/i);
-  assert.throws(() => service.requireFeature('trial-mix'), /trial-mix/i);
+  assert.throws(() => service.requireFeature('reports'), /reports|گزارش/i);
+  assert.throws(() => service.requireFeature('trial-mix'), /trial-mix|آزمایش/i);
 
   const noEngineering = sign(payload({ licenseId: 'LIC-NO-ENGINEERING', features: ['reports'] }));
   service.importLicense(JSON.stringify(noEngineering));
-  assert.throws(() => service.requireFeature('engineering'), /engineering/i);
+  assert.throws(() => service.requireFeature('engineering'), /engineering|مهندسی/i);
 
   const replacement = sign(payload({ licenseId: 'LIC-GATE10-002', customerName: 'Replacement Customer' }));
   assert.equal(service.importLicense(JSON.stringify(replacement)).licenseId, 'LIC-GATE10-002');
