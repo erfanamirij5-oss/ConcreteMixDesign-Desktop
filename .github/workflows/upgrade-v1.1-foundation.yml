@@ -1,0 +1,151 @@
+name: Tolou v1.1 Upgrade Foundation
+
+on:
+  push:
+    branches:
+      - upgrade/v1.1
+      - 'feature/**'
+  pull_request:
+    branches:
+      - upgrade/v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Golden baseline and desktop regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build application
+        run: npm run build
+      - name: Accepted v1.0.1 golden baseline upgrade smoke
+        run: node dist/electron/v101GoldenBaselineUpgradeSmoke.js
+      - name: Existing desktop regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=(
+            materialPersistenceSmoke
+            managementMigrationSmoke
+            managementWorkflowSmoke
+            duplicateContractSmoke
+            dataIntegrityUpgradeSmoke
+            dataIntegrityConstraintsSmoke
+            dataPathContractSmoke
+            databaseCompatibilitySmoke
+            dataIntegrityAtomicitySmoke
+            calculationResultPersistenceSmoke
+            mixDesignImmutabilitySmoke
+            materialLibrarySnapshotSmoke
+            trialMixSmoke
+            trialWorkflowSmoke
+            reportCenterSmoke
+            reportRendererSmoke
+            backupRestoreSmoke
+            securityServiceSmoke
+            securityRuntimeIsolationSmoke
+            gate09UpgradeBackupSmoke
+            licensingSmoke
+            licensingBackupIsolationSmoke
+            engineProcessHardeningSmoke
+            runtimeLifecycleSmoke
+          )
+          for test_name in "${tests[@]}"; do
+            echo "Running $test_name"
+            node "dist/electron/${test_name}.js"
+          done
+      - name: Reject committed private license signing keys
+        shell: bash
+        run: |
+          if git grep -n 'BEGIN PRIVATE KEY' -- ':!package-lock.json' ':!.github/workflows/*.yml'; then
+            echo 'Private signing material must never be committed.'
+            exit 1
+          fi
+
+  python-engine:
+    name: Python engineering regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: engine/python/pyproject.toml
+      - name: Install engine and test dependencies
+        working-directory: engine/python
+        run: python -m pip install -e '.[dev]'
+      - name: Ruff
+        working-directory: engine/python
+        run: python -m ruff check .
+      - name: Pytest
+        working-directory: engine/python
+        run: python -m pytest
+
+  windows-package:
+    name: Windows upgrade packaging evidence
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: npm install
+      - name: Build NSIS x64 installer
+        run: npm run dist:win
+      - name: Verify packaged customer runtime
+        shell: pwsh
+        run: |
+          $app = 'release/win-unpacked/TolouConcreteMixDesign.exe'
+          $engine = 'release/win-unpacked/resources/engine/tolou-mix-engine.exe'
+          $databaseMigrations = 'release/win-unpacked/database/migrations'
+          $asar = 'release/win-unpacked/resources/app.asar'
+          if (-not (Test-Path $app)) { throw 'Packaged customer EXE is missing.' }
+          if (-not (Test-Path $engine)) { throw 'Bundled Python engineering engine is missing.' }
+          if (-not (Test-Path $databaseMigrations)) { throw 'Packaged database migrations are missing.' }
+          if (-not (Test-Path $asar)) { throw 'Packaged app.asar is missing.' }
+          foreach ($migration in 20..22) {
+            $pattern = ('{0:D3}_*.sql' -f $migration)
+            if (-not (Get-ChildItem $databaseMigrations -Filter $pattern -File)) {
+              throw "Required accepted-baseline migration is missing: $pattern"
+            }
+          }
+          $health = '{}' | & $engine health
+          $parsed = $health | ConvertFrom-Json
+          if ($parsed.status -ne 'pass') { throw "Bundled engine health failed: $health" }
+          $installer = Get-ChildItem release -Filter 'Tolou-Concrete-Mix-Design-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer was not produced.' }
+          if ($installer.Length -lt 1000000) { throw 'Installer is unexpectedly small.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          Write-Host "Automated Windows packaging evidence: $($installer.Name), bytes=$($installer.Length), sha256=$hash"
+          Write-Host 'NOTE: this is automated packaging evidence, not real-Windows owner acceptance.'
+      - name: Upload uniquely scoped installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tolou-v1.1-${{ github.sha }}-Windows-Installer
+          path: |
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe
+            release/Tolou-Concrete-Mix-Design-*-Setup.exe.blockmap
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
