@@ -16,40 +16,40 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 24
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-
       - name: Install dependencies
-        run: |
-          npm install
-          python -m pip install Pillow==11.3.0
-
+        run: npm install
       - name: Build Electron runtime verifier
         run: npm run build:electron
-
       - name: Verify License Manager signing compatibility
         run: node tools/licensing/license-manager-contract-smoke.mjs
-
       - name: Build License Manager NSIS installer
         run: npm run dist:license-manager:win
-
-      - name: Verify License Manager package contract
+      - name: Verify License Manager package and icon contract
         shell: pwsh
         run: |
+          $iconPath = 'build/tolou-standard.ico'
+          $expectedHash = 'daff201a79004b201fbd97c9da1b169e2e805da1dcf3d8cc487bb830d9420c98'
+          if (-not (Test-Path $iconPath)) { throw 'Fixed Windows icon is missing.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $iconPath).Hash.ToLowerInvariant()
+          if ($hash -ne $expectedHash) { throw "Fixed Windows icon hash mismatch: $hash" }
+          $bytes = [System.IO.File]::ReadAllBytes($iconPath)
+          if ($bytes[0] -ne 0 -or $bytes[1] -ne 0 -or $bytes[2] -ne 1 -or $bytes[3] -ne 0) { throw 'Fixed Windows icon has an invalid ICO header.' }
+
           $config = Get-Content 'electron-builder.license-manager.json' -Raw | ConvertFrom-Json
           if ($config.appId -ne 'ir.tolou.licenseManager') { throw 'License Manager appId is incorrect.' }
           if ($config.productName -ne 'Tolou License Manager') { throw 'License Manager product name is incorrect.' }
           if ($config.win.executableName -ne 'TolouLicenseManager') { throw 'License Manager executable name is incorrect.' }
           if ($config.win.requestedExecutionLevel -ne 'asInvoker') { throw 'License Manager must not request administrator execution by default.' }
           if ($config.win.artifactName -ne 'Tolou-License-Manager-${version}-Setup.${ext}') { throw 'License Manager artifact naming contract changed.' }
+          if ($config.win.icon -ne $iconPath -or $config.nsis.installerIcon -ne $iconPath -or $config.nsis.uninstallerIcon -ne $iconPath -or $config.nsis.installerHeaderIcon -ne $iconPath) { throw 'License Manager icon resources are not all wired to the fixed ICO.' }
           if (-not (Test-Path 'apps/license-manager/main.js')) { throw 'License Manager main process is missing.' }
           if (-not (Test-Path 'apps/license-manager/licenseContract.js')) { throw 'License Manager signing contract module is missing.' }
           if (-not (Test-Path 'apps/license-manager/preload.js')) { throw 'License Manager preload bridge is missing.' }
@@ -61,8 +61,29 @@ jobs:
           if ($mainSource -notmatch "readFileSync\(input\.privateKeyPath") { throw 'License Manager must load the private key at runtime.' }
           if ($contractSource -notmatch 'crypto\.sign') { throw 'License Manager signing implementation is missing.' }
           if ($mainSource -notmatch 'signPayload') { throw 'License Manager main process must use the shared signing contract.' }
-          Write-Host 'License Manager application and signing contract verified.'
 
+          Add-Type -AssemblyName System.Drawing
+          function Assert-AssociatedIcon([string]$path, [string]$label) {
+            if (-not (Test-Path $path)) { throw "$label is missing: $path" }
+            $ico = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $path).Path)
+            if (-not $ico) { throw "$label does not expose an associated icon resource." }
+            $bmp = $ico.ToBitmap()
+            if ($bmp.Width -lt 16 -or $bmp.Height -lt 16) { throw "$label icon dimensions are invalid." }
+            $samples = New-Object 'System.Collections.Generic.HashSet[string]'
+            foreach ($x in 0,([Math]::Floor($bmp.Width/4)),([Math]::Floor($bmp.Width/2)),([Math]::Floor(3*$bmp.Width/4)),($bmp.Width-1)) {
+              foreach ($y in 0,([Math]::Floor($bmp.Height/4)),([Math]::Floor($bmp.Height/2)),([Math]::Floor(3*$bmp.Height/4)),($bmp.Height-1)) {
+                $samples.Add($bmp.GetPixel([int]$x,[int]$y).ToArgb().ToString()) | Out-Null
+              }
+            }
+            if ($samples.Count -lt 3) { throw "$label associated icon appears blank or monochrome." }
+            Write-Host "$label associated icon verified: $($bmp.Width)x$($bmp.Height), sampled colors=$($samples.Count)"
+            $bmp.Dispose(); $ico.Dispose()
+          }
+          Assert-AssociatedIcon 'release-license-manager/win-unpacked/TolouLicenseManager.exe' 'Packaged License Manager executable'
+          $installer = Get-ChildItem -Path release-license-manager -Filter 'Tolou-License-Manager-*-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Tolou License Manager installer was not produced.' }
+          Assert-AssociatedIcon $installer.FullName 'License Manager installer'
+          Write-Host 'License Manager application, signing contract, and Windows icon resources verified.'
       - name: Verify License Manager installer artifact
         shell: pwsh
         run: |
@@ -71,7 +92,6 @@ jobs:
           if ($installer.Length -lt 1000000) { throw 'Tolou License Manager installer is unexpectedly small.' }
           $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           Write-Host "License Manager installer verified: $($installer.FullName) ($($installer.Length) bytes) SHA256=$hash"
-
       - name: Silent install and launch smoke test
         shell: pwsh
         run: |
@@ -82,6 +102,10 @@ jobs:
           $programRoot = Join-Path $env:LOCALAPPDATA 'Programs'
           $appExe = Get-ChildItem -Path $programRoot -Filter 'TolouLicenseManager.exe' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $appExe) { throw 'Installed TolouLicenseManager.exe was not found.' }
+          Add-Type -AssemblyName System.Drawing
+          $installedIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($appExe.FullName)
+          if (-not $installedIcon) { throw 'Installed License Manager executable has no associated icon.' }
+          $installedIcon.Dispose()
           $app = Start-Process -FilePath $appExe.FullName -PassThru
           Start-Sleep -Seconds 8
           if ($app.HasExited) { throw "License Manager exited during launch smoke test with code $($app.ExitCode)." }
@@ -92,8 +116,7 @@ jobs:
           if ($uninstall.ExitCode -ne 0) { throw "License Manager uninstaller exited with code $($uninstall.ExitCode)." }
           Start-Sleep -Seconds 2
           if (Test-Path $appExe.FullName) { throw 'License Manager executable still exists after uninstall.' }
-          Write-Host 'License Manager silent install, launch and uninstall smoke test passed.'
-
+          Write-Host 'License Manager silent install, launch, icon extraction and uninstall smoke test passed.'
       - name: Upload License Manager installer
         uses: actions/upload-artifact@v4
         with:
