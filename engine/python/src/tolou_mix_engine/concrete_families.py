@@ -19,47 +19,11 @@ class ConcreteFamilyDefinition:
 
 
 CONCRETE_FAMILIES: tuple[ConcreteFamilyDefinition, ...] = (
-    ConcreteFamilyDefinition(
-        id="normal_weight",
-        display_name_fa="بتن معمولی",
-        display_name_en="Normal-weight concrete",
-        category="conventional",
-        design_strategy="normal_weight_absolute_volume",
-        implementation_status="active",
-        supported_commands=("calculate-normal-mix", "calculate-family-mix"),
-        aliases=("normal", "normal_concrete"),
-    ),
-    ConcreteFamilyDefinition(
-        id="pumped",
-        display_name_fa="بتن پمپی",
-        display_name_en="Pumpable concrete",
-        category="placement_specialized",
-        design_strategy="normal_weight_with_pumpability_overlay",
-        implementation_status="active",
-        supported_commands=("calculate-normal-mix",),
-        aliases=("pumpable", "pumped_concrete"),
-    ),
-    ConcreteFamilyDefinition(
-        "high_strength",
-        "بتن پرمقاومت",
-        "High-strength concrete",
-        "performance",
-        "high_strength_explicit_input_absolute_volume",
-        "active",
-        supported_commands=("calculate-family-mix",),
-        aliases=("hsc",),
-    ),
-    ConcreteFamilyDefinition(
-        "high_performance",
-        "بتن توانمند",
-        "High-performance concrete",
-        "performance",
-        "high_performance_explicit_input_absolute_volume",
-        "active",
-        supported_commands=("calculate-family-mix",),
-        aliases=("hpc",),
-    ),
-    ConcreteFamilyDefinition("self_consolidating", "بتن خودتراکم", "Self-consolidating concrete", "rheology", "self_consolidating", "planned", aliases=("scc", "self_compacting")),
+    ConcreteFamilyDefinition("normal_weight", "بتن معمولی", "Normal-weight concrete", "conventional", "normal_weight_absolute_volume", "active", supported_commands=("calculate-normal-mix", "calculate-family-mix"), aliases=("normal", "normal_concrete")),
+    ConcreteFamilyDefinition("pumped", "بتن پمپی", "Pumpable concrete", "placement_specialized", "normal_weight_with_pumpability_overlay", "active", supported_commands=("calculate-normal-mix", "calculate-placement-family"), aliases=("pumpable", "pumped_concrete")),
+    ConcreteFamilyDefinition("high_strength", "بتن پرمقاومت", "High-strength concrete", "performance", "high_strength_explicit_input_absolute_volume", "active", supported_commands=("calculate-family-mix",), aliases=("hsc",)),
+    ConcreteFamilyDefinition("high_performance", "بتن توانمند", "High-performance concrete", "performance", "high_performance_explicit_input_absolute_volume", "active", supported_commands=("calculate-family-mix",), aliases=("hpc",)),
+    ConcreteFamilyDefinition("self_consolidating", "بتن خودتراکم", "Self-consolidating concrete", "rheology", "scc_rheology_stability_performance_strategy", "active", supported_commands=("calculate-placement-family",), aliases=("scc", "self_compacting")),
     ConcreteFamilyDefinition("structural_lightweight", "بتن سبک سازه‌ای", "Structural lightweight concrete", "density_specialized", "structural_lightweight", "planned", aliases=("lightweight", "slwc")),
     ConcreteFamilyDefinition("heavyweight", "بتن سنگین", "Heavyweight concrete", "density_specialized", "heavyweight", "planned"),
     ConcreteFamilyDefinition("fiber_reinforced", "بتن الیافی", "Fiber-reinforced concrete", "reinforcement_specialized", "fiber_reinforced", "planned", aliases=("frc",)),
@@ -91,19 +55,8 @@ def get_concrete_family(value: object) -> ConcreteFamilyDefinition | None:
 
 def supports_engine_command(value: object, command: str) -> bool:
     family = get_concrete_family(value)
-    return bool(
-        family
-        and family.implementation_status == "active"
-        and command in family.supported_commands
-    )
+    return bool(family and family.implementation_status == "active" and command in family.supported_commands)
 
 
 def list_concrete_families() -> list[dict]:
-    return [
-        {
-            **asdict(family),
-            "supported_commands": list(family.supported_commands),
-            "aliases": list(family.aliases),
-        }
-        for family in CONCRETE_FAMILIES
-    ]
+    return [{**asdict(family), "supported_commands": list(family.supported_commands), "aliases": list(family.aliases)} for family in CONCRETE_FAMILIES]
