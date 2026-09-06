@@ -11,6 +11,7 @@ from tolou_mix_engine.concrete_families import (
     supports_engine_command,
 )
 from tolou_mix_engine.durability import evaluate_durability
+from tolou_mix_engine.family_mix import calculate_family_mix
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
 NON_AIR_STRENGTH_RANGE_MPA = (15.0, 40.0)
@@ -25,12 +26,7 @@ def read_payload() -> dict:
 
 
 def validate_normal_mix_request(payload: dict) -> dict | None:
-    """Reject unresolved strength-only w/cm requests before numerical proportioning.
-
-    The preliminary ACI-style strength lookup in the current normal-weight engine is bounded.
-    Outside that range the engine must not extrapolate or allow None to enter arithmetic. An
-    explicit project/durability w/cm is therefore required before proportioning can continue.
-    """
+    """Reject unresolved strength-only w/cm requests before numerical proportioning."""
     requirements = payload.get("requirements", {}) if isinstance(payload, dict) else {}
     provided_w_cm = requirements.get("w_cm_ratio")
     if provided_w_cm is not None:
@@ -116,7 +112,7 @@ def validate_family_command_request(payload: dict, command: str) -> tuple[dict |
             ],
             "engineering_notes": [
                 "ثبت یک خانواده در کاتالوگ به معنی پیاده‌سازی الگوریتم آن نیست.",
-                "سیستم عمداً از عبور خانواده‌های پشتیبانی‌نشده از موتور بتن معمولی جلوگیری می‌کند.",
+                "سیستم عمداً از عبور خانواده‌های پشتیبانی‌نشده از موتور نامرتبط جلوگیری می‌کند.",
             ],
             "limitations": [
                 "تا زمان پیاده‌سازی و اعتبارسنجی Strategy اختصاصی این خانواده، نسبت اختلاط Production تولید نمی‌شود."
@@ -153,6 +149,9 @@ def main() -> int:
     elif command == "calculate-normal-mix":
         family_error, normalized_payload = validate_family_command_request(payload, command)
         response = family_error or validate_normal_mix_request(normalized_payload) or calculate_integrated_normal_mix(normalized_payload)
+    elif command == "calculate-family-mix":
+        family_error, normalized_payload = validate_family_command_request(payload, command)
+        response = family_error or calculate_family_mix(normalized_payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
