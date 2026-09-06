@@ -24,8 +24,8 @@ Automated verification is not Windows verification, and Windows verification is 
 | G00 | Golden baseline & upgrade foundation | AUTOMATED_VERIFIED | Implementation head `feee70317dc0051f71edad0d81cd41bd34cbd1d8`; workflow run `34048919939` passed desktop golden-baseline/regression, Python engineering regression, and Windows packaging evidence. Real installed-Windows owner acceptance is not claimed. |
 | G01 | Universal concrete family architecture | AUTOMATED_VERIFIED | Implementation verified at head `c81c0795f5eed3d2ccf5d7ba4d620b608f9d123a`; workflow run `34049408496` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No planned family is exposed as an implemented production engine. |
 | G02 | Concrete engineering master matrix | AUTOMATED_VERIFIED | Verified head `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`; workflow run `34049796758` completed successfully, including Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
-| G03 | Versioned standards rule engine | IN_PROGRESS | Implementation branch `feature/g03-versioned-standards-rule-engine`. Adds edition-pinned rule-pack infrastructure; no unverified normative numerical limits are permitted. |
-| G04 | Tolou Engineering Advisor | NOT_STARTED | Depends on G02/G03. |
+| G03 | Versioned standards rule engine | AUTOMATED_VERIFIED | Verified head `c7c76e28930dfb7eef4b61b4150af37a42eadb76`; workflow run `34052032937` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No unverified normative numerical limits were added. |
+| G04 | Tolou Engineering Advisor | PLANNED | Next gate. Depends on G02/G03. |
 | G05 | Universal material intelligence | NOT_STARTED | Depends on G02. |
 | G06 | Normal / HSC / HPC engines | NOT_STARTED | Depends on G03/G05. |
 | G07 | SCC / pumpable engines | NOT_STARTED | Depends on G06. |
@@ -89,15 +89,20 @@ Automated verification is not Windows verification, and Windows verification is 
 - Golden baseline changed: no
 - Merge/tag/release performed: no
 
-## G03 current record
+## G03 completion record
 
 - Gate: `G03`
-- Status: `IN_PROGRESS`
+- Status: `AUTOMATED_VERIFIED`
 - Branch: `feature/g03-versioned-standards-rule-engine`
 - Parent verified head: `0e5f81c2954ebd3e705a4972c300b1de9b9c11e9`
+- Verified implementation head: `c7c76e28930dfb7eef4b61b4150af37a42eadb76`
 - Core module: `engine/python/src/tolou_mix_engine/standards.py`
 - Tests: `engine/python/tests/test_standards_rule_engine.py`
 - Contract: `docs/upgrade/G03_VERSIONED_STANDARDS_RULE_ENGINE.md`
+- CI run: `34052032937`
+- Python engineering regression: PASS
+- Golden baseline and desktop regression: PASS
+- Windows packaging evidence: PASS
 - Numerical production standard limits added: none; authoritative source review remains mandatory before such rules are registered.
 - Database migrations changed: none
 - Licensing changed: no
