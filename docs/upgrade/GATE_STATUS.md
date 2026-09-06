@@ -7,7 +7,7 @@ This file is the repository source of truth for the G00–G24 upgrade program. C
 - Golden accepted branch: `release/v1.0.1-accepted`
 - Golden accepted commit: `77dbc82ca6e63af5e7620089ddaad7b1a207b3db`
 - Development branch: `upgrade/v1.1`
-- Current implementation branch: `feature/g05-universal-material-intelligence`
+- Current implementation branch: `feature/g06-normal-hsc-hpc-engines`
 - Existing database migration ceiling at program start: `022_users_roles_audit_security`
 - Owner: Engineer Erfan Amiri
 
@@ -27,7 +27,7 @@ Automated verification is not Windows verification, and Windows verification is 
 | G03 | Versioned standards rule engine | AUTOMATED_VERIFIED | Verified head `c7c76e28930dfb7eef4b61b4150af37a42eadb76`; workflow run `34052032937` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. No unverified normative numerical limits were added. |
 | G04 | Tolou Engineering Advisor | AUTOMATED_VERIFIED | Verified head `f37638b0d850d3b9e6d726b96080a97046cea482`; workflow run `34053839949` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. |
 | G05 | Universal material intelligence | AUTOMATED_VERIFIED | Verified head `0d343edb73623129b00cbae2947475216547eecc`; workflow run `34054187760` passed Python engineering regression, golden-baseline/desktop regression, and Windows packaging evidence. Provenance and confidence remain explicit; no normative limits were added. |
-| G06 | Normal / HSC / HPC engines | PLANNED | Next gate. Depends on G03/G05; family-specific strategies must remain separate and fail closed when unsupported. |
+| G06 | Normal / HSC / HPC engines | IN_PROGRESS | Family-level command and separate Normal/HSC/HPC strategies implemented on `feature/g06-normal-hsc-hpc-engines`; HSC/HPC require explicit water, w/cm, air and material systems and remain Preliminary until Trial/Calibration. Awaiting full CI evidence. |
 | G07 | SCC / pumpable engines | NOT_STARTED | Depends on G06. |
 | G08 | Lightweight / heavyweight engines | NOT_STARTED | Depends on G05/G06. |
 | G09 | FRC / shotcrete / RCC / pervious / mass / special placement | NOT_STARTED | Depends on preceding material/design foundations. |
@@ -153,6 +153,28 @@ Automated verification is not Windows verification, and Windows verification is 
 - Licensing changed: no
 - Golden baseline changed: no
 - Merge/tag/release performed: no
+
+## G06 current record
+
+- Gate: `G06`
+- Status: `IN_PROGRESS`
+- Branch: `feature/g06-normal-hsc-hpc-engines`
+- Parent verified state commit: `1969b9462f9b4b0928943b5922285274360dd8f1`
+- Core module: `engine/python/src/tolou_mix_engine/family_mix.py`
+- Capability registry: `engine/python/src/tolou_mix_engine/concrete_families.py`
+- CLI command: `calculate-family-mix`
+- Tests: `engine/python/tests/test_family_mix.py`
+- Contract: `docs/upgrade/G06_NORMAL_HSC_HPC_ENGINES.md`
+- HSC/HPC normal-strength lookup fallback: prohibited
+- HSC/HPC explicit water/w_cm/air/material inputs: required
+- HPC performance requirements: required
+- Confidence before Trial/Calibration: Preliminary
+- New normative numerical HSC/HPC limits added: none
+- Database migrations changed: none
+- Licensing changed: no
+- Golden baseline changed: no
+- Merge/tag/release performed: no
+- Final CI evidence: pending
 
 ## Change-control rules
 
