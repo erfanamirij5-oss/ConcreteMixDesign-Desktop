@@ -23,6 +23,7 @@ database.exec(`
 `);
 
 database.exec(readFileSync(path.join(process.cwd(), 'database/migrations/020_minimum_trial_mix.sql'), 'utf-8'));
+database.exec(readFileSync(path.join(process.cwd(), 'database/migrations/023_trial_mix_v2_foundation.sql'), 'utf-8'));
 database.prepare("INSERT INTO mix_designs (id, status, revision_number) VALUES ('mix-1', 'trial_required', 0)").run();
 
 if (hasCompletedTrialMixRecordInDatabase(database, 'mix-1')) {
@@ -44,6 +45,56 @@ if (records.length !== 1) throw new Error('Trial Mix list did not return the per
 if (records[0].actualSlumpMm !== 95 || records[0].strength28dMpa !== 43.8 || records[0].revisionNumber !== 0) {
   throw new Error('Trial Mix persisted values or revision identity were not reopened faithfully.');
 }
+
+const recordId = String(records[0].id);
+const now = new Date().toISOString();
+database.prepare(`
+  INSERT INTO trial_mix_batch_components (
+    id, trial_mix_record_id, material_role, material_snapshot_id, material_name_snapshot,
+    designed_mass_kg, actual_mass_kg, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`).run('component-1', recordId, 'cement', 'material-snapshot-1', 'Cement Snapshot', 32.0, 32.2, now, now);
+
+database.prepare(`
+  INSERT INTO trial_mix_targets (
+    trial_mix_record_id, target_slump_mm, target_air_content_percent,
+    target_fresh_density_kg_m3, target_strength_28d_mpa, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?)
+`).run(recordId, 100, 2.0, 2400, 40, now, now);
+
+database.prepare(`
+  INSERT INTO trial_mix_strength_specimens (
+    id, trial_mix_record_id, age_days, specimen_label, specimen_type,
+    measured_strength_mpa, tested_at, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`).run('specimen-1', recordId, 28, 'S28-1', 'cube', 43.8, now, now, now);
+
+database.prepare(`
+  INSERT INTO trial_mix_evaluations (
+    trial_mix_record_id, outcome, slump_deviation_mm, air_deviation_percent,
+    fresh_density_deviation_kg_m3, strength_28d_deviation_mpa,
+    interpretation, evaluated_by, evaluated_at, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`).run(recordId, 'pass', -5, 0.1, -15, 3.8, 'Foundation evaluation record', 'CI Smoke', now, now, now);
+
+const foundation = database.prepare(`
+  SELECT
+    (SELECT COUNT(*) FROM trial_mix_batch_components WHERE trial_mix_record_id = ?) AS components,
+    (SELECT COUNT(*) FROM trial_mix_targets WHERE trial_mix_record_id = ?) AS targets,
+    (SELECT COUNT(*) FROM trial_mix_strength_specimens WHERE trial_mix_record_id = ?) AS specimens,
+    (SELECT COUNT(*) FROM trial_mix_evaluations WHERE trial_mix_record_id = ?) AS evaluations
+`).get(recordId, recordId, recordId, recordId) as { components: number; targets: number; specimens: number; evaluations: number };
+if (foundation.components !== 1 || foundation.targets !== 1 || foundation.specimens !== 1 || foundation.evaluations !== 1) {
+  throw new Error('Trial Mix v2 foundation records were not persisted consistently.');
+}
+
+let invalidOutcomeRejected = false;
+try {
+  database.prepare(`
+    UPDATE trial_mix_evaluations SET outcome = 'unknown' WHERE trial_mix_record_id = ?
+  `).run(recordId);
+} catch { invalidOutcomeRejected = true; }
+if (!invalidOutcomeRejected) throw new Error('Trial Mix v2 accepted an invalid evaluation outcome.');
 
 const audit = database.prepare("SELECT action, actor_name AS actorName, details_json AS detailsJson FROM audit_logs WHERE mix_design_id = 'mix-1'").get() as { action: string; actorName: string; detailsJson: string };
 if (audit.action !== 'trial_mix_record_created' || audit.actorName !== 'CI Smoke') throw new Error('Trial Mix audit trace was not persisted.');
@@ -76,4 +127,4 @@ try {
 if (!lockedWorkflowRejected) throw new Error('Trial Mix record was accepted outside trial workflow states.');
 
 database.close();
-console.log('Minimum Trial Mix smoke passed: persistence, revision identity, validation, audit and workflow guards are enforced.');
+console.log('Trial Mix smoke passed: minimum persistence plus v2 foundation schema, constraints, revision identity, audit and workflow guards are enforced.');
