@@ -91,8 +91,12 @@ jobs:
           $sentinel = Join-Path $userData 'release-acceptance-preserve.txt'
           Set-Content -Path $sentinel -Value 'preserve-on-uninstall' -Encoding UTF8
 
-          Write-Host 'Launching installed application with DevTools endpoint for renderer acceptance...'
-          $app = Start-Process -FilePath $appExe.FullName -ArgumentList '--disable-gpu', '--remote-debugging-port=9222' -PassThru
+          $debugProfile = Join-Path $env:RUNNER_TEMP 'tolou-renderer-debug-profile'
+          if (Test-Path $debugProfile) { Remove-Item -Path $debugProfile -Recurse -Force }
+          New-Item -ItemType Directory -Path $debugProfile -Force | Out-Null
+
+          Write-Host 'Launching installed application with isolated Chromium profile and DevTools endpoint for renderer acceptance...'
+          $app = Start-Process -FilePath $appExe.FullName -ArgumentList '--disable-gpu', '--remote-debugging-port=9222', "--user-data-dir=$debugProfile" -PassThru
           Start-Sleep -Seconds 3
           if ($app.HasExited) { throw "Installed application exited during first-launch smoke check with code $($app.ExitCode)." }
 
@@ -102,6 +106,7 @@ jobs:
 
           if ($app.HasExited) { throw "Installed application exited during renderer acceptance with code $($app.ExitCode)." }
           Stop-Process -Id $app.Id -Force
+          Remove-Item -Path $debugProfile -Recurse -Force -ErrorAction SilentlyContinue
           Write-Host 'Installed renderer produced a non-blank React UI and installed EXE exposes a valid Windows icon.'
 
           $uninstaller = Get-ChildItem -Path $installDir -Filter 'Uninstall*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
