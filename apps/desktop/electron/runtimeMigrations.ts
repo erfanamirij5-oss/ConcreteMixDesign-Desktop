@@ -5,7 +5,8 @@ import type Database from 'better-sqlite3';
 export const RUNTIME_MIGRATION_IDS = [
   '020_minimum_trial_mix',
   '021_report_center_snapshots',
-  '022_users_roles_audit_security'
+  '022_users_roles_audit_security',
+  '023_trial_mix_v2_foundation'
 ] as const;
 
 export type RuntimeMigrationId = typeof RUNTIME_MIGRATION_IDS[number];
