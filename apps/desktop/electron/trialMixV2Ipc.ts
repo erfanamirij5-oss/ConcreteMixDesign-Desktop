@@ -14,6 +14,7 @@ import {
   type SaveTrialMaterialActualInput,
   type SaveTrialSpecimenInput
 } from './trialMixV2Service';
+import { transitionTrialSessionStatus, type TransitionTrialSessionInput } from './trialMixV2LifecycleService';
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
@@ -26,7 +27,9 @@ function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 
 export function registerTrialMixV2Ipc() {
   ipcMain.handle('trial-mix-v2:create-session', async (event, payload: CreateTrialSessionInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
-    return createTrialSession({ ...payload, actorName: actor.displayName });
+    const status = payload?.status ?? 'planned';
+    if (!['planned', 'in_progress'].includes(status)) throw new Error('Trial Session جدید فقط می‌تواند با وضعیت planned یا in_progress ایجاد شود.');
+    return createTrialSession({ ...payload, status, actorName: actor.displayName });
   }, 'خطا در ایجاد Trial Session'));
 
   ipcMain.handle('trial-mix-v2:list-sessions', async (event, mixDesignId: string) => safeCall(() => {
@@ -38,6 +41,11 @@ export function registerTrialMixV2Ipc() {
     requireRendererPermission(event.sender, 'engineering.read');
     return { status: 'pass' as const, session: getTrialSessionDetail(sessionId) };
   }, 'خطا در خواندن جزئیات Trial Session'));
+
+  ipcMain.handle('trial-mix-v2:transition-session-status', async (event, payload: TransitionTrialSessionInput) => safeCall(() => {
+    const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
+    return transitionTrialSessionStatus({ ...payload, actorName: actor.displayName });
+  }, 'خطا در تغییر وضعیت Trial Session'));
 
   ipcMain.handle('trial-mix-v2:link-record', async (event, payload: LinkTrialRecordInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
