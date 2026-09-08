@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TrialSessionLifecycleControls } from './TrialSessionLifecycleControls';
 
 type TrialSessionStatus = 'planned' | 'in_progress' | 'completed' | 'void';
 type TrialMaterialRole = 'cement' | 'scm' | 'water' | 'fine_aggregate' | 'coarse_aggregate' | 'admixture' | 'fiber' | 'other';
@@ -252,6 +253,10 @@ function optionalNumber(value: string) {
   return value.trim() ? Number(value) : null;
 }
 
+function isTerminalSessionStatus(status?: TrialSessionStatus) {
+  return status === 'completed' || status === 'void';
+}
+
 export function TrialMixView(props: { mixDesignId: string | null }) {
   const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionForm);
   const [sessions, setSessions] = useState<TrialSessionSummary[]>([]);
@@ -275,6 +280,8 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   const [records, setRecords] = useState<TrialMixRecord[]>([]);
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [message, setMessage] = useState('');
+
+  const sessionReadOnly = isTerminalSessionStatus(selectedSession?.status);
 
   useEffect(() => {
     setSelectedSession(null);
@@ -371,15 +378,39 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     }
   }
 
+  async function transitionSessionStatus(targetStatus: TrialSessionStatus) {
+    if (!selectedSession) {
+      setSessionState('error');
+      setSessionMessage('ابتدا یک Trial Session را باز کنید.');
+      return;
+    }
+    setSessionState('saving');
+    setSessionMessage('');
+    try {
+      if (!window.tolouTrialMixV2?.transitionSessionStatus) throw new Error('API تغییر وضعیت Trial Session در دسترس نیست.');
+      const response = await window.tolouTrialMixV2.transitionSessionStatus({
+        sessionId: selectedSession.id,
+        targetStatus
+      }) as { status?: string; session?: TrialSessionDetail; error?: string };
+      if (response.status !== 'pass' || !response.session) throw new Error(response.error ?? 'تغییر وضعیت Trial Session ناموفق بود.');
+      await loadSessions(response.session.id);
+      setSessionState('saved');
+      setSessionMessage(`وضعیت Session ${response.session.sessionCode} به ${sessionStatusLabel[response.session.status]} تغییر کرد.`);
+    } catch (error) {
+      setSessionState('error');
+      setSessionMessage(error instanceof Error ? error.message : 'خطا در تغییر وضعیت Trial Session');
+    }
+  }
+
   async function linkRecordToSelectedSession(recordId: string) {
     if (!selectedSession) {
       setSessionState('error');
       setSessionMessage('ابتدا یک Trial Session را باز کنید.');
       return;
     }
-    if (selectedSession.status === 'void') {
+    if (isTerminalSessionStatus(selectedSession.status)) {
       setSessionState('error');
-      setSessionMessage('اتصال Batch به Session باطل‌شده مجاز نیست.');
+      setSessionMessage('اتصال Batch به Session نهایی‌شده مجاز نیست.');
       return;
     }
     const existingBatches = selectedSession.batches ?? [];
@@ -420,9 +451,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       setMaterialMessage('ابتدا یک Session و سپس یک Batch را انتخاب کنید.');
       return;
     }
-    if (selectedSession.status === 'void') {
+    if (isTerminalSessionStatus(selectedSession.status)) {
       setMaterialState('error');
-      setMaterialMessage('ثبت مصالح برای Session باطل‌شده مجاز نیست.');
+      setMaterialMessage('ثبت مصالح برای Session نهایی‌شده مجاز نیست.');
       return;
     }
     if (!materialForm.materialName.trim()) {
@@ -474,9 +505,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       setSpecimenMessage('ابتدا یک Session و سپس یک Batch را انتخاب کنید.');
       return;
     }
-    if (selectedSession.status === 'void') {
+    if (isTerminalSessionStatus(selectedSession.status)) {
       setSpecimenState('error');
-      setSpecimenMessage('ثبت نمونه برای Session باطل‌شده مجاز نیست.');
+      setSpecimenMessage('ثبت نمونه برای Session نهایی‌شده مجاز نیست.');
       return;
     }
     if (!specimenForm.specimenCode.trim()) {
@@ -543,9 +574,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       setStrengthMessage('ابتدا یک نمونه آزمایشگاهی را انتخاب کنید.');
       return;
     }
-    if (selectedSession.status === 'void') {
+    if (isTerminalSessionStatus(selectedSession.status)) {
       setStrengthState('error');
-      setStrengthMessage('ثبت نتیجه مقاومت برای Session باطل‌شده مجاز نیست.');
+      setStrengthMessage('ثبت نتیجه مقاومت برای Session نهایی‌شده مجاز نیست.');
       return;
     }
     if (!strengthForm.testedAt.trim() || Number.isNaN(Date.parse(strengthForm.testedAt))) {
@@ -644,15 +675,15 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   }
 
   function materialField(key: keyof Omit<MaterialFormState, 'materialRole'>, label: string, type = 'text') {
-    return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={materialForm[key]} onChange={event => setMaterialForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
+    return <label className="field"><span>{label}</span><input disabled={sessionReadOnly} type={type} step={type === 'number' ? 'any' : undefined} value={materialForm[key]} onChange={event => setMaterialForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
   function specimenField(key: keyof Omit<SpecimenFormState, 'specimenType'>, label: string, type = 'text') {
-    return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={specimenForm[key]} onChange={event => setSpecimenForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
+    return <label className="field"><span>{label}</span><input disabled={sessionReadOnly} type={type} step={type === 'number' ? 'any' : undefined} value={specimenForm[key]} onChange={event => setSpecimenForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
   function strengthField(key: keyof StrengthFormState, label: string, type = 'text') {
-    return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={strengthForm[key]} onChange={event => setStrengthForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
+    return <label className="field"><span>{label}</span><input disabled={sessionReadOnly} type={type} step={type === 'number' ? 'any' : undefined} value={strengthForm[key]} onChange={event => setStrengthForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
   function field(key: keyof FormState, label: string, type = 'number') {
@@ -700,10 +731,19 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
             <div><b>محل:</b> {selectedSession.location ?? '-'}</div>
             <div><b>هدف:</b> {selectedSession.objective ?? '-'}</div>
             <div><b>تعداد Batch:</b> {selectedSession.batches?.length ?? selectedSession.batchCount ?? 0}</div>
+            {sessionReadOnly && <div className="alert warn">این Session نهایی شده و تمام مسیرهای ثبت Trial Mix v2 فقط‌خواندنی هستند.</div>}
           </div>}
         </div>
       </article>
     </section>
+
+    {selectedSession && <TrialSessionLifecycleControls
+      sessionId={selectedSession.id}
+      status={selectedSession.status}
+      batchCount={selectedSession.batches?.length ?? selectedSession.batchCount ?? 0}
+      busy={sessionState === 'saving'}
+      onTransition={transitionSessionStatus}
+    />}
 
     <section className="content-grid">
       <article className="panel wide-panel">
@@ -724,7 +764,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       <article className="panel form-panel">
         <div className="panel-head"><div><h3>Actual Materials</h3><span>{selectedBatch ? `Batch ${selectedBatch.batchSequence} — ${selectedBatch.trialDate}` : 'یک Batch را انتخاب کنید'}</span></div></div>
         <div className="panel-body form-body">
-          <label className="field"><span>نقش ماده</span><select value={materialForm.materialRole} onChange={event => setMaterialForm(previous => ({ ...previous, materialRole: event.target.value as TrialMaterialRole }))}>{Object.entries(materialRoleLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="field"><span>نقش ماده</span><select disabled={sessionReadOnly} value={materialForm.materialRole} onChange={event => setMaterialForm(previous => ({ ...previous, materialRole: event.target.value as TrialMaterialRole }))}>{Object.entries(materialRoleLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {materialField('materialName', 'نام ماده')}
           {materialField('materialReferenceId', 'Traceability Reference')}
           {materialField('targetMassKg', 'جرم هدف (kg)', 'number')}
@@ -733,7 +773,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
           {materialField('absorptionPercent', 'جذب آب (%)', 'number')}
           {materialField('moistureCorrectionKg', 'تصحیح رطوبت ثبت‌شده (kg)', 'number')}
         </div>
-        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || selectedSession?.status === 'void' || materialState === 'saving'} onClick={saveMaterialActual}>{materialState === 'saving' ? 'در حال ثبت...' : 'ثبت مقدار واقعی ماده'}</button></div>
+        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || sessionReadOnly || materialState === 'saving'} onClick={saveMaterialActual}>{materialState === 'saving' ? 'در حال ثبت...' : 'ثبت مقدار واقعی ماده'}</button></div>
       </article>
 
       <article className="panel form-panel">
@@ -758,7 +798,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
         <div className="panel-head"><div><h3>Specimens</h3><span>{selectedBatch ? `Batch ${selectedBatch.batchSequence} — laboratory specimens` : 'یک Batch را انتخاب کنید'}</span></div></div>
         <div className="panel-body form-body">
           {specimenField('specimenCode', 'کد نمونه')}
-          <label className="field"><span>نوع نمونه</span><select value={specimenForm.specimenType} onChange={event => setSpecimenForm(previous => ({ ...previous, specimenType: event.target.value as TrialSpecimenType }))}>{Object.entries(specimenTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="field"><span>نوع نمونه</span><select disabled={sessionReadOnly} value={specimenForm.specimenType} onChange={event => setSpecimenForm(previous => ({ ...previous, specimenType: event.target.value as TrialSpecimenType }))}>{Object.entries(specimenTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {specimenField('castAt', 'زمان ساخت', 'datetime-local')}
           {specimenField('targetTestAgeDays', 'سن هدف آزمون (day)', 'number')}
           {specimenField('widthMm', 'عرض (mm)', 'number')}
@@ -766,9 +806,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
           {specimenField('lengthMm', 'طول (mm)', 'number')}
           {specimenField('diameterMm', 'قطر (mm)', 'number')}
           {specimenField('curingCondition', 'شرایط عمل‌آوری')}
-          <label className="field"><span>یادداشت نمونه</span><textarea value={specimenForm.notes} onChange={event => setSpecimenForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
+          <label className="field"><span>یادداشت نمونه</span><textarea disabled={sessionReadOnly} value={specimenForm.notes} onChange={event => setSpecimenForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
         </div>
-        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || selectedSession?.status === 'void' || specimenState === 'saving'} onClick={saveSpecimen}>{specimenState === 'saving' ? 'در حال ثبت...' : 'ثبت نمونه'}</button></div>
+        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || sessionReadOnly || specimenState === 'saving'} onClick={saveSpecimen}>{specimenState === 'saving' ? 'در حال ثبت...' : 'ثبت نمونه'}</button></div>
       </article>
 
       <article className="panel form-panel">
@@ -800,9 +840,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
           {strengthField('machineReference', 'Machine Reference')}
           {strengthField('failureMode', 'Failure Mode')}
           {strengthField('testedBy', 'آزمایش‌کننده')}
-          <label className="field"><span>یادداشت آزمون</span><textarea value={strengthForm.notes} onChange={event => setStrengthForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
+          <label className="field"><span>یادداشت آزمون</span><textarea disabled={sessionReadOnly} value={strengthForm.notes} onChange={event => setStrengthForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
         </div>
-        <div className="toolbar"><button className="btn success" disabled={!selectedSpecimen || selectedSession?.status === 'void' || strengthState === 'saving'} onClick={saveStrengthResult}>{strengthState === 'saving' ? 'در حال ثبت...' : 'ثبت نتیجه مقاومت'}</button></div>
+        <div className="toolbar"><button className="btn success" disabled={!selectedSpecimen || sessionReadOnly || strengthState === 'saving'} onClick={saveStrengthResult}>{strengthState === 'saving' ? 'در حال ثبت...' : 'ثبت نتیجه مقاومت'}</button></div>
       </article>
 
       <article className="panel form-panel">
@@ -833,6 +873,6 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
         {field('strength7dMpa', 'مقاومت ۷ روزه (MPa)')}{field('strength28dMpa', 'مقاومت ۲۸ روزه (MPa)')}{field('actorName', 'مسئول ثبت', 'text')}<label className="field"><span>یادداشت‌ها</span><textarea value={form.notes} onChange={event => setForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
       </div></article>
     </section>
-    <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>سوابق Trial Mix</h3><span>Persisted records for active mix design</span></div><span className="badge blue">{records.length}</span></div><div className="table-wrap"><table><caption className="sr-only">سوابق Trial Mix ثبت‌شده برای طرح فعال</caption><thead><tr><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th><th scope="col">مسئول</th><th scope="col">Session</th></tr></thead><tbody>{records.length === 0 ? <tr><td colSpan={10}>هنوز Trial Mix ثبت نشده است.</td></tr> : records.map(record => { const linked = linkedRecordIds.has(record.id); return <tr key={record.id}><td>{record.trialDate}</td><td>{record.batchQuantityM3}</td><td>{record.actualSlumpMm}</td><td>{record.airContentPercent}</td><td>{record.concreteTemperatureC}</td><td>{record.freshDensityKgM3}</td><td>{record.strength7dMpa ?? '-'}</td><td>{record.strength28dMpa ?? '-'}</td><td>{record.createdBy ?? '-'}</td><td><button className="btn" disabled={!selectedSession || selectedSession.status === 'void' || linked || linkingRecordId === record.id} onClick={() => void linkRecordToSelectedSession(record.id)} aria-label={linked ? 'این Batch به Session فعال متصل است' : `اتصال Trial Mix تاریخ ${record.trialDate} به Session فعال`}>{linked ? 'متصل است' : linkingRecordId === record.id ? 'در حال اتصال...' : 'اتصال به Session'}</button></td></tr>; })}</tbody></table></div></article></section>
+    <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>سوابق Trial Mix</h3><span>Persisted records for active mix design</span></div><span className="badge blue">{records.length}</span></div><div className="table-wrap"><table><caption className="sr-only">سوابق Trial Mix ثبت‌شده برای طرح فعال</caption><thead><tr><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th><th scope="col">مسئول</th><th scope="col">Session</th></tr></thead><tbody>{records.length === 0 ? <tr><td colSpan={10}>هنوز Trial Mix ثبت نشده است.</td></tr> : records.map(record => { const linked = linkedRecordIds.has(record.id); return <tr key={record.id}><td>{record.trialDate}</td><td>{record.batchQuantityM3}</td><td>{record.actualSlumpMm}</td><td>{record.airContentPercent}</td><td>{record.concreteTemperatureC}</td><td>{record.freshDensityKgM3}</td><td>{record.strength7dMpa ?? '-'}</td><td>{record.strength28dMpa ?? '-'}</td><td>{record.createdBy ?? '-'}</td><td><button className="btn" disabled={!selectedSession || sessionReadOnly || linked || linkingRecordId === record.id} onClick={() => void linkRecordToSelectedSession(record.id)} aria-label={linked ? 'این Batch به Session فعال متصل است' : `اتصال Trial Mix تاریخ ${record.trialDate} به Session فعال`}>{linked ? 'متصل است' : linkingRecordId === record.id ? 'در حال اتصال...' : 'اتصال به Session'}</button></td></tr>; })}</tbody></table></div></article></section>
   </>;
 }
