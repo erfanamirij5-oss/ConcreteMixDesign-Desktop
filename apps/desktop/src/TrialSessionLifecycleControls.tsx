@@ -1,4 +1,5 @@
 import { TrialStrengthAnalyticsPanel } from './TrialStrengthAnalyticsPanel';
+import { TrialCalibrationComparisonPanel } from './TrialCalibrationComparisonPanel';
 
 type TrialSessionStatus = 'planned' | 'in_progress' | 'completed' | 'void';
 
@@ -22,6 +23,7 @@ export function TrialSessionLifecycleControls(props: Props) {
   const canStart = props.status === 'planned';
   const canComplete = props.status === 'in_progress' && props.batchCount > 0;
   const canVoid = props.status === 'planned' || props.status === 'in_progress';
+  const refreshKey = `${props.status}:${props.batchCount}`;
 
   return <>
     <section className="panel form-panel" aria-label="Trial Session lifecycle controls">
@@ -45,6 +47,7 @@ export function TrialSessionLifecycleControls(props: Props) {
         {terminal && <span className="badge blue">Read only</span>}
       </div>
     </section>
-    <TrialStrengthAnalyticsPanel sessionId={props.sessionId} refreshKey={`${props.status}:${props.batchCount}`} />
+    <TrialCalibrationComparisonPanel sessionId={props.sessionId} refreshKey={refreshKey} />
+    <TrialStrengthAnalyticsPanel sessionId={props.sessionId} refreshKey={refreshKey} />
   </>;
 }
