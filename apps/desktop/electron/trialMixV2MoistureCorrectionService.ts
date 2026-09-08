@@ -1,5 +1,6 @@
 import { getDatabase } from './database';
 import { ensureRuntimeMigrations } from './runtimeMigrations';
+import { resolveTrialRevisionDesignResult } from './trialMixV2RevisionDesignResolver';
 
 export type AggregateMoistureCorrectionInput = {
   targetSsdMassKg: number;
@@ -73,17 +74,14 @@ export function getTrialSessionMoistureCorrection(sessionIdInput: string) {
     currentRevisionNumber: number;
   } | undefined;
   if (!session) throw new Error('Trial Session پیدا نشد.');
-  if (session.revisionNumber !== session.currentRevisionNumber) {
-    throw new Error('Moisture Correction برای Revision تاریخی تا زمان اتصال مستقیم به immutable revision snapshot مجاز نیست.');
-  }
 
-  const design = database.prepare(`
-    SELECT id, water_content_kg_m3 AS waterKgM3
-    FROM mix_results
-    WHERE mix_design_id = ?
-    ORDER BY rowid DESC LIMIT 1
-  `).get(session.mixDesignId) as { id: string; waterKgM3: number | null } | undefined;
-  if (!design || design.waterKgM3 == null) throw new Error('آب طراحی ذخیره‌شده برای Revision فعلی پیدا نشد.');
+  const design = resolveTrialRevisionDesignResult(
+    database,
+    session.mixDesignId,
+    Number(session.revisionNumber),
+    Number(session.currentRevisionNumber)
+  );
+  if (design.waterKgM3 == null) throw new Error(`آب طراحی ذخیره‌شده برای Revision ${session.revisionNumber} پیدا نشد.`);
 
   const batches = database.prepare(`
     SELECT sr.batch_sequence AS batchSequence, r.id AS batchId, r.batch_quantity_m3 AS batchQuantityM3
@@ -161,10 +159,11 @@ export function getTrialSessionMoistureCorrection(sessionIdInput: string) {
     status: 'pass' as const,
     moistureCorrection: {
       method: {
-        version: 'aggregate-moisture-correction-v1',
+        version: 'aggregate-moisture-correction-v2',
         basis: 'SSD design mass converted to oven-dry basis before moisture adjustment',
         freeMoistureDefinition: 'total moisture percent minus absorption percent, oven-dry mass basis',
         batchWaterRule: 'design batch water minus aggregate free-water contribution; negative free water adds batch water',
+        revisionDesignResolution: 'current revision uses current mix_results; historical revision uses immutable mix_design_revision_snapshots snapshot_json.mixResults',
         references: ['NRMCA TIP 6 - Aggregate Moisture and Making Adjustments to Concrete Mixtures', 'ACI E1-16 Aggregates for Concrete'],
         writesMixDesign: false,
         acceptanceCriteriaApplied: false
@@ -177,6 +176,9 @@ export function getTrialSessionMoistureCorrection(sessionIdInput: string) {
       },
       design: {
         resultId: design.id,
+        source: design.source,
+        snapshotId: design.snapshotId,
+        snapshotRevisionNumber: design.snapshotRevisionNumber,
         waterKgM3: round(Number(design.waterKgM3))
       },
       batches: correctedBatches
