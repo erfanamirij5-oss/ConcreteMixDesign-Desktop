@@ -52,6 +52,15 @@ declare global {
       list: (mixDesignId: string) => Promise<unknown>;
       hasCompleted: (mixDesignId: string) => Promise<unknown>;
     };
+    tolouTrialMixV2?: {
+      createSession: (payload: unknown) => Promise<unknown>;
+      listSessions: (mixDesignId: string) => Promise<unknown>;
+      getSession: (sessionId: string) => Promise<unknown>;
+      linkRecord: (payload: unknown) => Promise<unknown>;
+      saveMaterialActual: (payload: unknown) => Promise<unknown>;
+      saveSpecimen: (payload: unknown) => Promise<unknown>;
+      saveStrengthResult: (payload: unknown) => Promise<unknown>;
+    };
     tolouReports?: {
       create: (payload: unknown) => Promise<unknown>;
       list: (mixDesignId: string) => Promise<unknown>;
