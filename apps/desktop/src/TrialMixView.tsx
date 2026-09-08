@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 type TrialSessionStatus = 'planned' | 'in_progress' | 'completed' | 'void';
 type TrialMaterialRole = 'cement' | 'scm' | 'water' | 'fine_aggregate' | 'coarse_aggregate' | 'admixture' | 'fiber' | 'other';
+type TrialSpecimenType = 'cube' | 'cylinder' | 'beam' | 'other';
 
 type TrialSessionSummary = {
   id: string;
@@ -32,6 +33,22 @@ type TrialMaterialActual = {
   createdAt?: string;
 };
 
+type TrialSpecimen = {
+  id: string;
+  specimenCode: string;
+  specimenType: TrialSpecimenType;
+  castAt: string;
+  targetTestAgeDays?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
+  lengthMm?: number | null;
+  diameterMm?: number | null;
+  curingCondition?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  results?: unknown[];
+};
+
 type TrialBatch = {
   id: string;
   batchSequence: number;
@@ -46,7 +63,7 @@ type TrialBatch = {
   strength28dMpa?: number | null;
   notes?: string | null;
   materials?: TrialMaterialActual[];
-  specimens?: unknown[];
+  specimens?: TrialSpecimen[];
 };
 
 type TrialSessionDetail = TrialSessionSummary & {
@@ -71,6 +88,19 @@ type MaterialFormState = {
   moisturePercent: string;
   absorptionPercent: string;
   moistureCorrectionKg: string;
+};
+
+type SpecimenFormState = {
+  specimenCode: string;
+  specimenType: TrialSpecimenType;
+  castAt: string;
+  targetTestAgeDays: string;
+  widthMm: string;
+  heightMm: string;
+  lengthMm: string;
+  diameterMm: string;
+  curingCondition: string;
+  notes: string;
 };
 
 type TrialMixRecord = {
@@ -101,6 +131,11 @@ type FormState = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+const nowLocalInput = () => {
+  const date = new Date();
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};
 
 const initialSessionForm: SessionFormState = {
   sessionCode: '',
@@ -121,6 +156,19 @@ const initialMaterialForm: MaterialFormState = {
   absorptionPercent: '',
   moistureCorrectionKg: ''
 };
+
+const newSpecimenForm = (): SpecimenFormState => ({
+  specimenCode: '',
+  specimenType: 'cube',
+  castAt: nowLocalInput(),
+  targetTestAgeDays: '',
+  widthMm: '',
+  heightMm: '',
+  lengthMm: '',
+  diameterMm: '',
+  curingCondition: '',
+  notes: ''
+});
 
 const initialForm: FormState = {
   trialDate: today(),
@@ -153,6 +201,13 @@ const materialRoleLabel: Record<TrialMaterialRole, string> = {
   other: 'سایر'
 };
 
+const specimenTypeLabel: Record<TrialSpecimenType, string> = {
+  cube: 'مکعب',
+  cylinder: 'استوانه',
+  beam: 'تیر',
+  other: 'سایر'
+};
+
 function optionalNumber(value: string) {
   return value.trim() ? Number(value) : null;
 }
@@ -168,6 +223,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   const [materialForm, setMaterialForm] = useState<MaterialFormState>(initialMaterialForm);
   const [materialState, setMaterialState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [materialMessage, setMaterialMessage] = useState('');
+  const [specimenForm, setSpecimenForm] = useState<SpecimenFormState>(newSpecimenForm);
+  const [specimenState, setSpecimenState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [specimenMessage, setSpecimenMessage] = useState('');
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [records, setRecords] = useState<TrialMixRecord[]>([]);
@@ -181,6 +239,8 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     setSelectedBatchId(null);
     setMaterialForm(initialMaterialForm);
     setMaterialMessage('');
+    setSpecimenForm(newSpecimenForm());
+    setSpecimenMessage('');
     void loadSessions();
     void loadRecords();
   }, [props.mixDesignId]);
@@ -355,6 +415,73 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     }
   }
 
+  async function saveSpecimen() {
+    if (!selectedSession || !selectedBatchId) {
+      setSpecimenState('error');
+      setSpecimenMessage('ابتدا یک Session و سپس یک Batch را انتخاب کنید.');
+      return;
+    }
+    if (selectedSession.status === 'void') {
+      setSpecimenState('error');
+      setSpecimenMessage('ثبت نمونه برای Session باطل‌شده مجاز نیست.');
+      return;
+    }
+    if (!specimenForm.specimenCode.trim()) {
+      setSpecimenState('error');
+      setSpecimenMessage('کد نمونه الزامی است.');
+      return;
+    }
+    if (!specimenForm.castAt.trim() || Number.isNaN(Date.parse(specimenForm.castAt))) {
+      setSpecimenState('error');
+      setSpecimenMessage('زمان ساخت نمونه معتبر نیست.');
+      return;
+    }
+    const targetTestAgeDays = optionalNumber(specimenForm.targetTestAgeDays);
+    if (targetTestAgeDays != null && (!Number.isInteger(targetTestAgeDays) || targetTestAgeDays <= 0)) {
+      setSpecimenState('error');
+      setSpecimenMessage('سن هدف آزمون باید عدد صحیح مثبت باشد.');
+      return;
+    }
+    const dimensions = [
+      [optionalNumber(specimenForm.widthMm), 'عرض'],
+      [optionalNumber(specimenForm.heightMm), 'ارتفاع'],
+      [optionalNumber(specimenForm.lengthMm), 'طول'],
+      [optionalNumber(specimenForm.diameterMm), 'قطر']
+    ] as const;
+    const invalidDimension = dimensions.find(([value]) => value != null && (!Number.isFinite(value) || value <= 0));
+    if (invalidDimension) {
+      setSpecimenState('error');
+      setSpecimenMessage(`${invalidDimension[1]} نمونه باید عدد مثبت باشد.`);
+      return;
+    }
+    setSpecimenState('saving');
+    setSpecimenMessage('');
+    try {
+      if (!window.tolouTrialMixV2?.saveSpecimen) throw new Error('API ثبت نمونه Trial در دسترس نیست.');
+      const response = await window.tolouTrialMixV2.saveSpecimen({
+        trialMixRecordId: selectedBatchId,
+        specimenCode: specimenForm.specimenCode.trim(),
+        specimenType: specimenForm.specimenType,
+        castAt: specimenForm.castAt,
+        targetTestAgeDays,
+        widthMm: optionalNumber(specimenForm.widthMm),
+        heightMm: optionalNumber(specimenForm.heightMm),
+        lengthMm: optionalNumber(specimenForm.lengthMm),
+        diameterMm: optionalNumber(specimenForm.diameterMm),
+        curingCondition: specimenForm.curingCondition.trim() || null,
+        notes: specimenForm.notes.trim() || null
+      }) as { status?: string; error?: string };
+      if (response.status !== 'pass') throw new Error(response.error ?? 'ثبت نمونه Trial ناموفق بود.');
+      setSpecimenForm(newSpecimenForm());
+      await openSession(selectedSession.id);
+      setSpecimenState('saved');
+      setSpecimenMessage('نمونه برای Batch انتخاب‌شده ثبت شد.');
+    } catch (error) {
+      setSpecimenState('error');
+      setSpecimenMessage(error instanceof Error ? error.message : 'خطا در ثبت نمونه Trial');
+    }
+  }
+
   async function loadRecords() {
     if (!props.mixDesignId) { setRecords([]); return; }
     try {
@@ -401,6 +528,10 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
 
   function materialField(key: keyof Omit<MaterialFormState, 'materialRole'>, label: string, type = 'text') {
     return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={materialForm[key]} onChange={event => setMaterialForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
+  }
+
+  function specimenField(key: keyof Omit<SpecimenFormState, 'specimenType'>, label: string, type = 'text') {
+    return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={specimenForm[key]} onChange={event => setSpecimenForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
   function field(key: keyof FormState, label: string, type = 'number') {
@@ -459,7 +590,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     <section className="content-grid">
       <article className="panel wide-panel">
         <div className="panel-head"><div><h3>Batchهای Session فعال</h3><span>Revision-bound linked Trial Mix records</span></div><span className="badge blue">{selectedSession?.batches?.length ?? 0}</span></div>
-        <div className="table-wrap"><table><caption className="sr-only">Batchهای متصل به Trial Session فعال</caption><thead><tr><th scope="col">#</th><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">Materials</th><th scope="col">عملیات</th></tr></thead><tbody>{!selectedSession ? <tr><td colSpan={9}>برای مشاهده Batchها ابتدا یک Session را باز کنید.</td></tr> : (selectedSession.batches?.length ?? 0) === 0 ? <tr><td colSpan={9}>هنوز Batch به این Session متصل نشده است.</td></tr> : selectedSession.batches!.map(batch => <tr key={batch.id}><td>{batch.batchSequence}</td><td>{batch.trialDate}</td><td>{batch.batchQuantityM3}</td><td>{batch.actualSlumpMm}</td><td>{batch.airContentPercent}</td><td>{batch.concreteTemperatureC}</td><td>{batch.freshDensityKgM3}</td><td>{batch.materials?.length ?? 0}</td><td><button className="btn" aria-pressed={selectedBatchId === batch.id} onClick={() => { setSelectedBatchId(batch.id); setMaterialMessage(''); }}>انتخاب Batch</button></td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table><caption className="sr-only">Batchهای متصل به Trial Session فعال</caption><thead><tr><th scope="col">#</th><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">Materials</th><th scope="col">Specimens</th><th scope="col">عملیات</th></tr></thead><tbody>{!selectedSession ? <tr><td colSpan={10}>برای مشاهده Batchها ابتدا یک Session را باز کنید.</td></tr> : (selectedSession.batches?.length ?? 0) === 0 ? <tr><td colSpan={10}>هنوز Batch به این Session متصل نشده است.</td></tr> : selectedSession.batches!.map(batch => <tr key={batch.id}><td>{batch.batchSequence}</td><td>{batch.trialDate}</td><td>{batch.batchQuantityM3}</td><td>{batch.actualSlumpMm}</td><td>{batch.airContentPercent}</td><td>{batch.concreteTemperatureC}</td><td>{batch.freshDensityKgM3}</td><td>{batch.materials?.length ?? 0}</td><td>{batch.specimens?.length ?? 0}</td><td><button className="btn" aria-pressed={selectedBatchId === batch.id} onClick={() => { setSelectedBatchId(batch.id); setMaterialMessage(''); setSpecimenMessage(''); }}>انتخاب Batch</button></td></tr>)}</tbody></table></div>
       </article>
     </section>
 
@@ -493,6 +624,41 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       <article className="panel wide-panel">
         <div className="panel-head"><div><h3>مصالح واقعی Batch انتخاب‌شده</h3><span>Actual batching records</span></div><span className="badge blue">{selectedBatch?.materials?.length ?? 0}</span></div>
         <div className="table-wrap"><table><caption className="sr-only">مصالح واقعی ثبت‌شده برای Batch انتخاب‌شده</caption><thead><tr><th scope="col">Role</th><th scope="col">Material</th><th scope="col">Reference</th><th scope="col">Target kg</th><th scope="col">Batched kg</th><th scope="col">Moisture %</th><th scope="col">Absorption %</th><th scope="col">Correction kg</th></tr></thead><tbody>{!selectedBatch ? <tr><td colSpan={8}>ابتدا یک Batch را انتخاب کنید.</td></tr> : (selectedBatch.materials?.length ?? 0) === 0 ? <tr><td colSpan={8}>هنوز مقدار واقعی مصالح برای این Batch ثبت نشده است.</td></tr> : selectedBatch.materials!.map(material => <tr key={material.id}><td>{materialRoleLabel[material.materialRole]}</td><td>{material.materialName}</td><td>{material.materialReferenceId ?? '-'}</td><td>{material.targetMassKg ?? '-'}</td><td>{material.batchedMassKg}</td><td>{material.moisturePercent ?? '-'}</td><td>{material.absorptionPercent ?? '-'}</td><td>{material.moistureCorrectionKg ?? '-'}</td></tr>)}</tbody></table></div>
+      </article>
+    </section>
+
+    <div aria-live="polite" aria-atomic="true">{specimenMessage && <div className={`alert ${specimenState === 'error' ? 'danger' : 'ok'}`}>{specimenMessage}</div>}</div>
+    <section className="form-grid">
+      <article className="panel form-panel">
+        <div className="panel-head"><div><h3>Specimens</h3><span>{selectedBatch ? `Batch ${selectedBatch.batchSequence} — laboratory specimens` : 'یک Batch را انتخاب کنید'}</span></div></div>
+        <div className="panel-body form-body">
+          {specimenField('specimenCode', 'کد نمونه')}
+          <label className="field"><span>نوع نمونه</span><select value={specimenForm.specimenType} onChange={event => setSpecimenForm(previous => ({ ...previous, specimenType: event.target.value as TrialSpecimenType }))}>{Object.entries(specimenTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {specimenField('castAt', 'زمان ساخت', 'datetime-local')}
+          {specimenField('targetTestAgeDays', 'سن هدف آزمون (day)', 'number')}
+          {specimenField('widthMm', 'عرض (mm)', 'number')}
+          {specimenField('heightMm', 'ارتفاع (mm)', 'number')}
+          {specimenField('lengthMm', 'طول (mm)', 'number')}
+          {specimenField('diameterMm', 'قطر (mm)', 'number')}
+          {specimenField('curingCondition', 'شرایط عمل‌آوری')}
+          <label className="field"><span>یادداشت نمونه</span><textarea value={specimenForm.notes} onChange={event => setSpecimenForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
+        </div>
+        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || selectedSession?.status === 'void' || specimenState === 'saving'} onClick={saveSpecimen}>{specimenState === 'saving' ? 'در حال ثبت...' : 'ثبت نمونه'}</button></div>
+      </article>
+
+      <article className="panel form-panel">
+        <div className="panel-head"><div><h3>هویت نمونه</h3><span>Geometry & curing traceability</span></div><span className="badge blue">{selectedBatch?.specimens?.length ?? 0}</span></div>
+        <div className="panel-body">
+          <p>ابعاد فقط در صورت ثبت، باید مثبت باشند. سن هدف آزمون نیز در صورت ورود باید عدد صحیح مثبت باشد.</p>
+          <p><b>Batch فعال:</b> {selectedBatch ? `#${selectedBatch.batchSequence} / ${selectedBatch.id}` : '-'}</p>
+        </div>
+      </article>
+    </section>
+
+    <section className="content-grid">
+      <article className="panel wide-panel">
+        <div className="panel-head"><div><h3>نمونه‌های Batch انتخاب‌شده</h3><span>Persisted specimen identities</span></div><span className="badge blue">{selectedBatch?.specimens?.length ?? 0}</span></div>
+        <div className="table-wrap"><table><caption className="sr-only">نمونه‌های آزمایشگاهی ثبت‌شده برای Batch انتخاب‌شده</caption><thead><tr><th scope="col">Code</th><th scope="col">Type</th><th scope="col">Cast At</th><th scope="col">Target Age</th><th scope="col">Width</th><th scope="col">Height</th><th scope="col">Length</th><th scope="col">Diameter</th><th scope="col">Curing</th><th scope="col">Results</th></tr></thead><tbody>{!selectedBatch ? <tr><td colSpan={10}>ابتدا یک Batch را انتخاب کنید.</td></tr> : (selectedBatch.specimens?.length ?? 0) === 0 ? <tr><td colSpan={10}>هنوز نمونه‌ای برای این Batch ثبت نشده است.</td></tr> : selectedBatch.specimens!.map(specimen => <tr key={specimen.id}><td>{specimen.specimenCode}</td><td>{specimenTypeLabel[specimen.specimenType]}</td><td>{specimen.castAt}</td><td>{specimen.targetTestAgeDays ?? '-'}</td><td>{specimen.widthMm ?? '-'}</td><td>{specimen.heightMm ?? '-'}</td><td>{specimen.lengthMm ?? '-'}</td><td>{specimen.diameterMm ?? '-'}</td><td>{specimen.curingCondition ?? '-'}</td><td>{specimen.results?.length ?? 0}</td></tr>)}</tbody></table></div>
       </article>
     </section>
 
