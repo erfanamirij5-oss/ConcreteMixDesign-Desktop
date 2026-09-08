@@ -68,13 +68,14 @@ export function TrialStrengthAnalyticsPanel(props: Props) {
       return;
     }
 
+    const sessionId = props.sessionId;
     let cancelled = false;
     void (async () => {
       setState('loading');
       setMessage('');
       try {
         if (!window.tolouTrialMixV2?.getStrengthAnalytics) throw new Error('API تحلیل مقاومت Trial Mix v2 در دسترس نیست.');
-        const response = await window.tolouTrialMixV2.getStrengthAnalytics(props.sessionId) as { status?: string; analytics?: StrengthAnalytics; error?: string };
+        const response = await window.tolouTrialMixV2.getStrengthAnalytics(sessionId) as { status?: string; analytics?: StrengthAnalytics; error?: string };
         if (response.status !== 'pass' || !response.analytics) throw new Error(response.error ?? 'خواندن تحلیل مقاومت ناموفق بود.');
         if (!cancelled) {
           setAnalytics(response.analytics);
