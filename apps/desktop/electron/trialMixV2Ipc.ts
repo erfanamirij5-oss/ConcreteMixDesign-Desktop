@@ -24,6 +24,7 @@ import {
 import { getTrialSessionStrengthAnalytics } from './trialMixV2AnalyticsService';
 import { getTrialSessionCalibrationComparison } from './trialMixV2CalibrationService';
 import { getTrialSessionMoistureCorrection } from './trialMixV2MoistureCorrectionService';
+import { getTrialSessionRevisionFeedback } from './trialMixV2RevisionFeedbackService';
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
@@ -65,6 +66,11 @@ export function registerTrialMixV2Ipc() {
     requireRendererPermission(event.sender, 'engineering.read');
     return getTrialSessionMoistureCorrection(sessionId);
   }, 'خطا در محاسبه Moisture Correction Trial Session'));
+
+  ipcMain.handle('trial-mix-v2:get-revision-feedback', async (event, sessionId: string) => safeCall(() => {
+    requireRendererPermission(event.sender, 'engineering.read');
+    return getTrialSessionRevisionFeedback(sessionId);
+  }, 'خطا در ساخت Revision Feedback Trial Session'));
 
   ipcMain.handle('trial-mix-v2:transition-session-status', async (event, payload: TransitionTrialSessionInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
