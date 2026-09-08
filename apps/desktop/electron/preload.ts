@@ -97,6 +97,15 @@ contextBridge.exposeInMainWorld('tolouTrialMixV2', {
   saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:save-strength-result', payload)
 });
 
+contextBridge.exposeInMainWorld('tolouProductionQc', {
+  createBatch: (payload: unknown) => ipcRenderer.invoke('production-qc:create-batch', payload),
+  listBatches: (mixDesignId: string) => ipcRenderer.invoke('production-qc:list-batches', mixDesignId),
+  getBatch: (productionBatchId: string) => ipcRenderer.invoke('production-qc:get-batch', productionBatchId),
+  saveMaterialActual: (payload: unknown) => ipcRenderer.invoke('production-qc:save-material-actual', payload),
+  saveSpecimen: (payload: unknown) => ipcRenderer.invoke('production-qc:save-specimen', payload),
+  saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('production-qc:save-strength-result', payload)
+});
+
 contextBridge.exposeInMainWorld('tolouReports', {
   create: (payload: unknown) => ipcRenderer.invoke('report-center:create', payload),
   list: (mixDesignId: string) => ipcRenderer.invoke('report-center:list', mixDesignId),
