@@ -144,7 +144,10 @@ export function getTrialSessionCalibrationComparison(sessionIdInput: string) {
       massByRole.set(item.materialRole, (massByRole.get(item.materialRole) ?? 0) + Number(item.batchedMassKg));
     }
     const perM3 = (massKg: number | undefined) => massKg == null ? null : massKg / Number(batch.batchQuantityM3);
-    const cementitiousActual = perM3((massByRole.get('cement') ?? 0) + (massByRole.get('scm') ?? 0));
+    const cementMass = massByRole.get('cement');
+    const scmMass = massByRole.get('scm');
+    const cementitiousMass = cementMass == null && scmMass == null ? undefined : (cementMass ?? 0) + (scmMass ?? 0);
+    const cementitiousActual = perM3(cementitiousMass);
     const waterActual = perM3(massByRole.get('water'));
     const fineActual = perM3(massByRole.get('fine_aggregate'));
     const coarseActual = perM3(massByRole.get('coarse_aggregate'));
@@ -160,7 +163,7 @@ export function getTrialSessionCalibrationComparison(sessionIdInput: string) {
         metric('w_cm_ratio_raw_batched', 'ratio', design.wCmRatio, rawBatchedWCm),
         metric('fine_aggregate', 'kg/m3', design.fineAggregateKgM3, fineActual),
         metric('coarse_aggregate', 'kg/m3', design.coarseAggregateKgM3, coarseActual),
-        metric('air_content', '%', design.airPercent, Number(batch.actualAirPercent))
+        metric('air_content', '%', design.airPercent, finiteOrNull(batch.actualAirPercent))
       ],
       traceability: {
         materialActualIds: materials.map(item => item.id),
