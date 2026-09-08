@@ -56,6 +56,7 @@ declare global {
       createSession: (payload: unknown) => Promise<unknown>;
       listSessions: (mixDesignId: string) => Promise<unknown>;
       getSession: (sessionId: string) => Promise<unknown>;
+      transitionSessionStatus: (payload: unknown) => Promise<unknown>;
       linkRecord: (payload: unknown) => Promise<unknown>;
       saveMaterialActual: (payload: unknown) => Promise<unknown>;
       saveSpecimen: (payload: unknown) => Promise<unknown>;
