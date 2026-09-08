@@ -36,9 +36,9 @@ async function run() {
     ensureRuntimeMigrations(database);
 
     const migrations = database.prepare('SELECT id FROM schema_migrations ORDER BY id').all() as Array<{ id: string }>;
-    assert.equal(migrations.length, 23, 'Gate08 upgrade must append current runtime migrations through 023');
+    assert.equal(migrations.length, 24, 'Gate08 upgrade must append current runtime migrations through 024');
     assert.ok(migrations.some(migration => migration.id === '022_users_roles_audit_security'), 'Gate09 security migration 022 must remain present after later runtime upgrades');
-    assert.equal(migrations.at(-1)?.id, '023_trial_mix_v2_foundation');
+    assert.equal(migrations.at(-1)?.id, '024_production_qc_foundation');
     assert.equal((database.prepare('SELECT COUNT(*) AS count FROM security_roles').get() as { count: number }).count, 3);
     assert.equal((database.prepare('SELECT COUNT(*) AS count FROM security_permissions').get() as { count: number }).count, 7);
     assert.equal((database.prepare("SELECT COUNT(*) AS count FROM security_role_permissions WHERE role_id = 'administrator'").get() as { count: number }).count, 7);
@@ -52,7 +52,7 @@ async function run() {
 
     const manifest = await createValidatedBackup(database, backupPath);
     assert.ok(manifest.schemaMigrations.includes('022_users_roles_audit_security'), 'Backup manifest must preserve Gate09 security migration identity');
-    assert.equal(manifest.schemaMigrations.at(-1), '023_trial_mix_v2_foundation');
+    assert.equal(manifest.schemaMigrations.at(-1), '024_production_qc_foundation');
 
     database.prepare("UPDATE security_users SET display_name = 'Mutated after backup' WHERE id = ?").run(admin.id);
     const restored = await restoreValidatedBackup(backupPath, activePath, database);
