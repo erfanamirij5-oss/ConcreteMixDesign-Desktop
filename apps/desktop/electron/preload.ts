@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('tolouTrialMixV2', {
   listSessions: (mixDesignId: string) => ipcRenderer.invoke('trial-mix-v2:list-sessions', mixDesignId),
   getSession: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-session', sessionId),
   getStrengthAnalytics: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-strength-analytics', sessionId),
+  getCalibrationComparison: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-calibration-comparison', sessionId),
   transitionSessionStatus: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:transition-session-status', payload),
   linkRecord: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:link-record', payload),
   saveMaterialActual: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:save-material-actual', payload),
