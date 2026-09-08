@@ -66,6 +66,14 @@ declare global {
       saveSpecimen: (payload: unknown) => Promise<unknown>;
       saveStrengthResult: (payload: unknown) => Promise<unknown>;
     };
+    tolouProductionQc?: {
+      createBatch: (payload: unknown) => Promise<unknown>;
+      listBatches: (mixDesignId: string) => Promise<unknown>;
+      getBatch: (productionBatchId: string) => Promise<unknown>;
+      saveMaterialActual: (payload: unknown) => Promise<unknown>;
+      saveSpecimen: (payload: unknown) => Promise<unknown>;
+      saveStrengthResult: (payload: unknown) => Promise<unknown>;
+    };
     tolouReports?: {
       create: (payload: unknown) => Promise<unknown>;
       list: (mixDesignId: string) => Promise<unknown>;
