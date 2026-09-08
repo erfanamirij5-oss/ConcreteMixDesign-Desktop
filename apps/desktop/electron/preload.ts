@@ -101,6 +101,7 @@ contextBridge.exposeInMainWorld('tolouProductionQc', {
   createBatch: (payload: unknown) => ipcRenderer.invoke('production-qc:create-batch', payload),
   listBatches: (mixDesignId: string) => ipcRenderer.invoke('production-qc:list-batches', mixDesignId),
   getBatch: (productionBatchId: string) => ipcRenderer.invoke('production-qc:get-batch', productionBatchId),
+  getStrengthAnalytics: (mixDesignId: string) => ipcRenderer.invoke('production-qc:get-strength-analytics', mixDesignId),
   saveMaterialActual: (payload: unknown) => ipcRenderer.invoke('production-qc:save-material-actual', payload),
   saveSpecimen: (payload: unknown) => ipcRenderer.invoke('production-qc:save-specimen', payload),
   saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('production-qc:save-strength-result', payload)
