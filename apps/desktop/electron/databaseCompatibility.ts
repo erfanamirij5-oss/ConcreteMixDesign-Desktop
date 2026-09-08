@@ -22,7 +22,8 @@ export const KNOWN_MIGRATIONS = [
   '019_professional_material_library',
   '020_minimum_trial_mix',
   '021_report_center_snapshots',
-  '022_users_roles_audit_security'
+  '022_users_roles_audit_security',
+  '023_trial_mix_v2_foundation'
 ] as const;
 
 export function assertDatabaseSchemaCompatibility(database: Database.Database) {
