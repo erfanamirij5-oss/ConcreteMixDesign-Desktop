@@ -1,5 +1,6 @@
 import { getDatabase } from './database';
 import { ensureRuntimeMigrations } from './runtimeMigrations';
+import { resolveTrialRevisionDesignResult } from './trialMixV2RevisionDesignResolver';
 
 export type CalibrationMetric = {
   metric: string;
@@ -82,33 +83,13 @@ export function getTrialSessionCalibrationComparison(sessionIdInput: string) {
     currentRevisionNumber: number;
   } | undefined;
   if (!session) throw new Error('Trial Session پیدا نشد.');
-  if (session.revisionNumber !== session.currentRevisionNumber) {
-    throw new Error('Calibration برای Revision تاریخی تا زمان اتصال مستقیم به immutable revision snapshot مجاز نیست.');
-  }
 
-  const design = database.prepare(`
-    SELECT id,
-      cementitious_content_kg_m3 AS cementitiousKgM3,
-      water_content_kg_m3 AS waterKgM3,
-      w_cm_ratio AS wCmRatio,
-      fine_aggregate_kg_m3 AS fineAggregateKgM3,
-      coarse_aggregate_kg_m3 AS coarseAggregateKgM3,
-      air_content_percent AS airPercent,
-      notes
-    FROM mix_results
-    WHERE mix_design_id = ?
-    ORDER BY rowid DESC LIMIT 1
-  `).get(session.mixDesignId) as {
-    id: string;
-    cementitiousKgM3: number | null;
-    waterKgM3: number | null;
-    wCmRatio: number | null;
-    fineAggregateKgM3: number | null;
-    coarseAggregateKgM3: number | null;
-    airPercent: number | null;
-    notes: string | null;
-  } | undefined;
-  if (!design) throw new Error('نتیجه طراحی ذخیره‌شده برای Revision فعلی پیدا نشد.');
+  const design = resolveTrialRevisionDesignResult(
+    database,
+    session.mixDesignId,
+    Number(session.revisionNumber),
+    Number(session.currentRevisionNumber)
+  );
 
   const batches = database.prepare(`
     SELECT sr.batch_sequence AS batchSequence,
@@ -176,10 +157,11 @@ export function getTrialSessionCalibrationComparison(sessionIdInput: string) {
     status: 'pass' as const,
     calibration: {
       method: {
-        version: 'trial-calibration-comparison-v1',
+        version: 'trial-calibration-comparison-v2',
         scope: 'descriptive comparison only',
         batchNormalization: 'batched_mass_kg / batch_quantity_m3',
-        rawBatchedWCm: 'raw batched water / (cement + scm); moisture/absorption corrections are not applied in v1',
+        rawBatchedWCm: 'raw batched water / (cement + scm); moisture/absorption corrections are not applied in v2',
+        revisionDesignResolution: 'current revision uses current mix_results; historical revision uses immutable mix_design_revision_snapshots snapshot_json.mixResults',
         recommendationEngineApplied: false,
         acceptanceCriteriaApplied: false
       },
@@ -192,6 +174,9 @@ export function getTrialSessionCalibrationComparison(sessionIdInput: string) {
       },
       design: {
         resultId: design.id,
+        source: design.source,
+        snapshotId: design.snapshotId,
+        snapshotRevisionNumber: design.snapshotRevisionNumber,
         cementitiousKgM3: design.cementitiousKgM3,
         waterKgM3: design.waterKgM3,
         wCmRatio: design.wCmRatio,
