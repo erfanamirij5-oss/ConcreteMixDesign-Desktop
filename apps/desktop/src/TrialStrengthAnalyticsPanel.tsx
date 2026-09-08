@@ -58,6 +58,7 @@ export function TrialStrengthAnalyticsPanel(props: Props) {
   const [analytics, setAnalytics] = useState<StrengthAnalytics | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [manualRefresh, setManualRefresh] = useState(0);
 
   useEffect(() => {
     if (!props.sessionId) {
@@ -89,7 +90,7 @@ export function TrialStrengthAnalyticsPanel(props: Props) {
     })();
 
     return () => { cancelled = true; };
-  }, [props.sessionId, props.refreshKey]);
+  }, [props.sessionId, props.refreshKey, manualRefresh]);
 
   const trendPoints = useMemo(() => {
     if (!analytics) return [];
@@ -111,7 +112,7 @@ export function TrialStrengthAnalyticsPanel(props: Props) {
       <article className="panel wide-panel">
         <div className="panel-head">
           <div><h3>Strength Analytics</h3><span>Read-only descriptive statistics — no acceptance criteria</span></div>
-          <span className="badge blue">{analytics?.overall.count ?? 0} results</span>
+          <div className="toolbar"><span className="badge blue">{analytics?.overall.count ?? 0} results</span><button className="btn" disabled={state === 'loading'} onClick={() => setManualRefresh(value => value + 1)}>{state === 'loading' ? 'در حال بروزرسانی...' : 'بروزرسانی آمار'}</button></div>
         </div>
         <div className="panel-body">
           {state === 'loading' ? <div className="alert warn">در حال محاسبه آمار مقاومت...</div> : !analytics ? <div className="alert warn">داده تحلیلی در دسترس نیست.</div> : <>
