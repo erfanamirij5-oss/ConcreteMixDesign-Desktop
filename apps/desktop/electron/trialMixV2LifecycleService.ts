@@ -38,6 +38,45 @@ function audit(database: Database.Database, mixDesignId: string, action: string,
   `).run(mixDesignId, action, JSON.stringify(details), optionalText(actorName), new Date().toISOString());
 }
 
+function assertWritableStatus(status: TrialSessionStatus) {
+  if (status === 'completed' || status === 'void') {
+    throw new Error('Trial Session در وضعیت نهایی است و فقط‌خواندنی محسوب می‌شود.');
+  }
+}
+
+export function assertTrialSessionWritable(sessionId: string) {
+  const database = db();
+  const id = nonEmpty(sessionId, 'شناسه Trial Session الزامی است.');
+  const session = database.prepare('SELECT status FROM trial_mix_sessions WHERE id = ?').get(id) as { status: TrialSessionStatus } | undefined;
+  if (!session) throw new Error('Trial Session پیدا نشد.');
+  assertWritableStatus(session.status);
+}
+
+export function assertTrialRecordSessionWritable(trialMixRecordId: string) {
+  const database = db();
+  const id = nonEmpty(trialMixRecordId, 'شناسه Trial Mix record الزامی است.');
+  const sessions = database.prepare(`
+    SELECT s.status
+    FROM trial_mix_session_records sr
+    JOIN trial_mix_sessions s ON s.id = sr.session_id
+    WHERE sr.trial_mix_record_id = ?
+  `).all(id) as Array<{ status: TrialSessionStatus }>;
+  for (const session of sessions) assertWritableStatus(session.status);
+}
+
+export function assertSpecimenSessionWritable(specimenId: string) {
+  const database = db();
+  const id = nonEmpty(specimenId, 'شناسه نمونه الزامی است.');
+  const sessions = database.prepare(`
+    SELECT s.status
+    FROM trial_mix_specimens sp
+    JOIN trial_mix_session_records sr ON sr.trial_mix_record_id = sp.trial_mix_record_id
+    JOIN trial_mix_sessions s ON s.id = sr.session_id
+    WHERE sp.id = ?
+  `).all(id) as Array<{ status: TrialSessionStatus }>;
+  for (const session of sessions) assertWritableStatus(session.status);
+}
+
 export function allowedTrialSessionTransitions(status: TrialSessionStatus) {
   return [...ALLOWED_TRANSITIONS[status]];
 }
