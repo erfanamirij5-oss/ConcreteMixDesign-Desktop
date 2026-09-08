@@ -21,6 +21,7 @@ import {
   transitionTrialSessionStatus,
   type TransitionTrialSessionInput
 } from './trialMixV2LifecycleService';
+import { getTrialSessionStrengthAnalytics } from './trialMixV2AnalyticsService';
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
@@ -47,6 +48,11 @@ export function registerTrialMixV2Ipc() {
     requireRendererPermission(event.sender, 'engineering.read');
     return { status: 'pass' as const, session: getTrialSessionDetail(sessionId) };
   }, 'خطا در خواندن جزئیات Trial Session'));
+
+  ipcMain.handle('trial-mix-v2:get-strength-analytics', async (event, sessionId: string) => safeCall(() => {
+    requireRendererPermission(event.sender, 'engineering.read');
+    return getTrialSessionStrengthAnalytics(sessionId);
+  }, 'خطا در تحلیل نتایج مقاومت Trial Session'));
 
   ipcMain.handle('trial-mix-v2:transition-session-status', async (event, payload: TransitionTrialSessionInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
