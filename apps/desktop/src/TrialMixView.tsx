@@ -18,11 +18,25 @@ type TrialSessionSummary = {
   batchCount?: number;
 };
 
-type TrialSessionDetail = TrialSessionSummary & {
-  batches?: unknown[];
-  materialActuals?: unknown[];
+type TrialBatch = {
+  id: string;
+  batchSequence: number;
+  linkedAt?: string;
+  trialDate: string;
+  batchQuantityM3: number;
+  actualSlumpMm: number;
+  airContentPercent: number;
+  concreteTemperatureC: number;
+  freshDensityKgM3: number;
+  strength7dMpa?: number | null;
+  strength28dMpa?: number | null;
+  notes?: string | null;
+  materials?: unknown[];
   specimens?: unknown[];
-  strengthResults?: unknown[];
+};
+
+type TrialSessionDetail = TrialSessionSummary & {
+  batches?: TrialBatch[];
 };
 
 type SessionFormState = {
@@ -98,6 +112,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   const [selectedSession, setSelectedSession] = useState<TrialSessionDetail | null>(null);
   const [sessionState, setSessionState] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [sessionMessage, setSessionMessage] = useState('');
+  const [linkingRecordId, setLinkingRecordId] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [records, setRecords] = useState<TrialMixRecord[]>([]);
@@ -107,6 +122,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   useEffect(() => {
     setSelectedSession(null);
     setSessionMessage('');
+    setLinkingRecordId(null);
     void loadSessions();
     void loadRecords();
   }, [props.mixDesignId]);
@@ -182,6 +198,47 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     }
   }
 
+  async function linkRecordToSelectedSession(recordId: string) {
+    if (!selectedSession) {
+      setSessionState('error');
+      setSessionMessage('ابتدا یک Trial Session را باز کنید.');
+      return;
+    }
+    if (selectedSession.status === 'void') {
+      setSessionState('error');
+      setSessionMessage('اتصال Batch به Session باطل‌شده مجاز نیست.');
+      return;
+    }
+    const existingBatches = selectedSession.batches ?? [];
+    if (existingBatches.some(batch => batch.id === recordId)) {
+      setSessionState('error');
+      setSessionMessage('این Trial Mix record قبلاً به Session فعال متصل شده است.');
+      return;
+    }
+    const nextBatchSequence = existingBatches.reduce((max, batch) => Math.max(max, batch.batchSequence), 0) + 1;
+    setLinkingRecordId(recordId);
+    setSessionState('saving');
+    setSessionMessage('');
+    try {
+      if (!window.tolouTrialMixV2?.linkRecord) throw new Error('API اتصال Batch به Trial Session در دسترس نیست.');
+      const response = await window.tolouTrialMixV2.linkRecord({
+        sessionId: selectedSession.id,
+        trialMixRecordId: recordId,
+        batchSequence: nextBatchSequence
+      }) as { status?: string; session?: TrialSessionDetail; error?: string };
+      if (response.status !== 'pass' || !response.session) throw new Error(response.error ?? 'اتصال Batch به Trial Session ناموفق بود.');
+      setSelectedSession(response.session);
+      await loadSessions(response.session.id);
+      setSessionState('saved');
+      setSessionMessage(`Batch ${nextBatchSequence} به Session ${response.session.sessionCode} متصل شد.`);
+    } catch (error) {
+      setSessionState('error');
+      setSessionMessage(error instanceof Error ? error.message : 'خطا در اتصال Batch به Trial Session');
+    } finally {
+      setLinkingRecordId(null);
+    }
+  }
+
   async function loadRecords() {
     if (!props.mixDesignId) { setRecords([]); return; }
     try {
@@ -230,6 +287,8 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={form[key]} onChange={event => setForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
+  const linkedRecordIds = new Set((selectedSession?.batches ?? []).map(batch => batch.id));
+
   return <>
     <section className="titlebar"><div><h2>Trial Mix & Validation</h2><p>مدیریت Session، بچ آزمایشی، داده‌های واقعی و نتایج آزمایشگاهی با حفظ workflow پایدار Trial Mix</p></div></section>
     {!props.mixDesignId && <div className="alert warn">برای کار با Trial Mix ابتدا یک پرونده طرح اختلاط را فعال کنید.</div>}
@@ -263,7 +322,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
             <div><b>مهندس مسئول:</b> {selectedSession.leadEngineer ?? '-'}</div>
             <div><b>محل:</b> {selectedSession.location ?? '-'}</div>
             <div><b>هدف:</b> {selectedSession.objective ?? '-'}</div>
-            <div><b>تعداد Batch:</b> {selectedSession.batchCount ?? selectedSession.batches?.length ?? 0}</div>
+            <div><b>تعداد Batch:</b> {selectedSession.batches?.length ?? selectedSession.batchCount ?? 0}</div>
           </div>}
         </div>
       </article>
@@ -276,7 +335,14 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       </article>
     </section>
 
-    <section className="titlebar"><div><h2>Legacy Trial Batch</h2><p>مسیر پایدار Gate 06 برای ثبت رکورد بچ آزمایشی؛ بدون تغییر در API موجود</p></div><div className="toolbar"><button className="btn success" disabled={!props.mixDesignId || state === 'saving'} onClick={saveRecord}>{state === 'saving' ? 'در حال ذخیره...' : 'ثبت Trial Mix'}</button></div></section>
+    <section className="content-grid">
+      <article className="panel wide-panel">
+        <div className="panel-head"><div><h3>Batchهای Session فعال</h3><span>Revision-bound linked Trial Mix records</span></div><span className="badge blue">{selectedSession?.batches?.length ?? 0}</span></div>
+        <div className="table-wrap"><table><caption className="sr-only">Batchهای متصل به Trial Session فعال</caption><thead><tr><th scope="col">#</th><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th></tr></thead><tbody>{!selectedSession ? <tr><td colSpan={9}>برای مشاهده Batchها ابتدا یک Session را باز کنید.</td></tr> : (selectedSession.batches?.length ?? 0) === 0 ? <tr><td colSpan={9}>هنوز Batch به این Session متصل نشده است.</td></tr> : selectedSession.batches!.map(batch => <tr key={batch.id}><td>{batch.batchSequence}</td><td>{batch.trialDate}</td><td>{batch.batchQuantityM3}</td><td>{batch.actualSlumpMm}</td><td>{batch.airContentPercent}</td><td>{batch.concreteTemperatureC}</td><td>{batch.freshDensityKgM3}</td><td>{batch.strength7dMpa ?? '-'}</td><td>{batch.strength28dMpa ?? '-'}</td></tr>)}</tbody></table></div>
+      </article>
+    </section>
+
+    <section className="titlebar"><div><h2>Legacy Trial Batch</h2><p>مسیر پایدار Gate 06 برای ثبت رکورد بچ آزمایشی؛ رکورد ذخیره‌شده می‌تواند به Session فعال متصل شود.</p></div><div className="toolbar"><button className="btn success" disabled={!props.mixDesignId || state === 'saving'} onClick={saveRecord}>{state === 'saving' ? 'در حال ذخیره...' : 'ثبت Trial Mix'}</button></div></section>
     <div aria-live="polite" aria-atomic="true">{message && <div className={`alert ${state === 'error' ? 'danger' : 'ok'}`}>{message}</div>}</div>
     <section className="form-grid">
       <article className="panel form-panel"><div className="panel-head"><div><h3>مشخصات Trial</h3><span>Fresh concrete measurements</span></div></div><div className="panel-body form-body">
@@ -286,6 +352,6 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
         {field('strength7dMpa', 'مقاومت ۷ روزه (MPa)')}{field('strength28dMpa', 'مقاومت ۲۸ روزه (MPa)')}{field('actorName', 'مسئول ثبت', 'text')}<label className="field"><span>یادداشت‌ها</span><textarea value={form.notes} onChange={event => setForm(previous => ({ ...previous, notes: event.target.value }))} /></label>
       </div></article>
     </section>
-    <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>سوابق Trial Mix</h3><span>Persisted records for active mix design</span></div><span className="badge blue">{records.length}</span></div><div className="table-wrap"><table><caption className="sr-only">سوابق Trial Mix ثبت‌شده برای طرح فعال</caption><thead><tr><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th><th scope="col">مسئول</th></tr></thead><tbody>{records.length === 0 ? <tr><td colSpan={9}>هنوز Trial Mix ثبت نشده است.</td></tr> : records.map(record => <tr key={record.id}><td>{record.trialDate}</td><td>{record.batchQuantityM3}</td><td>{record.actualSlumpMm}</td><td>{record.airContentPercent}</td><td>{record.concreteTemperatureC}</td><td>{record.freshDensityKgM3}</td><td>{record.strength7dMpa ?? '-'}</td><td>{record.strength28dMpa ?? '-'}</td><td>{record.createdBy ?? '-'}</td></tr>)}</tbody></table></div></article></section>
+    <section className="content-grid"><article className="panel wide-panel"><div className="panel-head"><div><h3>سوابق Trial Mix</h3><span>Persisted records for active mix design</span></div><span className="badge blue">{records.length}</span></div><div className="table-wrap"><table><caption className="sr-only">سوابق Trial Mix ثبت‌شده برای طرح فعال</caption><thead><tr><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th><th scope="col">مسئول</th><th scope="col">Session</th></tr></thead><tbody>{records.length === 0 ? <tr><td colSpan={10}>هنوز Trial Mix ثبت نشده است.</td></tr> : records.map(record => { const linked = linkedRecordIds.has(record.id); return <tr key={record.id}><td>{record.trialDate}</td><td>{record.batchQuantityM3}</td><td>{record.actualSlumpMm}</td><td>{record.airContentPercent}</td><td>{record.concreteTemperatureC}</td><td>{record.freshDensityKgM3}</td><td>{record.strength7dMpa ?? '-'}</td><td>{record.strength28dMpa ?? '-'}</td><td>{record.createdBy ?? '-'}</td><td><button className="btn" disabled={!selectedSession || selectedSession.status === 'void' || linked || linkingRecordId === record.id} onClick={() => void linkRecordToSelectedSession(record.id)} aria-label={linked ? 'این Batch به Session فعال متصل است' : `اتصال Trial Mix تاریخ ${record.trialDate} به Session فعال`}>{linked ? 'متصل است' : linkingRecordId === record.id ? 'در حال اتصال...' : 'اتصال به Session'}</button></td></tr>; })}</tbody></table></div></article></section>
   </>;
 }
