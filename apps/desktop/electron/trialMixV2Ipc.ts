@@ -14,7 +14,13 @@ import {
   type SaveTrialMaterialActualInput,
   type SaveTrialSpecimenInput
 } from './trialMixV2Service';
-import { transitionTrialSessionStatus, type TransitionTrialSessionInput } from './trialMixV2LifecycleService';
+import {
+  assertSpecimenSessionWritable,
+  assertTrialRecordSessionWritable,
+  assertTrialSessionWritable,
+  transitionTrialSessionStatus,
+  type TransitionTrialSessionInput
+} from './trialMixV2LifecycleService';
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
@@ -49,21 +55,25 @@ export function registerTrialMixV2Ipc() {
 
   ipcMain.handle('trial-mix-v2:link-record', async (event, payload: LinkTrialRecordInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
+    assertTrialSessionWritable(payload.sessionId);
     return linkTrialRecordToSession({ ...payload, actorName: actor.displayName });
   }, 'خطا در اتصال Trial Mix record به Session'));
 
   ipcMain.handle('trial-mix-v2:save-material-actual', async (event, payload: SaveTrialMaterialActualInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
+    assertTrialRecordSessionWritable(payload.trialMixRecordId);
     return saveTrialMaterialActual({ ...payload, actorName: actor.displayName });
   }, 'خطا در ثبت مقدار واقعی مصالح Trial'));
 
   ipcMain.handle('trial-mix-v2:save-specimen', async (event, payload: SaveTrialSpecimenInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
+    assertTrialRecordSessionWritable(payload.trialMixRecordId);
     return saveTrialSpecimen({ ...payload, actorName: actor.displayName });
   }, 'خطا در ثبت نمونه آزمایشگاهی'));
 
   ipcMain.handle('trial-mix-v2:save-strength-result', async (event, payload: SaveCompressiveStrengthResultInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.trial.manage');
+    assertSpecimenSessionWritable(payload.specimenId);
     return saveCompressiveStrengthResult({ ...payload, actorName: actor.displayName });
   }, 'خطا در ثبت نتیجه مقاومت فشاری'));
 }
