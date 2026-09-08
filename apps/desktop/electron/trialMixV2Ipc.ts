@@ -25,6 +25,7 @@ import { getTrialSessionStrengthAnalytics } from './trialMixV2AnalyticsService';
 import { getTrialSessionCalibrationComparison } from './trialMixV2CalibrationService';
 import { getTrialSessionMoistureCorrection } from './trialMixV2MoistureCorrectionService';
 import { getTrialSessionRevisionFeedback } from './trialMixV2RevisionFeedbackService';
+import { registerProductionQcIpc } from './productionQcIpc';
 
 function safeCall<T>(callback: () => T, fallbackMessage: string): T | { status: 'fail'; error: string } {
   try {
@@ -100,4 +101,6 @@ export function registerTrialMixV2Ipc() {
     assertSpecimenSessionWritable(payload.specimenId);
     return saveCompressiveStrengthResult({ ...payload, actorName: actor.displayName });
   }, 'خطا در ثبت نتیجه مقاومت فشاری'));
+
+  registerProductionQcIpc();
 }
