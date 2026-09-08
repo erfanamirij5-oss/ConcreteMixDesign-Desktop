@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 type TrialSessionStatus = 'planned' | 'in_progress' | 'completed' | 'void';
+type TrialMaterialRole = 'cement' | 'scm' | 'water' | 'fine_aggregate' | 'coarse_aggregate' | 'admixture' | 'fiber' | 'other';
 
 type TrialSessionSummary = {
   id: string;
@@ -18,6 +19,19 @@ type TrialSessionSummary = {
   batchCount?: number;
 };
 
+type TrialMaterialActual = {
+  id: string;
+  materialRole: TrialMaterialRole;
+  materialReferenceId?: string | null;
+  materialName: string;
+  targetMassKg?: number | null;
+  batchedMassKg: number;
+  moisturePercent?: number | null;
+  absorptionPercent?: number | null;
+  moistureCorrectionKg?: number | null;
+  createdAt?: string;
+};
+
 type TrialBatch = {
   id: string;
   batchSequence: number;
@@ -31,7 +45,7 @@ type TrialBatch = {
   strength7dMpa?: number | null;
   strength28dMpa?: number | null;
   notes?: string | null;
-  materials?: unknown[];
+  materials?: TrialMaterialActual[];
   specimens?: unknown[];
 };
 
@@ -46,6 +60,17 @@ type SessionFormState = {
   objective: string;
   location: string;
   leadEngineer: string;
+};
+
+type MaterialFormState = {
+  materialRole: TrialMaterialRole;
+  materialName: string;
+  materialReferenceId: string;
+  targetMassKg: string;
+  batchedMassKg: string;
+  moisturePercent: string;
+  absorptionPercent: string;
+  moistureCorrectionKg: string;
 };
 
 type TrialMixRecord = {
@@ -86,6 +111,17 @@ const initialSessionForm: SessionFormState = {
   leadEngineer: ''
 };
 
+const initialMaterialForm: MaterialFormState = {
+  materialRole: 'cement',
+  materialName: '',
+  materialReferenceId: '',
+  targetMassKg: '',
+  batchedMassKg: '',
+  moisturePercent: '',
+  absorptionPercent: '',
+  moistureCorrectionKg: ''
+};
+
 const initialForm: FormState = {
   trialDate: today(),
   batchQuantityM3: '0.08',
@@ -106,6 +142,21 @@ const sessionStatusLabel: Record<TrialSessionStatus, string> = {
   void: 'باطل‌شده'
 };
 
+const materialRoleLabel: Record<TrialMaterialRole, string> = {
+  cement: 'سیمان',
+  scm: 'ماده مکمل سیمانی',
+  water: 'آب',
+  fine_aggregate: 'سنگدانه ریز',
+  coarse_aggregate: 'سنگدانه درشت',
+  admixture: 'افزودنی شیمیایی',
+  fiber: 'الیاف',
+  other: 'سایر'
+};
+
+function optionalNumber(value: string) {
+  return value.trim() ? Number(value) : null;
+}
+
 export function TrialMixView(props: { mixDesignId: string | null }) {
   const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionForm);
   const [sessions, setSessions] = useState<TrialSessionSummary[]>([]);
@@ -113,6 +164,10 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
   const [sessionState, setSessionState] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [sessionMessage, setSessionMessage] = useState('');
   const [linkingRecordId, setLinkingRecordId] = useState<string | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [materialForm, setMaterialForm] = useState<MaterialFormState>(initialMaterialForm);
+  const [materialState, setMaterialState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [materialMessage, setMaterialMessage] = useState('');
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [records, setRecords] = useState<TrialMixRecord[]>([]);
@@ -123,6 +178,9 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     setSelectedSession(null);
     setSessionMessage('');
     setLinkingRecordId(null);
+    setSelectedBatchId(null);
+    setMaterialForm(initialMaterialForm);
+    setMaterialMessage('');
     void loadSessions();
     void loadRecords();
   }, [props.mixDesignId]);
@@ -155,6 +213,8 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       const response = await window.tolouTrialMixV2.getSession(sessionId) as { status?: string; session?: TrialSessionDetail | null; error?: string };
       if (response.status !== 'pass' || !response.session) throw new Error(response.error ?? 'جزئیات Trial Session پیدا نشد.');
       setSelectedSession(response.session);
+      const batches = response.session.batches ?? [];
+      setSelectedBatchId(previous => previous && batches.some(batch => batch.id === previous) ? previous : batches[0]?.id ?? null);
       setSessionState('idle');
       setSessionMessage('');
     } catch (error) {
@@ -189,6 +249,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       }) as { status?: string; session?: TrialSessionDetail; error?: string };
       if (response.status !== 'pass' || !response.session) throw new Error(response.error ?? 'ایجاد Trial Session ناموفق بود.');
       setSessionForm({ ...initialSessionForm, trialDate: today() });
+      setSelectedBatchId(null);
       setSessionState('saved');
       setSessionMessage(`Trial Session ${response.session.sessionCode} ایجاد شد.`);
       await loadSessions(response.session.id);
@@ -228,6 +289,7 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       }) as { status?: string; session?: TrialSessionDetail; error?: string };
       if (response.status !== 'pass' || !response.session) throw new Error(response.error ?? 'اتصال Batch به Trial Session ناموفق بود.');
       setSelectedSession(response.session);
+      setSelectedBatchId(recordId);
       await loadSessions(response.session.id);
       setSessionState('saved');
       setSessionMessage(`Batch ${nextBatchSequence} به Session ${response.session.sessionCode} متصل شد.`);
@@ -236,6 +298,60 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
       setSessionMessage(error instanceof Error ? error.message : 'خطا در اتصال Batch به Trial Session');
     } finally {
       setLinkingRecordId(null);
+    }
+  }
+
+  async function saveMaterialActual() {
+    if (!selectedSession || !selectedBatchId) {
+      setMaterialState('error');
+      setMaterialMessage('ابتدا یک Session و سپس یک Batch را انتخاب کنید.');
+      return;
+    }
+    if (selectedSession.status === 'void') {
+      setMaterialState('error');
+      setMaterialMessage('ثبت مصالح برای Session باطل‌شده مجاز نیست.');
+      return;
+    }
+    if (!materialForm.materialName.trim()) {
+      setMaterialState('error');
+      setMaterialMessage('نام ماده الزامی است.');
+      return;
+    }
+    if (!materialForm.batchedMassKg.trim()) {
+      setMaterialState('error');
+      setMaterialMessage('جرم واقعی بچ‌شده الزامی است.');
+      return;
+    }
+    const batchedMassKg = Number(materialForm.batchedMassKg);
+    if (!Number.isFinite(batchedMassKg) || batchedMassKg < 0) {
+      setMaterialState('error');
+      setMaterialMessage('جرم واقعی بچ‌شده باید عدد معتبر و غیرمنفی باشد.');
+      return;
+    }
+    setMaterialState('saving');
+    setMaterialMessage('');
+    try {
+      if (!window.tolouTrialMixV2?.saveMaterialActual) throw new Error('API ثبت مصالح واقعی Trial در دسترس نیست.');
+      const response = await window.tolouTrialMixV2.saveMaterialActual({
+        trialMixRecordId: selectedBatchId,
+        materialRole: materialForm.materialRole,
+        materialReferenceId: materialForm.materialReferenceId.trim() || null,
+        materialName: materialForm.materialName.trim(),
+        targetMassKg: optionalNumber(materialForm.targetMassKg),
+        batchedMassKg,
+        moisturePercent: optionalNumber(materialForm.moisturePercent),
+        absorptionPercent: optionalNumber(materialForm.absorptionPercent),
+        moistureCorrectionKg: optionalNumber(materialForm.moistureCorrectionKg),
+        snapshot: {}
+      }) as { status?: string; error?: string };
+      if (response.status !== 'pass') throw new Error(response.error ?? 'ثبت مصالح واقعی Trial ناموفق بود.');
+      setMaterialForm(initialMaterialForm);
+      await openSession(selectedSession.id);
+      setMaterialState('saved');
+      setMaterialMessage('مقدار واقعی مصالح برای Batch انتخاب‌شده ثبت شد.');
+    } catch (error) {
+      setMaterialState('error');
+      setMaterialMessage(error instanceof Error ? error.message : 'خطا در ثبت مصالح واقعی Trial');
     }
   }
 
@@ -283,11 +399,16 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     return <label className="field"><span>{label}</span><input type={type} value={sessionForm[key]} onChange={event => setSessionForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
+  function materialField(key: keyof Omit<MaterialFormState, 'materialRole'>, label: string, type = 'text') {
+    return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={materialForm[key]} onChange={event => setMaterialForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
+  }
+
   function field(key: keyof FormState, label: string, type = 'number') {
     return <label className="field"><span>{label}</span><input type={type} step={type === 'number' ? 'any' : undefined} value={form[key]} onChange={event => setForm(previous => ({ ...previous, [key]: event.target.value }))} /></label>;
   }
 
   const linkedRecordIds = new Set((selectedSession?.batches ?? []).map(batch => batch.id));
+  const selectedBatch = selectedSession?.batches?.find(batch => batch.id === selectedBatchId) ?? null;
 
   return <>
     <section className="titlebar"><div><h2>Trial Mix & Validation</h2><p>مدیریت Session، بچ آزمایشی، داده‌های واقعی و نتایج آزمایشگاهی با حفظ workflow پایدار Trial Mix</p></div></section>
@@ -338,7 +459,40 @@ export function TrialMixView(props: { mixDesignId: string | null }) {
     <section className="content-grid">
       <article className="panel wide-panel">
         <div className="panel-head"><div><h3>Batchهای Session فعال</h3><span>Revision-bound linked Trial Mix records</span></div><span className="badge blue">{selectedSession?.batches?.length ?? 0}</span></div>
-        <div className="table-wrap"><table><caption className="sr-only">Batchهای متصل به Trial Session فعال</caption><thead><tr><th scope="col">#</th><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">7d MPa</th><th scope="col">28d MPa</th></tr></thead><tbody>{!selectedSession ? <tr><td colSpan={9}>برای مشاهده Batchها ابتدا یک Session را باز کنید.</td></tr> : (selectedSession.batches?.length ?? 0) === 0 ? <tr><td colSpan={9}>هنوز Batch به این Session متصل نشده است.</td></tr> : selectedSession.batches!.map(batch => <tr key={batch.id}><td>{batch.batchSequence}</td><td>{batch.trialDate}</td><td>{batch.batchQuantityM3}</td><td>{batch.actualSlumpMm}</td><td>{batch.airContentPercent}</td><td>{batch.concreteTemperatureC}</td><td>{batch.freshDensityKgM3}</td><td>{batch.strength7dMpa ?? '-'}</td><td>{batch.strength28dMpa ?? '-'}</td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table><caption className="sr-only">Batchهای متصل به Trial Session فعال</caption><thead><tr><th scope="col">#</th><th scope="col">تاریخ</th><th scope="col">Batch m³</th><th scope="col">Slump mm</th><th scope="col">Air %</th><th scope="col">Temp °C</th><th scope="col">Density kg/m³</th><th scope="col">Materials</th><th scope="col">عملیات</th></tr></thead><tbody>{!selectedSession ? <tr><td colSpan={9}>برای مشاهده Batchها ابتدا یک Session را باز کنید.</td></tr> : (selectedSession.batches?.length ?? 0) === 0 ? <tr><td colSpan={9}>هنوز Batch به این Session متصل نشده است.</td></tr> : selectedSession.batches!.map(batch => <tr key={batch.id}><td>{batch.batchSequence}</td><td>{batch.trialDate}</td><td>{batch.batchQuantityM3}</td><td>{batch.actualSlumpMm}</td><td>{batch.airContentPercent}</td><td>{batch.concreteTemperatureC}</td><td>{batch.freshDensityKgM3}</td><td>{batch.materials?.length ?? 0}</td><td><button className="btn" aria-pressed={selectedBatchId === batch.id} onClick={() => { setSelectedBatchId(batch.id); setMaterialMessage(''); }}>انتخاب Batch</button></td></tr>)}</tbody></table></div>
+      </article>
+    </section>
+
+    <div aria-live="polite" aria-atomic="true">{materialMessage && <div className={`alert ${materialState === 'error' ? 'danger' : 'ok'}`}>{materialMessage}</div>}</div>
+    <section className="form-grid">
+      <article className="panel form-panel">
+        <div className="panel-head"><div><h3>Actual Materials</h3><span>{selectedBatch ? `Batch ${selectedBatch.batchSequence} — ${selectedBatch.trialDate}` : 'یک Batch را انتخاب کنید'}</span></div></div>
+        <div className="panel-body form-body">
+          <label className="field"><span>نقش ماده</span><select value={materialForm.materialRole} onChange={event => setMaterialForm(previous => ({ ...previous, materialRole: event.target.value as TrialMaterialRole }))}>{Object.entries(materialRoleLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {materialField('materialName', 'نام ماده')}
+          {materialField('materialReferenceId', 'Traceability Reference')}
+          {materialField('targetMassKg', 'جرم هدف (kg)', 'number')}
+          {materialField('batchedMassKg', 'جرم واقعی بچ‌شده (kg)', 'number')}
+          {materialField('moisturePercent', 'رطوبت (%)', 'number')}
+          {materialField('absorptionPercent', 'جذب آب (%)', 'number')}
+          {materialField('moistureCorrectionKg', 'تصحیح رطوبت ثبت‌شده (kg)', 'number')}
+        </div>
+        <div className="toolbar"><button className="btn success" disabled={!selectedBatch || selectedSession?.status === 'void' || materialState === 'saving'} onClick={saveMaterialActual}>{materialState === 'saving' ? 'در حال ثبت...' : 'ثبت مقدار واقعی ماده'}</button></div>
+      </article>
+
+      <article className="panel form-panel">
+        <div className="panel-head"><div><h3>راهنمای داده</h3><span>Raw batching traceability</span></div><span className="badge blue">{selectedBatch?.materials?.length ?? 0}</span></div>
+        <div className="panel-body">
+          <p>این بخش داده واقعی بچ آزمایشی را ثبت می‌کند. مقدار «تصحیح رطوبت» در این مرحله محاسبه نمی‌شود و فقط همان مقدار ثبت‌شده توسط کاربر ذخیره خواهد شد.</p>
+          <p><b>Batch فعال:</b> {selectedBatch ? `#${selectedBatch.batchSequence} / ${selectedBatch.id}` : '-'}</p>
+        </div>
+      </article>
+    </section>
+
+    <section className="content-grid">
+      <article className="panel wide-panel">
+        <div className="panel-head"><div><h3>مصالح واقعی Batch انتخاب‌شده</h3><span>Actual batching records</span></div><span className="badge blue">{selectedBatch?.materials?.length ?? 0}</span></div>
+        <div className="table-wrap"><table><caption className="sr-only">مصالح واقعی ثبت‌شده برای Batch انتخاب‌شده</caption><thead><tr><th scope="col">Role</th><th scope="col">Material</th><th scope="col">Reference</th><th scope="col">Target kg</th><th scope="col">Batched kg</th><th scope="col">Moisture %</th><th scope="col">Absorption %</th><th scope="col">Correction kg</th></tr></thead><tbody>{!selectedBatch ? <tr><td colSpan={8}>ابتدا یک Batch را انتخاب کنید.</td></tr> : (selectedBatch.materials?.length ?? 0) === 0 ? <tr><td colSpan={8}>هنوز مقدار واقعی مصالح برای این Batch ثبت نشده است.</td></tr> : selectedBatch.materials!.map(material => <tr key={material.id}><td>{materialRoleLabel[material.materialRole]}</td><td>{material.materialName}</td><td>{material.materialReferenceId ?? '-'}</td><td>{material.targetMassKg ?? '-'}</td><td>{material.batchedMassKg}</td><td>{material.moisturePercent ?? '-'}</td><td>{material.absorptionPercent ?? '-'}</td><td>{material.moistureCorrectionKg ?? '-'}</td></tr>)}</tbody></table></div>
       </article>
     </section>
 
