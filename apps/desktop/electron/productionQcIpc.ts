@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { requireRendererPermission } from './securityRuntime';
+import { getProductionQcStrengthAnalytics } from './productionQcAnalyticsService';
 import {
   createProductionBatch,
   getProductionBatchDetail,
@@ -36,6 +37,11 @@ export function registerProductionQcIpc() {
     requireRendererPermission(event.sender, 'engineering.read');
     return { status: 'pass' as const, detail: getProductionBatchDetail(productionBatchId) };
   }, 'خطا در خواندن جزئیات Production Batch'));
+
+  ipcMain.handle('production-qc:get-strength-analytics', async (event, mixDesignId: string) => safeCall(() => {
+    requireRendererPermission(event.sender, 'engineering.read');
+    return getProductionQcStrengthAnalytics(mixDesignId);
+  }, 'خطا در تحلیل توصیفی مقاومت Production/QC'));
 
   ipcMain.handle('production-qc:save-material-actual', async (event, payload: SaveProductionMaterialActualInput) => safeCall(() => {
     const actor = requireRendererPermission(event.sender, 'engineering.write');
