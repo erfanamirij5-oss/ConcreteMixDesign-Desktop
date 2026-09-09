@@ -53,6 +53,8 @@ const categoryLabel: Record<FeedbackObservation['category'], string> = {
   completeness: 'Completeness'
 };
 
+const policyFlag = (applied: boolean) => applied ? 'اعمال شده' : 'خیر';
+
 export function TrialRevisionFeedbackPanel(props: Props) {
   const [data, setData] = useState<RevisionFeedback | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +87,12 @@ export function TrialRevisionFeedbackPanel(props: Props) {
     return () => { cancelled = true; };
   }, [props.sessionId, props.refreshKey, manualRefresh]);
 
+  const policyContractViolated = Boolean(data && (
+    data.method.recommendationEngineApplied ||
+    data.method.automaticMixMutationApplied ||
+    data.method.acceptanceCriteriaApplied
+  ));
+
   return <section className="panel form-panel" aria-label="Trial revision feedback">
     <div className="panel-head">
       <div><h3>Revision Feedback</h3><span>Traceable factual aggregation for engineering review</span></div>
@@ -97,8 +105,10 @@ export function TrialRevisionFeedbackPanel(props: Props) {
         <p><b>Session:</b> {data.session.sessionCode} · <b>Revision:</b> {data.session.revisionNumber}</p>
         <p><b>Method:</b> {data.method.version}</p>
         <p><b>Scope:</b> {data.method.scope}</p>
-        <p><b>Recommendation engine:</b> خیر · <b>Automatic mix mutation:</b> خیر · <b>Acceptance criteria:</b> خیر</p>
-        <div className="alert warn">این بخش فقط شواهد و وضعیت کامل بودن داده‌ها را برای تصمیم مهندس جمع‌بندی می‌کند و هیچ اصلاحی را خودکار اعمال نمی‌کند.</div>
+        <p><b>Recommendation engine:</b> {policyFlag(data.method.recommendationEngineApplied)} · <b>Automatic mix mutation:</b> {policyFlag(data.method.automaticMixMutationApplied)} · <b>Acceptance criteria:</b> {policyFlag(data.method.acceptanceCriteriaApplied)}</p>
+        {policyContractViolated
+          ? <div className="alert danger">Policy contract warning: backend این package را به‌صورت کاملاً read-only/non-acceptance گزارش نکرده است. قبل از استفاده مهندسی، منبع و method contract بررسی شود.</div>
+          : <div className="alert warn">این بخش فقط شواهد و وضعیت کامل بودن داده‌ها را برای تصمیم مهندس جمع‌بندی می‌کند و هیچ اصلاحی را خودکار اعمال نمی‌کند.</div>}
 
         <div className="table-wrap">
           <table>
