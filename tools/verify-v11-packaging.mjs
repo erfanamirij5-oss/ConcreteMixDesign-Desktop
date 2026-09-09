@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 
 const requiredMigrations = [
   '023_trial_mix_v2_foundation.sql',
@@ -17,8 +17,7 @@ for (const migration of requiredMigrations) {
 const asar = 'release/win-unpacked/resources/app.asar';
 if (!existsSync(asar)) throw new Error('Packaged app.asar is missing.');
 
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const asarList = execFileSync(npx, ['--yes', 'asar', 'list', asar], { encoding: 'utf8' });
+const asarList = execSync(`npx --yes asar list "${asar}"`, { encoding: 'utf8' });
 const requiredRuntimeModules = [
   'dist/electron/trialMixV2Service.js',
   'dist/electron/trialMixV2RevisionFeedbackService.js',
