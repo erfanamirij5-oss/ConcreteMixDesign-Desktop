@@ -10,6 +10,40 @@ export type RevisionFeedbackObservation = {
   sourceIds: string[];
 };
 
+export type RevisionFeedbackSessionIdentity = {
+  id: string;
+  mixDesignId: string;
+  revisionNumber: number;
+};
+
+export function assertRevisionFeedbackSourceIdentity(
+  calibrationSession: RevisionFeedbackSessionIdentity,
+  moistureSession: RevisionFeedbackSessionIdentity,
+  analyticsSession: RevisionFeedbackSessionIdentity
+) {
+  if (
+    calibrationSession.id !== moistureSession.id ||
+    calibrationSession.id !== analyticsSession.id ||
+    calibrationSession.mixDesignId !== moistureSession.mixDesignId ||
+    calibrationSession.mixDesignId !== analyticsSession.mixDesignId ||
+    calibrationSession.revisionNumber !== moistureSession.revisionNumber ||
+    calibrationSession.revisionNumber !== analyticsSession.revisionNumber
+  ) {
+    throw new Error('Revision Feedback source identity mismatch detected.');
+  }
+}
+
+export function buildRevisionFeedbackMethod(sourceMethods: string[]) {
+  return {
+    version: 'trial-revision-feedback-v1',
+    scope: 'traceable factual aggregation only',
+    recommendationEngineApplied: false,
+    automaticMixMutationApplied: false,
+    acceptanceCriteriaApplied: false,
+    sourceMethods: [...sourceMethods]
+  };
+}
+
 export function getTrialSessionRevisionFeedback(sessionIdInput: string) {
   const sessionId = String(sessionIdInput ?? '').trim();
   if (!sessionId) throw new Error('شناسه Trial Session الزامی است.');
@@ -22,16 +56,7 @@ export function getTrialSessionRevisionFeedback(sessionIdInput: string) {
   const moisture = moistureResult.moistureCorrection;
   const analytics = analyticsResult.analytics;
 
-  if (
-    calibration.session.id !== moisture.session.id ||
-    calibration.session.id !== analytics.session.id ||
-    calibration.session.mixDesignId !== moisture.session.mixDesignId ||
-    calibration.session.mixDesignId !== analytics.session.mixDesignId ||
-    calibration.session.revisionNumber !== moisture.session.revisionNumber ||
-    calibration.session.revisionNumber !== analytics.session.revisionNumber
-  ) {
-    throw new Error('Revision Feedback source identity mismatch detected.');
-  }
+  assertRevisionFeedbackSourceIdentity(calibration.session, moisture.session, analytics.session);
 
   const observations: RevisionFeedbackObservation[] = [];
   for (const batch of calibration.batches) {
@@ -106,18 +131,11 @@ export function getTrialSessionRevisionFeedback(sessionIdInput: string) {
   return {
     status: 'pass' as const,
     feedback: {
-      method: {
-        version: 'trial-revision-feedback-v1',
-        scope: 'traceable factual aggregation only',
-        recommendationEngineApplied: false,
-        automaticMixMutationApplied: false,
-        acceptanceCriteriaApplied: false,
-        sourceMethods: [
-          calibration.method.version,
-          moisture.method.version,
-          analytics.method.version
-        ]
-      },
+      method: buildRevisionFeedbackMethod([
+        calibration.method.version,
+        moisture.method.version,
+        analytics.method.version
+      ]),
       session: calibration.session,
       sourceIdentity: {
         calibrationDesignResultId: calibration.design.resultId,
