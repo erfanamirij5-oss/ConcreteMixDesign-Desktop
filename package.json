@@ -22,6 +22,7 @@
     "test:data-integrity-constraints": "npm run build:electron && node dist/electron/dataIntegrityConstraintsSmoke.js",
     "test:data-path-contract": "npm run build:electron && node dist/electron/dataPathContractSmoke.js",
     "test:database-compatibility": "npm run build:electron && node dist/electron/databaseCompatibilitySmoke.js",
+    "test:v11-persistence-contract": "npm run build:electron && node dist/electron/v11PersistenceContractSmoke.js",
     "test:data-integrity-atomicity": "npm run build:electron && node dist/electron/dataIntegrityAtomicitySmoke.js",
     "test:calculation-persistence": "npm run build:electron && node dist/electron/calculationResultPersistenceSmoke.js",
     "test:revision-immutability": "npm run build:electron && node dist/electron/mixDesignImmutabilitySmoke.js",
