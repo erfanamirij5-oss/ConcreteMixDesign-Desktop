@@ -107,6 +107,12 @@ contextBridge.exposeInMainWorld('tolouProductionQc', {
   saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('production-qc:save-strength-result', payload)
 });
 
+contextBridge.exposeInMainWorld('tolouCostEngine', {
+  saveInputSet: (payload: unknown) => ipcRenderer.invoke('cost-engine:save-input-set', payload),
+  listInputSets: (mixDesignId: string, revisionNumber?: number) => ipcRenderer.invoke('cost-engine:list-input-sets', mixDesignId, revisionNumber),
+  calculateRevision: (mixDesignId: string, revisionNumber: number, inputSetId?: string) => ipcRenderer.invoke('cost-engine:calculate-revision', mixDesignId, revisionNumber, inputSetId)
+});
+
 contextBridge.exposeInMainWorld('tolouReports', {
   create: (payload: unknown) => ipcRenderer.invoke('report-center:create', payload),
   list: (mixDesignId: string) => ipcRenderer.invoke('report-center:list', mixDesignId),
