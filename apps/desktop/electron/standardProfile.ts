@@ -70,7 +70,9 @@ export function validateStandardProfile(profile: StandardProfile): string[] {
 }
 
 export function resolveStandardProfileChain(profiles: readonly StandardProfile[], targetProfileId: string, targetProfileVersion: string): ResolvedStandardProfile {
-  const byIdentity = new Map(profiles.map((profile) => [`${profile.profileId}@${profile.profileVersion}`, profile] as const));
+  const byIdentity = new Map<string, StandardProfile>(
+    profiles.map((profile): [string, StandardProfile] => [`${profile.profileId}@${profile.profileVersion}`, profile]),
+  );
   const targetKey = `${targetProfileId}@${targetProfileVersion}`;
   const target = byIdentity.get(targetKey);
   if (!target) throw new Error(`standard profile not found: ${targetKey}`);
