@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { assertDatabaseReadyForRuntime, assertDatabaseSchemaCompatibility, KNOWN_MIGRATIONS } from './databaseCompatibility';
 import './v11PersistenceContractSmoke';
 import './serviceDeterminismHistoricalGuardSmoke';
+import './historicalRevisionReadContractSmoke';
 
 if (KNOWN_MIGRATIONS.length !== 25 || KNOWN_MIGRATIONS.at(-1) !== '025_cost_engine_foundation') {
   throw new Error('Database compatibility policy must explicitly recognize migrations through 025.');
