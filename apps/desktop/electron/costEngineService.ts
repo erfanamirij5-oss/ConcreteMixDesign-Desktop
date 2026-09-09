@@ -38,6 +38,30 @@ function normalizeCurrency(value: string) {
   return currency;
 }
 
+export function buildDeterministicCostLines(
+  quantities: Record<CostRole, number | null>,
+  unitCosts: Partial<Record<CostRole, number | null>>
+) {
+  let totalCostPerM3 = 0;
+  const lines = ROLE_ORDER.map(role => {
+    const quantityKgM3 = quantities[role];
+    const unitCostPerKg = unitCosts[role] ?? null;
+    const comparable = quantityKgM3 != null && unitCostPerKg != null;
+    const lineCostPerM3 = comparable ? quantityKgM3 * unitCostPerKg : null;
+    if (lineCostPerM3 != null) totalCostPerM3 += lineCostPerM3;
+    return { role, quantityKgM3, unitCostPerKg, lineCostPerM3, comparable };
+  });
+  const missingCostRoles = lines.filter(line => line.quantityKgM3 != null && line.unitCostPerKg == null).map(line => line.role);
+  const missingQuantityRoles = lines.filter(line => line.quantityKgM3 == null).map(line => line.role);
+  return {
+    lines,
+    totalCostPerM3,
+    complete: missingCostRoles.length === 0 && missingQuantityRoles.length === 0,
+    missingCostRoles,
+    missingQuantityRoles
+  };
+}
+
 export function saveCostInputSet(input: SaveCostInputSetInput) {
   if (!input.mixDesignId?.trim()) throw new Error('شناسه Mix Design الزامی است.');
   if (!input.effectiveAt?.trim() || Number.isNaN(Date.parse(input.effectiveAt))) throw new Error('Effective date معتبر الزامی است.');
@@ -131,7 +155,7 @@ export function calculateRevisionCost(mixDesignId: string, revisionNumber: numbe
     SELECT cost_role AS role, unit_cost_per_kg AS unitCostPerKg
     FROM mix_cost_input_items WHERE input_set_id = ?
   `).all(set.id) as Array<{ role: CostRole; unitCostPerKg: number }>;
-  const unitCostByRole = new Map(itemRows.map(row => [row.role, Number(row.unitCostPerKg)]));
+  const unitCostByRole = Object.fromEntries(itemRows.map(row => [row.role, Number(row.unitCostPerKg)])) as Partial<Record<CostRole, number>>;
 
   const quantities: Record<CostRole, number | null> = {
     cementitious: design.cementitiousKgM3,
@@ -139,20 +163,7 @@ export function calculateRevisionCost(mixDesignId: string, revisionNumber: numbe
     fine_aggregate: design.fineAggregateKgM3,
     coarse_aggregate: design.coarseAggregateKgM3
   };
-
-  let totalCostPerM3 = 0;
-  const lines = ROLE_ORDER.map(role => {
-    const quantityKgM3 = quantities[role];
-    const unitCostPerKg = unitCostByRole.get(role) ?? null;
-    const comparable = quantityKgM3 != null && unitCostPerKg != null;
-    const lineCostPerM3 = comparable ? quantityKgM3 * unitCostPerKg : null;
-    if (lineCostPerM3 != null) totalCostPerM3 += lineCostPerM3;
-    return { role, quantityKgM3, unitCostPerKg, lineCostPerM3, comparable };
-  });
-
-  const missingCostRoles = lines.filter(line => line.quantityKgM3 != null && line.unitCostPerKg == null).map(line => line.role);
-  const missingQuantityRoles = lines.filter(line => line.quantityKgM3 == null).map(line => line.role);
-  const complete = missingCostRoles.length === 0 && missingQuantityRoles.length === 0;
+  const calculation = buildDeterministicCostLines(quantities, unitCostByRole);
 
   return {
     status: 'pass' as const,
@@ -163,11 +174,7 @@ export function calculateRevisionCost(mixDesignId: string, revisionNumber: numbe
     designSnapshotId: design.snapshotId,
     inputSet: set,
     currency: set.currency,
-    lines,
-    totalCostPerM3,
-    complete,
-    missingCostRoles,
-    missingQuantityRoles,
+    ...calculation,
     assumptions: [
       'Cost v1 uses persisted design-result summary quantities only.',
       'No detailed cement/SCM/admixture/fiber split is inferred.',
