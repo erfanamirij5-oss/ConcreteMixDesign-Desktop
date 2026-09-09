@@ -1,0 +1,33 @@
+name: Generate v1.1 lockfile
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lockfile:
+    name: Generate package-lock.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Generate lockfile without install scripts
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify lockfile identity
+        run: |
+          test "$(node -p \"require('./package-lock.json').name\")" = 'concrete-mix-design-desktop'
+          test "$(node -p \"require('./package-lock.json').version\")" = '1.1.0'
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
