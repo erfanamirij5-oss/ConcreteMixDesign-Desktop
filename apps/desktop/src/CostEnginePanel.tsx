@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { EngineeringDecisionSummaryPanel } from './EngineeringDecisionSummaryPanel';
 import { ProductionQcPanel } from './ProductionQcPanel';
+import { ReportCenterView } from './ReportCenterView';
 
 type CostRole = 'cementitious' | 'water' | 'fine_aggregate' | 'coarse_aggregate';
 type CostInputSet = { id: string; mixDesignId: string; revisionNumber: number; currency: string; sourceReference?: string | null; effectiveAt: string; createdBy?: string | null; createdAt: string; };
@@ -31,5 +32,6 @@ export function CostEnginePanel(props: { mixDesignId: string | null }) {
     {result && <section className="panel form-panel"><div className="panel-head"><div><h3>Cost Breakdown — Revision {result.revisionNumber}</h3><span>{result.methodVersion} · {result.designSource}</span></div><span className={`badge ${result.complete ? 'green' : 'orange'}`}>{result.complete ? 'Complete' : 'Partial'}</span></div><div className="panel-body"><p><b>Total:</b> {fmt(result.totalCostPerM3)} {result.currency}/m³</p><p><b>Input source:</b> {result.inputSet.sourceReference || '—'} · <b>Effective:</b> {new Date(result.inputSet.effectiveAt).toLocaleDateString('fa-IR')}</p><div className="table-wrap"><table><thead><tr><th>Role</th><th>Quantity kg/m³</th><th>Unit cost/kg</th><th>Line cost/m³</th><th>Coverage</th></tr></thead><tbody>{result.lines.map(line => <tr key={line.role}><td>{roleLabel[line.role]}</td><td>{fmt(line.quantityKgM3)}</td><td>{fmt(line.unitCostPerKg)}</td><td>{fmt(line.lineCostPerM3)}</td><td>{line.comparable ? 'Available' : 'Missing'}</td></tr>)}</tbody></table></div>{!result.complete && <div className="alert warn">این Total ناقص است. Missing cost: {result.missingCostRoles.map(role => roleLabel[role]).join('، ') || '—'} | Missing quantity: {result.missingQuantityRoles.map(role => roleLabel[role]).join('، ') || '—'}</div>}{comparison && <div className="alert info"><b>Revision comparison:</b> R{result.revisionNumber} = {fmt(result.totalCostPerM3)} {result.currency}/m³ · R{comparison.revisionNumber} = {fmt(comparison.totalCostPerM3)} {comparison.currency}/m³ {delta != null ? `· Δ = ${fmt(delta)} ${result.currency}/m³` : '· Currency mismatch: Δ محاسبه نشد.'}</div>}<div className="alert warn">Cost v1 فقط Cementitious، Water، Fine Aggregate و Coarse Aggregate را از summary quantities محاسبه می‌کند؛ Cement/SCM/Admixture/Fiber split استنتاج نمی‌شود. هیچ acceptance/pass-fail استانداردی اعمال نشده است.</div></div></section>}
     <EngineeringDecisionSummaryPanel mixDesignId={props.mixDesignId} />
     <ProductionQcPanel mixDesignId={props.mixDesignId} />
+    <ReportCenterView mixDesignId={props.mixDesignId} />
   </>;
 }
