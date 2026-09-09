@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install desktop dependencies
-        run: npm install
+        run: npm ci
       - name: Build commercial Windows installer
         run: npm run dist:win
       - name: Verify packaged renderer asset contract
