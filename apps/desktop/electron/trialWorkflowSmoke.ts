@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import './trialMixV2RevisionFeedbackContractSmoke';
 
 const database = new Database(':memory:');
 database.pragma('foreign_keys = ON');
