@@ -40,6 +40,10 @@ export type ResolvedStandardProfile = StandardProfileIdentity & {
   effectiveOverrides: Readonly<Record<string, StandardProfileOverride>>;
 };
 
+function standardProfileIdentityKey(profileId: string, profileVersion: string): string {
+  return `${profileId}@${profileVersion}`;
+}
+
 export function validateStandardProfile(profile: StandardProfile): string[] {
   const errors: string[] = [];
 
@@ -70,10 +74,12 @@ export function validateStandardProfile(profile: StandardProfile): string[] {
 }
 
 export function resolveStandardProfileChain(profiles: readonly StandardProfile[], targetProfileId: string, targetProfileVersion: string): ResolvedStandardProfile {
-  const byIdentity = new Map<string, StandardProfile>(
-    profiles.map((profile): [string, StandardProfile] => [`${profile.profileId}@${profile.profileVersion}`, profile]),
-  );
-  const targetKey = `${targetProfileId}@${targetProfileVersion}`;
+  const byIdentity: Map<string, StandardProfile> = new Map<string, StandardProfile>();
+  for (const profile of profiles) {
+    byIdentity.set(standardProfileIdentityKey(profile.profileId, profile.profileVersion), profile);
+  }
+
+  const targetKey: string = standardProfileIdentityKey(targetProfileId, targetProfileVersion);
   const target = byIdentity.get(targetKey);
   if (!target) throw new Error(`standard profile not found: ${targetKey}`);
 
@@ -82,7 +88,7 @@ export function resolveStandardProfileChain(profiles: readonly StandardProfile[]
   let current: StandardProfile | undefined = target;
 
   while (current) {
-    const currentKey = `${current.profileId}@${current.profileVersion}`;
+    const currentKey: string = standardProfileIdentityKey(current.profileId, current.profileVersion);
     if (visited.has(currentKey)) throw new Error(`standard profile cycle detected at ${currentKey}`);
     visited.add(currentKey);
 
@@ -96,7 +102,7 @@ export function resolveStandardProfileChain(profiles: readonly StandardProfile[]
       throw new Error(`incomplete parent identity for ${currentKey}`);
     }
 
-    const parentKey = `${current.parentProfileId}@${current.parentProfileVersion}`;
+    const parentKey: string = standardProfileIdentityKey(current.parentProfileId, current.parentProfileVersion);
     current = byIdentity.get(parentKey);
     if (!current) throw new Error(`parent standard profile not found: ${parentKey}`);
   }
