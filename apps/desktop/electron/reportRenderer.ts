@@ -25,7 +25,7 @@ function reportBody(s: ReportSnapshot, fa: boolean) {
     case 'durability_compliance': return durabilitySection(s, fa) + traceabilitySection(s, fa);
     case 'gradation_blend': return gradationSection(s, fa) + blendSection(s, fa);
     case 'revision_identity': return revisionSection(s, fa);
-    case 'production_sheet': return productionSheetSection(s, fa);
+    case 'production_sheet': return productionSheetSection(s, fa) + productionQcSection(s, fa);
   }
 }
 
@@ -48,6 +48,16 @@ function productionSheetSection(s: ReportSnapshot, fa: boolean) {
   const aggregates = aggregateRows.map(row => `<tr><td>${escRecorded(row.material_name ?? row.material_id, fa)}</td><td>${recorded(row.ssd_mass_kg_m3, 'kg/m³')}</td><td>${recorded(row.moisture_percent, '%')}</td><td>${recorded(row.absorption_percent, '%')}</td><td>${recorded(row.batch_mass_kg_m3, 'kg/m³')}</td><td>${recorded(row.water_adjustment_kg_m3, 'kg/m³')}</td></tr>`).join('');
   return `<div class="section"><h2>${fa ? 'مقادیر مبنای تولید ثبت‌شده' : 'Persisted production basis'}</h2><table><tbody><tr><th>Cementitious</th><td>${recorded(c.cementitious_content_kg_m3, 'kg/m³')}</td><th>Design Water</th><td>${recorded(c.water_content_kg_m3, 'kg/m³')}</td></tr><tr><th>Fine Aggregate SSD</th><td>${recorded(c.fine_aggregate_kg_m3, 'kg/m³')}</td><th>Coarse Aggregate SSD</th><td>${recorded(c.coarse_aggregate_kg_m3, 'kg/m³')}</td></tr><tr><th>Aggregate Batch Total</th><td>${recorded(mix.aggregate_batch_kg_m3, 'kg/m³')}</td><th>Water Adjustment</th><td>${recorded(mix.batch_water_adjustment_kg_m3, 'kg/m³')}</td></tr><tr><th>Water to Add</th><td>${recorded(mix.water_to_add_kg_m3, 'kg/m³')}</td><th>w/cm</th><td>${recorded(c.w_cm_ratio)}</td></tr></tbody></table></div>
   <div class="section"><h2>${fa ? 'اصلاح رطوبت سنگدانه — فقط داده ثبت‌شده' : 'Aggregate moisture correction — persisted values only'}</h2><table><thead><tr><th>${fa ? 'سنگدانه' : 'Aggregate'}</th><th>SSD</th><th>Moisture</th><th>Absorption</th><th>Batch</th><th>ΔWater</th></tr></thead><tbody>${aggregates || emptyRecordedRow(6, fa)}</tbody></table><div class="muted">${fa ? 'هیچ مقدار اصلاح رطوبت یا آب در این برگه از روی داده‌های دیگر تخمین زده نمی‌شود؛ مقدار ثبت‌نشده صریحاً «ثبت نشده» نمایش داده می‌شود.' : 'No moisture or water adjustment is inferred in this sheet. Missing persisted values are explicitly shown as Not recorded.'}</div></div>`;
+}
+
+function productionQcSection(s: ReportSnapshot, fa: boolean) {
+  const q = s.productionQc;
+  const batchRows = q.batches.map(row => `<tr><td>${esc(row.batchCode)}</td><td>R${esc(row.revisionNumber)}</td><td>${esc(row.producedAt)}</td><td>${esc(row.batchQuantityM3)}</td><td>${esc(row.slumpMm)}</td><td>${esc(row.airContentPercent)}</td><td>${esc(row.concreteTemperatureC)}</td><td>${esc(row.freshDensityKgM3)}</td></tr>`).join('');
+  const strengthRows = q.strengthResults.map(row => `<tr><td>${esc(row.specimenId)}</td><td>${esc(row.testAgeDays)}</td><td>${esc(row.maximumLoadKn)}</td><td>${esc(row.loadedAreaMm2)}</td><td>${esc(row.strengthMpa)}</td><td>${esc(row.calculationMethod)}</td></tr>`).join('');
+  const st = q.overallStrength;
+  return `<div class="section"><h2>${fa ? 'داده‌های واقعی Production / QC' : 'Actual Production / QC evidence'}</h2><table><thead><tr><th>Batch</th><th>Revision</th><th>${fa ? 'زمان تولید' : 'Produced'}</th><th>m³</th><th>Slump</th><th>Air %</th><th>Temp °C</th><th>Density kg/m³</th></tr></thead><tbody>${batchRows || emptyRow(8)}</tbody></table></div>
+  <div class="section"><h2>${fa ? 'نتایج مقاومت فشاری ثبت‌شده' : 'Persisted compressive strength results'}</h2><table><thead><tr><th>Specimen ID</th><th>Age d</th><th>Load kN</th><th>Area mm²</th><th>Strength MPa</th><th>Method</th></tr></thead><tbody>${strengthRows || emptyRow(6)}</tbody></table></div>
+  <div class="section"><h2>${fa ? 'آمار توصیفی مقاومت' : 'Descriptive strength statistics'}</h2><table><tbody><tr><th>n</th><td>${esc(st.count)}</td><th>Mean</th><td>${esc(st.mean)} MPa</td></tr><tr><th>Min</th><td>${esc(st.min)} MPa</td><th>Max</th><td>${esc(st.max)} MPa</td></tr><tr><th>Sample SD</th><td>${esc(st.sampleStandardDeviation)} MPa</td><th>Sample CV</th><td>${esc(st.sampleCoefficientOfVariationPercent)} %</td></tr></tbody></table><div class="muted">${fa ? 'Acceptance criteria: اعمال نشده · Pass/Fail: اعمال نشده · Standard compliance: استنتاج نشده' : 'Acceptance criteria: not applied · Pass/Fail: not applied · Standard compliance: not inferred'}</div><div class="muted">${esc(q.method.version)}</div></div>`;
 }
 
 function materialsSection(s: ReportSnapshot, fa: boolean) {
