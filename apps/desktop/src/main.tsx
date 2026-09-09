@@ -11,6 +11,7 @@ import './forms.css';
 import './revision-control.css';
 import './report-center-root.css';
 import './premium-ui.css';
+import './accessibility.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

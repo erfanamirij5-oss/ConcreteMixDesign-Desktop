@@ -26,6 +26,28 @@ for (const reportType of types) {
     blend: { shares: [{ material_name: 'Fine Aggregate', share_percent: 42 }], combinedLimits: [{ sieve_size_mm: 4.75, min_percent_passing: 35, max_percent_passing: 55 }] },
     calculation: { cementitious_content_kg_m3: 400, water_content_kg_m3: 180, w_cm_ratio: 0.45, traceability: { calculationMethod: 'Absolute volume', standardReferences: ['ACI 211.1'], assumptions: ['SSD basis'], limitations: ['Normal-weight concrete only'], warnings: [] } },
     trialMix: [{ trial_date: '2026-09-04', batch_quantity_m3: 0.05, actual_slump_mm: 95, air_content_percent: 2, fresh_density_kg_m3: 2380, strength_7d_mpa: 28, strength_28d_mpa: 40 }],
+    productionQc: {
+      method: {
+        version: 'production-qc-report-snapshot-v1',
+        scope: 'persisted production and descriptive strength evidence only',
+        acceptanceCriteriaApplied: false,
+        passFailApplied: false,
+        standardComplianceInferred: false
+      },
+      batches: [],
+      materials: [],
+      specimens: [],
+      strengthResults: [],
+      overallStrength: {
+        count: 0,
+        min: null,
+        max: null,
+        mean: null,
+        populationStandardDeviation: null,
+        sampleStandardDeviation: null,
+        sampleCoefficientOfVariationPercent: null
+      }
+    },
     standards: ['ACI 211.1'],
     signatures: { preparedBy: 'Engineer', reviewedBy: null, approvedBy: null }
   };

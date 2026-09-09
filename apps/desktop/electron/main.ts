@@ -11,8 +11,10 @@ import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalcula
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
 import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
 import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
+import { registerTrialMixV2Ipc } from './trialMixV2Ipc';
 import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
+import { registerCostEngineIpc } from './costEngineIpc';
 import { initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 import { registerSecurityIpc } from './securityIpc';
 import { initializeLicensingRuntime } from './licensingRuntime';
@@ -185,6 +187,8 @@ app.whenReady().then(async () => {
         run: () => {
           registerSecurityIpc();
           registerLicensingIpc();
+          registerTrialMixV2Ipc();
+          registerCostEngineIpc();
           registerReportCenterIpc();
           registerBackupRestoreIpc();
         }

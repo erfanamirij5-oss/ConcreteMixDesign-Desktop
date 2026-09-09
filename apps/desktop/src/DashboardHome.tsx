@@ -1,123 +1,45 @@
+import { useEffect, useState } from 'react';
+import type { LicenseStatus } from './LicensingView';
+import { TolouIcon } from './components/TolouIcon';
+
 type EngineState = 'idle' | 'checking' | 'ready' | 'error';
+type SubscriptionState = 'loading' | 'ready' | 'unavailable';
+export type DashboardProject = { id: string; projectName: string; city: string; mixDesignId: string; concreteType: string; targetStrengthMpa: number; status: string; createdAt: string; };
+type Props = { projects: DashboardProject[]; engineState: EngineState; activeMixDesignId: string | null; onNewProject: () => void; onOpenProject: (mixDesignId: string) => void; onCheckEngine: () => void; };
 
-export type DashboardProject = {
-  id: string;
-  projectName: string;
-  city: string;
-  mixDesignId: string;
-  concreteType: string;
-  targetStrengthMpa: number;
-  status: string;
-  createdAt: string;
-};
-
-type Props = {
-  projects: DashboardProject[];
-  engineState: EngineState;
-  activeMixDesignId: string | null;
-  onNewProject: () => void;
-  onOpenProject: (mixDesignId: string) => void;
-  onCheckEngine: () => void;
-};
-
-function normalizedStatus(status: string) {
-  const value = (status || 'draft').toLowerCase();
-  if (value === 'trial') return 'trial_required';
-  if (value === 'review' || value === 'needs_review') return 'under_review';
-  return value;
-}
-
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    draft: 'پیش‌نویس',
-    trial_required: 'Trial موردنیاز',
-    trial_completed: 'Trial تکمیل',
-    under_review: 'در بازبینی',
-    approved: 'تأییدشده',
-    production: 'تولید',
-    superseded: 'جایگزین‌شده',
-    archived: 'بایگانی'
-  };
-  const normalized = normalizedStatus(status);
-  return labels[normalized] ?? normalized;
-}
-
-function concreteTypeLabel(type: string) {
-  return type === 'pumped' ? 'پمپی' : type === 'normal_weight' ? 'معمولی' : type || '-';
-}
+function normalizedStatus(status: string) { const value = (status || 'draft').toLowerCase(); if (value === 'trial') return 'trial_required'; if (value === 'review' || value === 'needs_review') return 'under_review'; return value; }
+function statusLabel(status: string) { const labels: Record<string, string> = { draft:'پیش‌نویس',trial_required:'Trial موردنیاز',trial_completed:'Trial تکمیل',under_review:'در بازبینی',approved:'تأییدشده',production:'تولید',superseded:'جایگزین‌شده',archived:'بایگانی' }; const normalized=normalizedStatus(status); return labels[normalized] ?? normalized; }
+function concreteTypeLabel(type: string) { return type === 'pumped' ? 'پمپی' : type === 'normal_weight' ? 'معمولی' : type || '-'; }
+function editionLabel(edition?: string) { return edition === 'professional' ? 'حرفه‌ای' : edition === 'standard' ? 'استاندارد' : edition || '-'; }
 
 export function DashboardHome(props: Props) {
-  const approved = props.projects.filter(item => normalizedStatus(item.status) === 'approved').length;
-  const followUp = props.projects.filter(item => ['trial_required', 'trial_completed', 'under_review'].includes(normalizedStatus(item.status))).length;
-  const latest = props.projects.slice(0, 8);
+  const [subscription, setSubscription] = useState<LicenseStatus | null>(null);
+  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>('loading');
+  useEffect(() => {
+    let disposed=false;
+    const load=async()=>{
+      try {
+        const api=(window as typeof window & { tolouLicensing?: { status:()=>Promise<unknown> } }).tolouLicensing;
+        if(!api){ if(!disposed)setSubscriptionState('unavailable'); return; }
+        const r=await api.status() as {status?:string;license?:LicenseStatus};
+        if(disposed)return;
+        if(r.status==='pass' && r.license){ setSubscription(r.license); setSubscriptionState('ready'); }
+        else setSubscriptionState('unavailable');
+      } catch { if(!disposed)setSubscriptionState('unavailable'); }
+    };
+    void load(); const timer=window.setInterval(()=>void load(),60_000); const focus=()=>void load(); window.addEventListener('focus',focus); return()=>{disposed=true;window.clearInterval(timer);window.removeEventListener('focus',focus)};
+  },[]);
+  const approved=props.projects.filter(item=>normalizedStatus(item.status)==='approved').length;
+  const followUp=props.projects.filter(item=>['trial_required','trial_completed','under_review'].includes(normalizedStatus(item.status))).length;
+  const latest=props.projects.slice(0,8);
+  const subscriptionLabel=subscriptionState==='loading'?'در حال بررسی':subscription?.licensed?'اشتراک فعال':subscriptionState==='unavailable'?'وضعیت نامشخص':'نیازمند فعال‌سازی';
+  const subscriptionClass=subscriptionState==='loading'?'status-needs_review':subscription?.licensed?'status-approved':'status-needs_review';
 
   return <>
-    <section className="management-hero">
-      <div>
-        <span className="eyebrow">TOLOU ENGINEERING WORKSPACE</span>
-        <h2>مرکز مدیریت طرح‌های اختلاط</h2>
-        <p>ثبت، پیگیری و دسترسی سریع به پرونده مهندسی هر طرح؛ هسته محاسباتی v0.3.0 بدون تغییر در این لایه استفاده می‌شود.</p>
-      </div>
-      <div className="toolbar">
-        <button className="btn primary strong-action" onClick={props.onNewProject}>＋ ثبت طرح اختلاط جدید</button>
-        <button className="btn ghost" disabled={props.engineState === 'checking'} onClick={props.onCheckEngine}>{props.engineState === 'checking' ? 'در حال بررسی...' : 'بررسی سلامت موتور'}</button>
-      </div>
-    </section>
-
-    <section className="kpis management-kpis">
-      <article className="kpi blue"><label>کل طرح‌های ثبت‌شده</label><strong>{props.projects.length}</strong><small>پرونده‌های موجود در SQLite</small></article>
-      <article className="kpi green"><label>طرح‌های تأییدشده</label><strong>{approved}</strong><small>وضعیت رسمی Approved</small></article>
-      <article className="kpi orange"><label>نیازمند پیگیری</label><strong>{followUp}</strong><small>Trial Required / Trial Completed / Under Review</small></article>
-      <article className={`kpi ${props.activeMixDesignId ? 'purple' : 'red'}`}><label>پرونده فعال</label><strong>{props.activeMixDesignId ? 'فعال' : 'انتخاب نشده'}</strong><small>{props.activeMixDesignId ?? 'یک طرح را از فهرست باز کنید'}</small></article>
-    </section>
-
-    <section className="quick-actions">
-      <button onClick={props.onNewProject}><b>＋</b><span><strong>طرح جدید</strong><small>شروع پرونده مهندسی</small></span></button>
-      <button disabled><b>◫</b><span><strong>Trial Mix</strong><small>در Gate مربوط به Trial فعال می‌شود</small></span></button>
-      <button disabled><b>▤</b><span><strong>مرکز گزارش</strong><small>پس از تکمیل Workspace</small></span></button>
-      <button disabled={!props.activeMixDesignId} onClick={() => props.activeMixDesignId && props.onOpenProject(props.activeMixDesignId)}><b>↺</b><span><strong>Revision</strong><small>{props.activeMixDesignId ? 'باز کردن پرونده فعال و Revision History' : 'ابتدا یک پرونده را انتخاب کنید'}</small></span></button>
-    </section>
-
-    <section className="dashboard-main-grid">
-      <article className="panel mix-manager-panel">
-        <div className="panel-head">
-          <div><h3>آخرین طرح‌های اختلاط</h3><span>ورود مستقیم به پرونده و ادامه فرآیند مهندسی</span></div>
-          <span className="badge blue">{props.projects.length} طرح</span>
-        </div>
-        <div className="panel-body table-wrap">
-          {latest.length === 0 ? <div className="empty-state"><b>هنوز طرحی ثبت نشده است.</b><span>اولین طرح اختلاط را ایجاد کنید تا داشبورد مدیریتی شکل بگیرد.</span><button className="btn primary" onClick={props.onNewProject}>ثبت اولین طرح</button></div> :
-          <table className="mix-table">
-            <thead><tr><th>کد طرح</th><th>نام / پروژه</th><th>نوع</th><th>مقاومت</th><th>شهر</th><th>وضعیت</th><th></th></tr></thead>
-            <tbody>{latest.map(project => <tr key={project.mixDesignId} className={props.activeMixDesignId === project.mixDesignId ? 'selected-row' : ''}>
-              <td className="mono-cell">{project.mixDesignId}</td>
-              <td><strong>{project.projectName}</strong><small>{project.createdAt || '-'}</small></td>
-              <td>{concreteTypeLabel(project.concreteType)}</td>
-              <td>{project.targetStrengthMpa} MPa</td>
-              <td>{project.city || '-'}</td>
-              <td><span className={`status-chip status-${normalizedStatus(project.status)}`}>{statusLabel(project.status)}</span></td>
-              <td><button className="row-action" onClick={() => props.onOpenProject(project.mixDesignId)}>باز کردن ←</button></td>
-            </tr>)}</tbody>
-          </table>}
-        </div>
-      </article>
-
-      <aside className="dashboard-side-stack">
-        <article className="panel">
-          <div className="panel-head"><div><h3>وضعیت سیستم</h3><span>کنترل سریع محیط اجرایی</span></div></div>
-          <div className="panel-body system-health">
-            <div><span>Engineering Engine</span><b className={props.engineState === 'error' ? 'health-bad' : 'health-good'}>{props.engineState === 'ready' ? 'متصل' : props.engineState === 'error' ? 'خطا' : 'آماده بررسی'}</b></div>
-            <div><span>پایگاه داده</span><b className="health-good">SQLite</b></div>
-            <div><span>نسخه هسته</span><b>0.3.0</b></div>
-            <div><span>نسخه مدیریتی</span><b>v0.4 Dev</b></div>
-          </div>
-        </article>
-        <article className="panel">
-          <div className="panel-head"><div><h3>گردش کار طرح</h3><span>State Machine مدیریتی نسخه جاری</span></div></div>
-          <div className="panel-body workflow-rail">
-            <span className="done">Draft</span><span>Trial Required</span><span>Trial Completed</span><span>Under Review</span><span>Approved</span><span>Production</span><span>Superseded</span>
-          </div>
-        </article>
-      </aside>
-    </section>
+    <section className="management-hero"><div><span className="eyebrow">TOLOU ENGINEERING WORKSPACE</span><h2>مرکز مدیریت طرح‌های اختلاط</h2><p>ثبت، پیگیری و دسترسی سریع به پرونده مهندسی هر طرح؛ هسته محاسباتی v0.3.0 بدون تغییر در این لایه استفاده می‌شود.</p></div><div className="toolbar"><button className="btn primary strong-action" onClick={props.onNewProject}><TolouIcon className="tolou-icon" name="add" />ثبت طرح اختلاط جدید</button><button className="btn ghost" disabled={props.engineState==='checking'} onClick={props.onCheckEngine}>{props.engineState==='checking'?'در حال بررسی...':'بررسی سلامت موتور'}</button></div></section>
+    <section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><h3>اشتراک نرم‌افزار طلوع</h3><span>وضعیت زنده لایسنس این دستگاه</span></div><span className={`status-chip ${subscriptionClass}`}>{subscriptionLabel}</span></div><div className="panel-body"><div className="manager-summary-grid"><div><small>نام مشتری</small><strong>{subscriptionState==='loading'?'در حال بارگذاری':subscription?.customerName??'-'}</strong></div><div><small>نسخه اشتراک</small><strong>{subscriptionState==='loading'?'در حال بارگذاری':editionLabel(subscription?.edition)}</strong></div><div><small>مدت اشتراک</small><strong>{subscriptionState==='loading'?'در حال بارگذاری':subscription?.perpetual?'دائمی':subscription?.durationDays?`${subscription.durationDays} روز`:'-'}</strong></div><div><small>باقی‌مانده</small><strong>{subscriptionState==='loading'?'در حال بارگذاری':subscription?.perpetual?'دائمی':subscription?.remainingDays!==undefined?`${subscription.remainingDays} روز`:'-'}</strong></div></div></div></section>
+    <section className="kpis management-kpis"><article className="kpi blue"><label>کل طرح‌های ثبت‌شده</label><strong>{props.projects.length}</strong><small>پرونده‌های موجود در SQLite</small></article><article className="kpi green"><label>طرح‌های تأییدشده</label><strong>{approved}</strong><small>وضعیت رسمی Approved</small></article><article className="kpi orange"><label>نیازمند پیگیری</label><strong>{followUp}</strong><small>Trial Required / Trial Completed / Under Review</small></article><article className={`kpi ${props.activeMixDesignId?'purple':'red'}`}><label>پرونده فعال</label><strong>{props.activeMixDesignId?'فعال':'انتخاب نشده'}</strong><small>{props.activeMixDesignId??'یک طرح را از فهرست باز کنید'}</small></article></section>
+    <section className="quick-actions" aria-label="اقدامات سریع"><button onClick={props.onNewProject}><b><TolouIcon className="tolou-icon" name="add" /></b><span><strong>طرح جدید</strong><small>شروع پرونده مهندسی</small></span></button><button disabled><b><TolouIcon className="tolou-icon" name="trial" /></b><span><strong>Trial Mix</strong><small>در Gate مربوط به Trial فعال می‌شود</small></span></button><button disabled><b><TolouIcon className="tolou-icon" name="report" /></b><span><strong>مرکز گزارش</strong><small>پس از تکمیل Workspace</small></span></button><button disabled={!props.activeMixDesignId} onClick={()=>props.activeMixDesignId&&props.onOpenProject(props.activeMixDesignId)}><b><TolouIcon className="tolou-icon" name="workspace" /></b><span><strong>Revision</strong><small>{props.activeMixDesignId?'باز کردن پرونده فعال و Revision History':'ابتدا یک پرونده را انتخاب کنید'}</small></span></button></section>
+    <section className="dashboard-main-grid"><article className="panel mix-manager-panel"><div className="panel-head"><div><h3>آخرین طرح‌های اختلاط</h3><span>ورود مستقیم به پرونده و ادامه فرآیند مهندسی</span></div><span className="badge blue">{props.projects.length} طرح</span></div><div className="panel-body table-wrap">{latest.length===0?<div className="empty-state"><b>هنوز طرحی ثبت نشده است.</b><span>اولین طرح اختلاط را ایجاد کنید تا داشبورد مدیریتی شکل بگیرد.</span><button className="btn primary" onClick={props.onNewProject}>ثبت اولین طرح</button></div>:<table className="mix-table"><thead><tr><th>کد طرح</th><th>نام / پروژه</th><th>نوع</th><th>مقاومت</th><th>شهر</th><th>وضعیت</th><th></th></tr></thead><tbody>{latest.map(project=><tr key={project.mixDesignId} className={props.activeMixDesignId===project.mixDesignId?'selected-row':''}><td className="mono-cell">{project.mixDesignId}</td><td><strong>{project.projectName}</strong><small>{project.createdAt||'-'}</small></td><td>{concreteTypeLabel(project.concreteType)}</td><td>{project.targetStrengthMpa} MPa</td><td>{project.city||'-'}</td><td><span className={`status-chip status-${normalizedStatus(project.status)}`}>{statusLabel(project.status)}</span></td><td><button className="row-action" onClick={()=>props.onOpenProject(project.mixDesignId)}>باز کردن</button></td></tr>)}</tbody></table>}</div></article><aside className="dashboard-side-stack"><article className="panel"><div className="panel-head"><div><h3>وضعیت سیستم</h3><span>کنترل سریع محیط اجرایی</span></div></div><div className="panel-body system-health"><div><span>Engineering Engine</span><b className={props.engineState==='error'?'health-bad':'health-good'}>{props.engineState==='ready'?'متصل':props.engineState==='error'?'خطا':props.engineState==='checking'?'در حال بررسی':'آماده بررسی'}</b></div><div><span>پایگاه داده</span><b className="health-good">SQLite</b></div><div><span>نسخه هسته</span><b>0.3.0</b></div><div><span>نسخه مدیریتی</span><b>v0.4 Dev</b></div></div></article><article className="panel"><div className="panel-head"><div><h3>گردش کار طرح</h3><span>State Machine مدیریتی نسخه جاری</span></div></div><div className="panel-body workflow-rail"><span className="done">Draft</span><span>Trial Required</span><span>Trial Completed</span><span>Under Review</span><span>Approved</span><span>Production</span><span>Superseded</span></div></article></aside></section>
   </>;
 }

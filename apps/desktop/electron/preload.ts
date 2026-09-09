@@ -82,6 +82,37 @@ contextBridge.exposeInMainWorld('tolouTrialMix', {
   hasCompleted: (mixDesignId: string) => ipcRenderer.invoke('trial-mix:has-completed', mixDesignId)
 });
 
+contextBridge.exposeInMainWorld('tolouTrialMixV2', {
+  createSession: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:create-session', payload),
+  listSessions: (mixDesignId: string) => ipcRenderer.invoke('trial-mix-v2:list-sessions', mixDesignId),
+  getSession: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-session', sessionId),
+  getStrengthAnalytics: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-strength-analytics', sessionId),
+  getCalibrationComparison: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-calibration-comparison', sessionId),
+  getMoistureCorrection: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-moisture-correction', sessionId),
+  getRevisionFeedback: (sessionId: string) => ipcRenderer.invoke('trial-mix-v2:get-revision-feedback', sessionId),
+  transitionSessionStatus: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:transition-session-status', payload),
+  linkRecord: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:link-record', payload),
+  saveMaterialActual: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:save-material-actual', payload),
+  saveSpecimen: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:save-specimen', payload),
+  saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('trial-mix-v2:save-strength-result', payload)
+});
+
+contextBridge.exposeInMainWorld('tolouProductionQc', {
+  createBatch: (payload: unknown) => ipcRenderer.invoke('production-qc:create-batch', payload),
+  listBatches: (mixDesignId: string) => ipcRenderer.invoke('production-qc:list-batches', mixDesignId),
+  getBatch: (productionBatchId: string) => ipcRenderer.invoke('production-qc:get-batch', productionBatchId),
+  getStrengthAnalytics: (mixDesignId: string) => ipcRenderer.invoke('production-qc:get-strength-analytics', mixDesignId),
+  saveMaterialActual: (payload: unknown) => ipcRenderer.invoke('production-qc:save-material-actual', payload),
+  saveSpecimen: (payload: unknown) => ipcRenderer.invoke('production-qc:save-specimen', payload),
+  saveStrengthResult: (payload: unknown) => ipcRenderer.invoke('production-qc:save-strength-result', payload)
+});
+
+contextBridge.exposeInMainWorld('tolouCostEngine', {
+  saveInputSet: (payload: unknown) => ipcRenderer.invoke('cost-engine:save-input-set', payload),
+  listInputSets: (mixDesignId: string, revisionNumber?: number) => ipcRenderer.invoke('cost-engine:list-input-sets', mixDesignId, revisionNumber),
+  calculateRevision: (mixDesignId: string, revisionNumber: number, inputSetId?: string) => ipcRenderer.invoke('cost-engine:calculate-revision', mixDesignId, revisionNumber, inputSetId)
+});
+
 contextBridge.exposeInMainWorld('tolouReports', {
   create: (payload: unknown) => ipcRenderer.invoke('report-center:create', payload),
   list: (mixDesignId: string) => ipcRenderer.invoke('report-center:list', mixDesignId),

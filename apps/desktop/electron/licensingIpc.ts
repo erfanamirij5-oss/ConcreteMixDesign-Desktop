@@ -17,14 +17,15 @@ export function registerLicensingIpc() {
 
   ipcMain.handle('licensing:import', async event => {
     try {
-      const actor = requireRendererPermission(event.sender, 'security.users.manage');
-      const selection = await dialog.showOpenDialog({ title: 'انتخاب فایل لایسنس طلوع', properties: ['openFile'], filters: [{ name: 'Tolou License', extensions: ['json', 'license'] }] });
+      const actor = getRendererSession(event.sender);
+      if (!actor) throw new Error('Authentication required.');
+      const selection = await dialog.showOpenDialog({ title: 'انتخاب فایل لایسنس طلوع', properties: ['openFile'], filters: [{ name: 'فایل لایسنس طلوع', extensions: ['json', 'license'] }] });
       if (selection.canceled || !selection.filePaths[0]) return { status: 'pass' as const, canceled: true };
       const result = getLicensingService().importLicense(readFileSync(selection.filePaths[0], 'utf8'));
       getSecurityService().recordAuthenticatedAudit(actor.id, { action: 'licensing.import', targetType: 'license', targetId: result.licenseId ?? null, outcome: 'success', detail: { state: result.state, edition: result.edition ?? null } });
       return { status: 'pass' as const, canceled: false, license: result };
     } catch (error) {
-      return { status: 'fail' as const, error: error instanceof Error ? error.message : 'License import failed.' };
+      return { status: 'fail' as const, error: error instanceof Error ? error.message : 'فعال‌سازی لایسنس ناموفق بود.' };
     }
   });
 

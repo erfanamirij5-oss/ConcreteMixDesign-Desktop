@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
+import { buildProductionQcReportSnapshot, type ProductionQcReportSnapshot } from './productionQcReportSnapshot';
 
 export type ReportType = 'mix_design' | 'engineering_calculation' | 'material_summary' | 'durability_compliance' | 'gradation_blend' | 'revision_identity' | 'production_sheet';
 export type ReportLanguage = 'fa' | 'en';
@@ -10,7 +11,7 @@ export type ReportSnapshot = {
   schemaVersion: 1; reportType: ReportType; language: ReportLanguage; generatedAt: string;
   identity: Record<string, unknown>; materials: Array<Record<string, unknown>>; gradation: Array<Record<string, unknown>>;
   durability: Record<string, unknown> | null; blend: Record<string, unknown>; calculation: Record<string, unknown> | null;
-  trialMix: Array<Record<string, unknown>>; standards: string[];
+  trialMix: Array<Record<string, unknown>>; productionQc: ProductionQcReportSnapshot; standards: string[];
   signatures: { preparedBy: string | null; reviewedBy: string | null; approvedBy: string | null };
 };
 
@@ -73,9 +74,10 @@ function buildCanonicalSnapshot(database: Database.Database, mixDesignId: string
   const calculationRow = one(database, 'SELECT * FROM mix_results WHERE mix_design_id = ? ORDER BY rowid DESC LIMIT 1', mixDesignId);
   const calculation = calculationRow ? { ...calculationRow, traceability: parseJson(calculationRow.notes) } : null;
   const trialMix = rows(database, 'SELECT * FROM trial_mix_records WHERE mix_design_id = ? AND revision_number = ? ORDER BY trial_date, created_at', mixDesignId, revisionNumber);
+  const productionQc = buildProductionQcReportSnapshot(database, mixDesignId);
   const trace = calculation && typeof calculation.traceability === 'object' && calculation.traceability ? calculation.traceability as Record<string, unknown> : {};
   const standards = uniqueStrings([String(identity.designStandard ?? ''), String(identity.standardsVersion ?? ''), ...asStringArray(trace.standardReferences)]);
-  return { schemaVersion: 1, reportType, language, generatedAt, identity, materials, gradation, durability, blend, calculation, trialMix, standards, signatures: { preparedBy: generatedBy, reviewedBy: null, approvedBy: null } };
+  return { schemaVersion: 1, reportType, language, generatedAt, identity, materials, gradation, durability, blend, calculation, trialMix, productionQc, standards, signatures: { preparedBy: generatedBy, reviewedBy: null, approvedBy: null } };
 }
 
 function getIdentity(database: Database.Database, mixDesignId: string) {

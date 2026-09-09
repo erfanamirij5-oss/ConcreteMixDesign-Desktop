@@ -2,40 +2,20 @@
   "appId": "ir.tolou.concreteMixDesign",
   "productName": "Tolou Concrete Mix Design",
   "copyright": "Copyright © 2026 Tolou. All rights reserved.",
-  "directories": {
-    "output": "release"
-  },
-  "files": [
-    "dist/**/*",
-    "package.json"
-  ],
+  "directories": { "output": "release" },
+  "files": ["dist/**/*", "package.json"],
   "extraResources": [
-    {
-      "from": "dist-engine/tolou-mix-engine.exe",
-      "to": "engine/tolou-mix-engine.exe"
-    },
-    {
-      "from": "build/tolou-canonical.png",
-      "to": "branding/tolou-canonical.png"
-    }
+    { "from": "dist-engine/tolou-mix-engine.exe", "to": "engine/tolou-mix-engine.exe" },
+    { "from": "build/tolou-standard.ico", "to": "branding/tolou-standard.ico" }
   ],
   "extraFiles": [
-    {
-      "from": "database/migrations",
-      "to": "database/migrations",
-      "filter": ["*.sql"]
-    }
+    { "from": "database/migrations", "to": "database/migrations", "filter": ["*.sql"] }
   ],
   "win": {
-    "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64"]
-      }
-    ],
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
     "artifactName": "Tolou-Concrete-Mix-Design-${version}-Setup.${ext}",
     "executableName": "TolouConcreteMixDesign",
-    "icon": "build/tolou.generated.ico",
+    "icon": "build/tolou-standard.ico",
     "legalTrademarks": "Tolou",
     "requestedExecutionLevel": "asInvoker"
   },
@@ -44,8 +24,9 @@
     "perMachine": false,
     "allowElevation": true,
     "allowToChangeInstallationDirectory": true,
-    "installerIcon": "build/tolou.generated.ico",
-    "uninstallerIcon": "build/tolou.generated.ico",
+    "installerIcon": "build/tolou-standard.ico",
+    "uninstallerIcon": "build/tolou-standard.ico",
+    "installerHeaderIcon": "build/tolou-standard.ico",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "طلوع بتن",
