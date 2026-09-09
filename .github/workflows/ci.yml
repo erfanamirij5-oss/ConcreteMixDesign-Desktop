@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: 24
       - name: Install dependencies for static validation
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Typecheck
         run: npm run typecheck
       - name: Build desktop application
@@ -119,7 +119,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install desktop dependencies
-        run: npm install
+        run: npm ci
       - name: Build NSIS x64 installer
         run: npm run dist:win
       - name: Verify packaged runtime resources
