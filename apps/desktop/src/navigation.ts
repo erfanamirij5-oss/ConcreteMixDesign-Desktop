@@ -31,7 +31,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { id: 'new-project', label: 'ثبت طرح جدید', icon: 'add', view: 'new-project', topNav: true, sidebar: true },
   { id: 'workspace', label: 'پرونده فعال', icon: 'workspace', view: 'workspace', topNav: true, sidebar: true, requiresActiveProject: true },
   { id: 'trial-mix', label: 'Trial Mix', icon: 'trial', view: 'trial-mix', topNav: true, sidebar: true, requiresActiveProject: true },
-  { id: 'reports', label: 'گزارش (بعدی)', icon: 'report', sidebar: true, disabled: true },
+  { id: 'reports', label: 'Report Center', icon: 'report', view: 'results', sidebar: true, requiresActiveProject: true },
   { id: 'backup', label: 'پشتیبان‌گیری (بعدی)', icon: 'backup', sidebar: true, disabled: true }
 ] as const;
 
