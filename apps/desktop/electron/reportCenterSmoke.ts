@@ -107,7 +107,7 @@ database.prepare('INSERT INTO production_material_actuals VALUES (?, ?, ?, ?, ?,
 database.prepare('INSERT INTO production_specimens VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
   'ps1', 'pb1', 'C-28-001', 'cube', now, 28, 150, 150, 150, null, 'water curing', null, now
 );
-database.prepare('INSERT INTO production_compressive_strength_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+database.prepare('INSERT INTO production_compressive_strength_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
   'pr1', 'ps1', now, 28, 945, 22500, 42, 'load_kn_x_1000_div_area_mm2', null, 'M-01', 'normal', 'CI Tester', null, now
 );
 
