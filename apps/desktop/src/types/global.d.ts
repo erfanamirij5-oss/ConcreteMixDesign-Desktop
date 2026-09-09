@@ -50,6 +50,11 @@ declare global {
       saveSpecimen: (payload: unknown) => Promise<unknown>;
       saveStrengthResult: (payload: unknown) => Promise<unknown>;
     };
+    tolouCostEngine?: {
+      saveInputSet: (payload: unknown) => Promise<unknown>;
+      listInputSets: (mixDesignId: string, revisionNumber?: number) => Promise<unknown>;
+      calculateRevision: (mixDesignId: string, revisionNumber: number, inputSetId?: string) => Promise<unknown>;
+    };
     tolouReports?: { create: (payload: unknown) => Promise<unknown>; list: (mixDesignId: string) => Promise<unknown>; get: (snapshotId: string) => Promise<unknown>; exportPdf: (snapshotId: string) => Promise<unknown>; print: (snapshotId: string) => Promise<unknown>; };
     tolouDataSafety?: { backup: () => Promise<unknown>; restore: () => Promise<unknown>; };
   }
