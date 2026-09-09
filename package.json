@@ -50,8 +50,8 @@
     "cross-env": "latest",
     "@types/better-sqlite3": "latest",
     "@types/node": "latest",
-    "@types/react": "19.2.8",
-    "@types/react-dom": "19.2.3"
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
   },
   "keywords": ["concrete", "mix-design", "aci", "electron", "react", "python", "sqlite"],
   "author": "Erfan Amiri / Tolou",
