@@ -36,8 +36,8 @@
   },
   "dependencies": {
     "@fontsource/vazirmatn": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "echarts": "latest",
     "better-sqlite3": "latest"
   },
