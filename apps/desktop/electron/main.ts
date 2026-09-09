@@ -14,6 +14,7 @@ import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecord
 import { registerTrialMixV2Ipc } from './trialMixV2Ipc';
 import { registerReportCenterIpc } from './reportIpc';
 import { registerBackupRestoreIpc } from './backupRestoreIpc';
+import { registerCostEngineIpc } from './costEngineIpc';
 import { initializeSecurityRuntime, requireRendererPermission } from './securityRuntime';
 import { registerSecurityIpc } from './securityIpc';
 import { initializeLicensingRuntime } from './licensingRuntime';
@@ -187,6 +188,7 @@ app.whenReady().then(async () => {
           registerSecurityIpc();
           registerLicensingIpc();
           registerTrialMixV2Ipc();
+          registerCostEngineIpc();
           registerReportCenterIpc();
           registerBackupRestoreIpc();
         }
