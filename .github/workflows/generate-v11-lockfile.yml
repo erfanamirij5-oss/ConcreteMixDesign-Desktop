@@ -21,9 +21,7 @@ jobs:
       - name: Generate lockfile without install scripts
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Verify lockfile identity
-        run: |
-          test "$(node -p \"require('./package-lock.json').name\")" = 'concrete-mix-design-desktop'
-          test "$(node -p \"require('./package-lock.json').version\")" = '1.1.0'
+        run: node -e "const p=require('./package-lock.json'); if(p.name!=='concrete-mix-design-desktop'||p.version!=='1.1.0') process.exit(1)"
       - name: Upload generated lockfile
         uses: actions/upload-artifact@v4
         with:
