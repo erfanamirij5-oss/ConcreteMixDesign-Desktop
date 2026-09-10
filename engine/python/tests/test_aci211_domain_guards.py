@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
+from tolou_mix_engine import aci211_verification
+from tolou_mix_engine.aci211_evidence import ACI_211_OFFICIAL_EVIDENCE, NUMERICAL_RULE_EVIDENCE
 from tolou_mix_engine.cli import calculate_normal_mix_response, validate_normal_mix_request
 from tolou_mix_engine.mix_design.normal_weight import estimate_strength_w_cm
 
@@ -128,6 +132,24 @@ def test_air_entrained_mix_accepts_freeze_thaw_durability_basis() -> None:
     ) is None
 
 
+def test_official_evidence_manifest_identifies_exact_edition_without_claiming_numeric_tables() -> None:
+    assert ACI_211_OFFICIAL_EVIDENCE["designation"] == "ACI PRC-211.1-22"
+    assert ACI_211_OFFICIAL_EVIDENCE["publication_year"] == 2022
+    assert ACI_211_OFFICIAL_EVIDENCE["preview_scope"]["document_identity"] == "verified"
+    assert ACI_211_OFFICIAL_EVIDENCE["preview_scope"]["numerical_lookup_tables"] == "not_available_in_public_preview"
+    assert all(
+        entry["state"] == "blocked_authorized_exact_edition_source_required"
+        for entry in NUMERICAL_RULE_EVIDENCE.values()
+    )
+
+
+def test_numeric_rule_cannot_be_promoted_without_closed_exact_edition_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    rule_key = "ACI211.WATER.SLUMP_NMSA.AIR"
+    monkeypatch.setitem(aci211_verification.ACI_211_RULE_VERIFICATION, rule_key, "verified")
+    with pytest.raises(RuntimeError, match="authorized exact-edition numerical evidence"):
+        aci211_verification.assert_no_unsubstantiated_numeric_verification()
+
+
 def test_production_response_exposes_rule_registry_and_preserves_versioned_profile() -> None:
     profile = {
         "profile_id": "tolou-aci-astm-legacy",
@@ -145,6 +167,7 @@ def test_production_response_exposes_rule_registry_and_preserves_versioned_profi
     assert result["standard_profile"] == profile
     envelope = result["aci211_verification"]
     assert envelope["reference"]["designation"] == "ACI PRC-211.1-22"
+    assert envelope["official_evidence"]["publication_year"] == 2022
     assert envelope["rules"]["ACI211.WATER.SLUMP_NMSA.AIR"] == "existing_unverified"
     assert envelope["rules"]["ACI211.ABSOLUTE_VOLUME.FINE_BALANCE"] == "engineering_core"
     assert envelope["verified_rule_count"] == 0
