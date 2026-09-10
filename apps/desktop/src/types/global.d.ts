@@ -23,6 +23,12 @@ declare global {
     };
     tolouMaterials?: { save: (payload: unknown) => Promise<unknown>; listByMixDesign: (mixDesignId: string) => Promise<unknown>; };
     tolouMaterialLibrary?: { save: (payload: unknown) => Promise<unknown>; list: (materialType?: string) => Promise<unknown>; attach: (mixDesignId: string, libraryMaterialId: string) => Promise<unknown>; setStatus: (id: string, status: 'active' | 'expired' | 'inactive') => Promise<unknown>; listProvenance: (mixDesignId: string) => Promise<unknown>; };
+    tolouMaterialIntelligence?: {
+      addObservation: (payload: unknown) => Promise<unknown>;
+      listObservations: (materialLibraryId: string) => Promise<unknown>;
+      addQualification: (payload: unknown) => Promise<unknown>;
+      listQualifications: (materialLibraryId: string) => Promise<unknown>;
+    };
     tolouGradation?: { save: (payload: unknown) => Promise<unknown>; listByMaterial: (materialId: string) => Promise<unknown>; };
     tolouBlendOptimizer?: { save: (payload: unknown) => Promise<unknown>; get: (mixDesignId: string) => Promise<unknown>; };
     tolouDurability?: { save: (payload: unknown) => Promise<unknown>; get: (mixDesignId: string) => Promise<unknown>; };
