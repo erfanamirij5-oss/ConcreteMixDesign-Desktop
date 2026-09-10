@@ -1,39 +1,23 @@
 # چک‌لیست فنی مرحله بعد
 
-## اولویت ۱ - کامل‌سازی اسکلت اجرایی
+این فایل دیگر Source of Truth اجرای پروژه نیست. وظایف اولیه این سند (اسکلت Electron، migration runner، اتصال Python Engine، ACI 211.1، دانه‌بندی و دوام پایه) در نسخه‌های بعدی پروژه اجرا و توسعه داده شده‌اند.
 
-- افزودن build واقعی برای Electron main/preload
-- تنظیم اجرای هم‌زمان Vite و Electron
-- اضافه‌کردن migration runner برای SQLite
-- اتصال اولین دکمه UI به `engine:health`
-- اتصال فرم نمونه به `calculate-normal-mix`
+Source of Truth فعلی برای تکمیل کامل مگاپرامت:
 
-## اولویت ۲ - تبدیل موتور محاسبات به ACI 211.1 واقعی
+`docs/MEGAPROMPT_MASTER_COMPLETION_PROGRAM.md`
 
-- انتخاب اسلامپ
-- انتخاب حداکثر اندازه سنگدانه
-- تخمین آب و هوا
-- انتخاب w/cm بر اساس مقاومت و دوام
-- محاسبه سیمان/مواد سیمانی
-- محاسبه حجم سنگدانه درشت
-- محاسبه ماسه با روش حجم مطلق
-- اصلاح رطوبت و جذب آب
-- تولید بچ آزمایشگاهی و تولیدی
+## مرحله فعال
 
-## اولویت ۳ - دانه‌بندی
+**Gate 01 — Engineering Verification & Traceability Closure**
 
-- تعریف الک‌های استاندارد
-- محاسبه درصد عبوری
-- محاسبه مدول نرمی
-- کنترل محدوده ASTM C33 / استاندارد منتخب
-- پیشنهاد اصلاح
+هدف این Gate:
 
-## اولویت ۴ - دوام
-
-- کلاس‌های مواجهه ACI 318
-- الزامات ACI 301
-- سولفات، کلراید، یخ‌زدگی، نفوذپذیری، خوردگی
+- بستن تمام موارد باز `engineering-verification-matrix.md`؛
+- verification مستقل و عددی مسیر integrated cementitious mass/share؛
+- audit قرارداد traceability برای خروجی‌های مهندسی top-level؛
+- قفل‌کردن رفتار unsupported scope، واحدها، warnings، assumptions و limitations با regression tests؛
+- عبور exact-head از Python/Desktop/Windows CI قبل از بسته‌شدن Gate.
 
 ## اصل کنترل
 
-هر مرحله باید با تست و نمونه واقعی کنترل شود.
+هیچ Gate صرفاً با وجود UI یا فایل کد بسته نمی‌شود. Definition of Done کامل در Master Completion Program ملاک است.
