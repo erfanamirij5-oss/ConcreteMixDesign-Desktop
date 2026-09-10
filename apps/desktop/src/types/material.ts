@@ -19,6 +19,7 @@ export type MaterialInput = {
   name: string; source: string; specificGravity: number | null; absorptionPercent: number | null; moisturePercent: number | null; unitWeightKgM3: number | null; notes: string;
   materialSubtype?: MaterialSubtype | null; standardDesignation?: string | null; densityKgM3?: number | null; dosageValue?: number | null; dosageUnit?: string | null;
   binderSharePercent?: number | null; replacementPercent?: number | null; solidsPercent?: number | null; chloridePercent?: number | null; chlorideMgL?: number | null; waterSharePercent?: number | null; alkaliPercent?: number | null;
+  chlorideTestMethod?: string | null; chlorideTestEdition?: string | null; chlorideEvidenceRef?: string | null;
   sulfateMgL?: number | null; totalSolidsMgL?: number | null; alkalisNa2oeqMgL?: number | null; c1602StrengthRatio7dPercent?: number | null; c1602SettingTimeDeviationMin?: number | null; c1602PerformanceEvidenceRef?: string | null;
   waterSourceClass?: WaterSourceClass | null; c1602LastQualificationDate?: string | null; c1602LastDensityCheckDate?: string | null; c1602DensityMonitoringMethod?: WaterDensityMonitoringMethod | null; c1602MonitoringEvidenceRef?: string | null;
   astmC117Finer75umPercent?: number | null; finer75umLimitPercent?: number | null; aggregateTestEvidenceRef?: string | null; astmC29RoddedUnitWeightKgM3?: number | null; astmC127C128SsdSpecificGravity?: number | null; astmC127C128AbsorptionPercent?: number | null; aggregateQualityStandard?: string | null;

@@ -11,6 +11,9 @@ def test_golden_durability_governing_limits_for_f2_s2_w2_c2():
                 "freeze_thaw_exposure": True,
                 "freeze_water_exposure": "frequent",
                 "water_dissolved_sulfate_ppm": 2000,
+                "water_sulfate_test_method": "ASTM D516",
+                "water_sulfate_test_edition": "22",
+                "water_sulfate_evidence_ref": "LAB-WATER-GOLDEN-001",
                 "water_contact": True,
                 "low_permeability_required": True,
                 "moisture_exposure": True,
@@ -73,10 +76,24 @@ def test_golden_full_chloride_mass_balance_for_c2_nonprestressed():
     }
     materials = {
         "cementitious": [
-            {"id": "cement", "name": "Cement", "chloride_percent": 0.010}
+            {
+                "id": "cement",
+                "name": "Cement",
+                "chloride_percent": 0.010,
+                "chloride_test_method": "LAB-METHOD-CEM",
+                "chloride_test_edition": "2026",
+                "chloride_evidence_ref": "CEM-CL-GOLDEN-001",
+            }
         ],
         "aggregates": [
-            {"id": "agg", "name": "Combined aggregate", "chloride_percent": 0.005}
+            {
+                "id": "agg",
+                "name": "Combined aggregate",
+                "chloride_percent": 0.005,
+                "chloride_test_method": "LAB-METHOD-AGG",
+                "chloride_test_edition": "2026",
+                "chloride_evidence_ref": "AGG-CL-GOLDEN-001",
+            }
         ],
         "admixtures": [
             {
@@ -84,6 +101,9 @@ def test_golden_full_chloride_mass_balance_for_c2_nonprestressed():
                 "material_type": "water",
                 "name": "Potable water",
                 "chloride_mg_l": 250.0,
+                "chloride_test_method": "LAB-METHOD-WATER",
+                "chloride_test_edition": "2026",
+                "chloride_evidence_ref": "WATER-CL-GOLDEN-001",
             }
         ],
     }
@@ -105,6 +125,7 @@ def test_golden_full_chloride_mass_balance_for_c2_nonprestressed():
     # total = 0.175 kg/m3; 0.175/400*100 = 0.04375%
     assert checked["status"] == "pass"
     assert checked["data_complete"] is True
+    assert checked["provenance_complete"] is True
     assert checked["aci_limit_percent_by_mass_cementitious"] == 0.15
     assert checked["total_chloride_kg_m3"] == 0.175
     assert checked["total_chloride_percent_by_mass_cementitious"] == 0.04375

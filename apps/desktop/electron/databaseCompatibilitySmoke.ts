@@ -3,9 +3,10 @@ import { assertDatabaseReadyForRuntime, assertDatabaseSchemaCompatibility, KNOWN
 import './v11PersistenceContractSmoke';
 import './serviceDeterminismHistoricalGuardSmoke';
 import './historicalRevisionReadContractSmoke';
+import './chlorideProvenanceStoreSmoke';
 
-if (KNOWN_MIGRATIONS.length !== 25 || KNOWN_MIGRATIONS.at(-1) !== '025_cost_engine_foundation') {
-  throw new Error('Database compatibility policy must explicitly recognize migrations through 025.');
+if (KNOWN_MIGRATIONS.length !== 26 || KNOWN_MIGRATIONS.at(-1) !== '026_chloride_provenance') {
+  throw new Error('Database compatibility policy must explicitly recognize migrations through 026.');
 }
 
 const database = new Database(':memory:');
@@ -43,4 +44,4 @@ if (!fkRejected) throw new Error('Runtime database guard must reject foreign key
 
 fkDatabase.close();
 database.close();
-console.log('Database compatibility and runtime health guard smoke validation passed through migration 025.');
+console.log('Database compatibility and runtime health guard smoke validation passed through migration 026.');

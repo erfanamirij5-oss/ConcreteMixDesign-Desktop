@@ -2,7 +2,7 @@ from tolou_mix_engine.asr_compliance import evaluate_asr_compliance
 from tolou_mix_engine.cementitious_compliance import evaluate_cementitious_compliance
 
 
-def test_golden_s2_direct_type_v_cement_passes_sulfate_compliance():
+def test_golden_s2_direct_type_v_cement_is_recognized_but_not_certified_without_exact_evidence():
     durability = {"exposure_classes": {"sulfate": "S2"}}
     materials = [
         {
@@ -16,11 +16,13 @@ def test_golden_s2_direct_type_v_cement_passes_sulfate_compliance():
 
     checked = evaluate_cementitious_compliance(materials, durability)
 
-    assert checked["status"] == "pass"
+    assert checked["status"] == "needs_review"
     assert checked["sulfate_exposure_class"] == "S2"
+    # Route identity remains factual/traceable; certification state is carried separately.
     assert checked["compliance_route"] == "direct_designation"
     assert checked["qualification_evidence"]["matched_requirement"] == "C150 TYPEV"
-    assert checked["warnings"] == []
+    assert checked["acceptance_relationship_state"] == "blocked_exact_edition_evidence_required"
+    assert any(item["code"] == "SULFATE_ACCEPTANCE_RELATIONSHIP_UNVERIFIED" for item in checked["warnings"])
 
 
 def test_golden_reactive_aggregate_with_c1567_mitigation_and_traceability_passes():

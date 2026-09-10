@@ -4,6 +4,7 @@ import json
 import sys
 
 from tolou_mix_engine import __version__
+from tolou_mix_engine.aci318_verification import aci318_verification_envelope
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
@@ -78,6 +79,20 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
     }
 
 
+def _attach_aci318_traceability(response: dict) -> dict:
+    response["aci318_verification"] = aci318_verification_envelope()
+    return response
+
+
+def calculate_normal_mix_response(payload: dict) -> dict:
+    response = validate_normal_mix_request(payload) or calculate_integrated_normal_mix(payload)
+    return _attach_aci318_traceability(response)
+
+
+def evaluate_durability_response(payload: dict) -> dict:
+    return _attach_aci318_traceability(evaluate_durability(payload))
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(json.dumps({"status": "fail", "error": "missing command"}, ensure_ascii=False))
@@ -94,9 +109,9 @@ def main() -> int:
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
-        response = validate_normal_mix_request(payload) or calculate_integrated_normal_mix(payload)
+        response = calculate_normal_mix_response(payload)
     elif command == "evaluate-durability":
-        response = evaluate_durability(payload)
+        response = evaluate_durability_response(payload)
     else:
         response = {"status": "fail", "error": f"unknown command: {command}"}
 

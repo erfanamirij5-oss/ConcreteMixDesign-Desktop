@@ -21,13 +21,40 @@ def _base():
     binder = {"components": [{"material_id": "cement", "name": "Cement", "mass_kg_m3": 400.0}]}
     admixture = {"chloride": {"admixture_chloride_kg_m3": 0.002, "admixture_chloride_data_complete": True}}
     materials = {
-        "cementitious": [{"id": "cement", "chloride_percent": 0.01}],
+        "cementitious": [{
+            "id": "cement", "chloride_percent": 0.01,
+            "chloride_test_method": "LAB-METHOD-CEM",
+            "chloride_test_edition": "2026",
+            "chloride_evidence_ref": "CEM-CL-001",
+        }],
         "aggregates": [
-            {"id": "sand", "chloride_percent": 0.001},
-            {"id": "stone", "chloride_percent": 0.001},
+            {
+                "id": "sand", "chloride_percent": 0.001,
+                "chloride_test_method": "LAB-METHOD-AGG",
+                "chloride_test_edition": "2025",
+                "chloride_evidence_ref": "SAND-CL-001",
+            },
+            {
+                "id": "stone", "chloride_percent": 0.001,
+                "chloride_test_method": "LAB-METHOD-AGG",
+                "chloride_test_edition": "2025",
+                "chloride_evidence_ref": "STONE-CL-001",
+            },
         ],
         "admixtures": [
-            {"id": "water", "material_type": "water", "name": "Mains", "chloride_mg_l": 100.0}
+            {
+                "id": "adm", "material_type": "admixture", "name": "HRWR",
+                "chloride_percent": 0.02,
+                "chloride_test_method": "SUPPLIER-COA",
+                "chloride_test_edition": "2026-01",
+                "chloride_evidence_ref": "ADM-CL-001",
+            },
+            {
+                "id": "water", "material_type": "water", "name": "Mains", "chloride_mg_l": 100.0,
+                "chloride_test_method": "LAB-METHOD-WATER",
+                "chloride_test_edition": "2026",
+                "chloride_evidence_ref": "WATER-CL-001",
+            },
         ],
     }
     return result, binder, admixture, materials
@@ -38,8 +65,53 @@ def test_full_chloride_passes_when_all_sources_complete_and_below_limit():
     checked = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
     assert checked["status"] == "pass"
     assert checked["data_complete"] is True
+    assert checked["provenance_complete"] is True
     assert checked["total_chloride_percent_by_mass_cementitious"] < 0.15
     assert len(checked["source_breakdown"]) == 5
+
+
+def test_chloride_source_breakdown_preserves_provenance_without_inference():
+    result, binder, admixture, materials = _base()
+    checked = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
+
+    binder_row = next(row for row in checked["source_breakdown"] if row["source_category"] == "binder")
+    assert binder_row["chloride_provenance"] == {
+        "material_id": "cement",
+        "test_method": "LAB-METHOD-CEM",
+        "test_edition": "2026",
+        "evidence_ref": "CEM-CL-001",
+    }
+
+    sand_row = next(row for row in checked["source_breakdown"] if row.get("material_id") == "sand")
+    assert sand_row["chloride_provenance"]["evidence_ref"] == "SAND-CL-001"
+
+    water_row = next(row for row in checked["source_breakdown"] if row["source_category"] == "water")
+    assert water_row["chloride_provenance"]["test_method"] == "LAB-METHOD-WATER"
+    assert water_row["chloride_provenance"]["test_edition"] == "2026"
+
+    admixture_row = next(row for row in checked["source_breakdown"] if row["source_category"] == "admixture")
+    assert admixture_row["provenance_sources"] == [{
+        "material_id": "adm",
+        "test_method": "SUPPLIER-COA",
+        "test_edition": "2026-01",
+        "evidence_ref": "ADM-CL-001",
+    }]
+
+
+def test_missing_chloride_provenance_downgrades_pass_without_changing_mass_balance():
+    result, binder, admixture, materials = _base()
+    baseline = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
+    materials["aggregates"][0]["chloride_evidence_ref"] = None
+    checked = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
+
+    assert baseline["status"] == "pass"
+    assert checked["status"] == "needs_review"
+    assert checked["data_complete"] is True
+    assert checked["provenance_complete"] is False
+    assert checked["total_chloride_kg_m3"] == baseline["total_chloride_kg_m3"]
+    assert checked["total_chloride_percent_by_mass_cementitious"] == baseline["total_chloride_percent_by_mass_cementitious"]
+    assert any(item["code"] == "AGGREGATE_CHLORIDE_PROVENANCE_INCOMPLETE" for item in checked["warnings"])
+    assert any(item["code"] == "FULL_CHLORIDE_PROVENANCE_INCOMPLETE" for item in checked["warnings"])
 
 
 def test_missing_active_source_chloride_prevents_full_pass():

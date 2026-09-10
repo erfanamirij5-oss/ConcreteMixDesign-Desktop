@@ -13,13 +13,19 @@ DIRECT_SULFATE_DESIGNATIONS = {
     ),
 }
 
+# G02B safety boundary: these legacy recognition routes are not promoted to a
+# standards-compliance PASS until the exact ACI 318-25 relationship, applicable
+# ASTM edition and acceptance criteria are backed by authorized evidence and
+# independent golden/boundary tests.
+SULFATE_ACCEPTANCE_RELATIONSHIP_VERIFIED = False
+
 
 def evaluate_cementitious_compliance(materials: list[dict], durability: dict) -> dict:
     """Evaluate cementitious product traceability and sulfate-exposure compatibility.
 
-    S1/S2 can pass by a directly recognized sulfate-resistant cement designation or by a
-    documented qualified combination. S3 always remains an engineering review item because
-    the ACI option and supporting performance evidence must be explicitly selected.
+    Existing designations and qualification evidence remain discoverable, but G02B does
+    not allow them to produce an automatic standards-compliance PASS until exact-edition
+    ACI/ASTM acceptance evidence is closed. S3 always remains an engineering review item.
     """
     binders = [item for item in materials if str(item.get("material_type")) in {"cement", "scm"}]
     sulfate_class = str((durability.get("exposure_classes") or {}).get("sulfate") or "S0")
@@ -49,9 +55,9 @@ def evaluate_cementitious_compliance(materials: list[dict], durability: dict) ->
 
     if sulfate_class == "S1":
         if direct:
-            return _response(_status_from_warnings(warnings), sulfate_class, product_checks, "direct_designation", warnings, direct)
+            return _recognized_unverified_response(sulfate_class, product_checks, "direct_designation", warnings, direct)
         if qualified["qualified"]:
-            return _response(_status_from_warnings(warnings), sulfate_class, product_checks, "qualified_combination", warnings, qualified)
+            return _recognized_unverified_response(sulfate_class, product_checks, "qualified_combination", warnings, qualified)
         warnings.append(
             {
                 "code": "S1_CEMENTITIOUS_SYSTEM_NOT_QUALIFIED",
@@ -64,9 +70,9 @@ def evaluate_cementitious_compliance(materials: list[dict], durability: dict) ->
 
     if sulfate_class == "S2":
         if direct:
-            return _response(_status_from_warnings(warnings), sulfate_class, product_checks, "direct_designation", warnings, direct)
+            return _recognized_unverified_response(sulfate_class, product_checks, "direct_designation", warnings, direct)
         if qualified["qualified"] and qualified["resistance_class"] == "HS":
-            return _response(_status_from_warnings(warnings), sulfate_class, product_checks, "qualified_combination", warnings, qualified)
+            return _recognized_unverified_response(sulfate_class, product_checks, "qualified_combination", warnings, qualified)
         warnings.append(
             {
                 "code": "S2_HIGH_SULFATE_RESISTANCE_NOT_VERIFIED",
@@ -98,6 +104,32 @@ def evaluate_cementitious_compliance(materials: list[dict], durability: dict) ->
         }
     )
     return _response("needs_review", sulfate_class, product_checks, "qualified_pending_engineer_selection", warnings, qualified)
+
+
+def _recognized_unverified_response(
+    sulfate_class: str,
+    product_checks: list[dict],
+    route: str,
+    warnings: list[dict],
+    evidence: object,
+) -> dict:
+    if SULFATE_ACCEPTANCE_RELATIONSHIP_VERIFIED:
+        return _response(_status_from_warnings(warnings), sulfate_class, product_checks, route, warnings, evidence)
+    guarded_warnings = list(warnings)
+    guarded_warnings.append(
+        {
+            "code": "SULFATE_ACCEPTANCE_RELATIONSHIP_UNVERIFIED",
+            "severity": "needs_review",
+            "message": (
+                "Designation/qualification شناسایی شد، اما رابطه پذیرش ACI 318-25 با edition دقیق استاندارد ASTM و معیار پذیرش مربوطه "
+                "هنوز در G02B با evidence مجاز و golden tests مستقل بسته نشده است؛ بنابراین PASS خودکار مجاز نیست."
+            ),
+            "reference": "G02B exact-edition verification policy; ACI CODE-318-25 / applicable ASTM product or performance standard",
+        }
+    )
+    response = _response("needs_review", sulfate_class, product_checks, route, guarded_warnings, evidence)
+    response["acceptance_relationship_state"] = "blocked_exact_edition_evidence_required"
+    return response
 
 
 def _check_product_standard(item: dict) -> dict:

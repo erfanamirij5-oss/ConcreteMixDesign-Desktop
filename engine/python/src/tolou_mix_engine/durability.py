@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tolou_mix_engine.durability_input_policy import validate_active_exposure_inputs
+
 PSI_TO_MPA = 0.006894757293168361
 STANDARD_VERSION = "ACI_CODE_318_25"
 
@@ -36,9 +38,82 @@ AIR_CONTENT_PERCENT = {
 }
 
 
+def _sulfate_evidence_snapshot(conditions: dict) -> dict:
+    """Return a compact, persistence-safe record of sulfate source evidence.
+
+    This snapshot records what the caller actually supplied. It does not certify the
+    ACI 318-25 classification relationship or any ASTM acceptance criterion.
+    """
+    source = conditions if isinstance(conditions, dict) else {}
+    snapshot = {
+        "verification_state": "classification_thresholds_existing_unverified",
+        "seawater_exposure": source.get("seawater_exposure"),
+        "soil": None,
+        "water": None,
+    }
+    if source.get("soil_water_soluble_sulfate_percent") not in (None, ""):
+        snapshot["soil"] = {
+            "value": source.get("soil_water_soluble_sulfate_percent"),
+            "unit": "percent_by_mass",
+            "test_method": source.get("soil_sulfate_test_method"),
+            "test_edition": source.get("soil_sulfate_test_edition"),
+            "evidence_ref": source.get("soil_sulfate_evidence_ref"),
+        }
+    if source.get("water_dissolved_sulfate_ppm") not in (None, ""):
+        snapshot["water"] = {
+            "value": source.get("water_dissolved_sulfate_ppm"),
+            "unit": "ppm",
+            "test_method": source.get("water_sulfate_test_method"),
+            "test_edition": source.get("water_sulfate_test_edition"),
+            "evidence_ref": source.get("water_sulfate_evidence_ref"),
+        }
+    return snapshot
+
+
+def _incomplete_exposure_result(issues: list[dict], conditions: dict) -> dict:
+    return {
+        "status": "fail",
+        "standard": STANDARD_VERSION,
+        "error": "durability_exposure_inputs_incomplete",
+        "exposure_classes": {},
+        "governing_requirements": {
+            "max_w_cm": None,
+            "min_strength_psi": None,
+            "min_strength_mpa": None,
+            "target_air_percent": None,
+            "chloride_limit_percent": None,
+        },
+        "checks": [],
+        "warnings": [
+            {
+                "code": issue["code"],
+                "severity": "fail",
+                "message": issue["message"],
+                "field": issue["field"],
+                "reference": "G02B fail-closed durability exposure input policy; ACI CODE-318-25 exposure classification evidence boundary",
+            }
+            for issue in issues
+        ],
+        "sulfate_requirements": {},
+        "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
+        "traceability": {
+            "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
+            "verification_state": "input_evidence_incomplete",
+        },
+        "limitations": [
+            "استخراج exposure class و حدود وابسته متوقف شد تا ورودی‌های فعال/متناقض به‌صورت صریح تکمیل شوند."
+        ],
+    }
+
+
 def evaluate_durability(payload: dict) -> dict:
     conditions = payload.get("conditions", {}) if isinstance(payload, dict) else {}
     nmsa_mm = float(payload.get("max_aggregate_size_mm", 19) or 19)
+
+    input_issues = validate_active_exposure_inputs(conditions)
+    if input_issues:
+        return _incomplete_exposure_result(input_issues, conditions)
+
     classes = {
         "freeze_thaw": classify_freeze_thaw(conditions),
         "sulfate": classify_sulfate(conditions),
@@ -53,22 +128,51 @@ def evaluate_durability(payload: dict) -> dict:
     governing_max_w_cm = min(w_cm_values) if w_cm_values else None
 
     freeze_class = classes["freeze_thaw"]
+    if freeze_class != "F0" and nmsa_mm not in AIR_CONTENT_PERCENT:
+        allowed = ", ".join(f"{value:g}" for value in AIR_CONTENT_PERCENT)
+        return {
+            "status": "fail",
+            "standard": STANDARD_VERSION,
+            "error": "durability_air_nmsa_not_tabulated",
+            "exposure_classes": classes,
+            "governing_requirements": {
+                "max_w_cm": governing_max_w_cm,
+                "min_strength_psi": min_strength_psi,
+                "min_strength_mpa": round(min_strength_psi * PSI_TO_MPA, 1),
+                "target_air_percent": None,
+                "chloride_limit_percent": CHLORIDE_LIMITS[classes["corrosion"]],
+            },
+            "checks": [],
+            "warnings": [{
+                "code": "AIR_TABLE_NMSA_SNAPPING_REFUSED",
+                "severity": "fail",
+                "message": f"NMSA واردشده {nmsa_mm:g} mm برای الزام هوای دوام در مجموعه مقادیر جدولی پیاده‌سازی‌شده نیست؛ نگاشت خودکار به نزدیک‌ترین NMSA متوقف شد.",
+                "reference": "ACI CODE-318-25 Table 19.3.3.1; G02B fail-closed verification policy",
+            }],
+            "sulfate_requirements": sulfate_requirements(classes["sulfate"]),
+            "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
+            "traceability": {
+                "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
+                "mixture_requirements": "ACI CODE-318-25 Table 19.3.2.1",
+                "air_content": "ACI CODE-318-25 Table 19.3.3.1",
+            },
+            "limitations": [f"برای ادامه، NMSA باید یکی از مقادیر پیاده‌سازی‌شده باشد: {allowed} mm، یا سیاست معتبر exact-edition برای mapping/interpolation با evidence و test مستقل ثبت شود."],
+        }
+
     target_air = air_requirement(freeze_class, nmsa_mm)
     corrosion_class = classes["corrosion"]
 
     checks = []
     for category, code in classes.items():
         req = EXPOSURE_REQUIREMENTS[code]
-        checks.append(
-            {
-                "category": category,
-                "exposure_class": code,
-                "max_w_cm": req["max_w_cm"],
-                "min_strength_psi": req["min_strength_psi"],
-                "min_strength_mpa": round(req["min_strength_psi"] * PSI_TO_MPA, 1),
-                "reference": "ACI CODE-318-25 Table 19.3.2.1",
-            }
-        )
+        checks.append({
+            "category": category,
+            "exposure_class": code,
+            "max_w_cm": req["max_w_cm"],
+            "min_strength_psi": req["min_strength_psi"],
+            "min_strength_mpa": round(req["min_strength_psi"] * PSI_TO_MPA, 1),
+            "reference": "ACI CODE-318-25 Table 19.3.2.1",
+        })
 
     warnings = build_warnings(classes, conditions, nmsa_mm, target_air)
 
@@ -86,12 +190,13 @@ def evaluate_durability(payload: dict) -> dict:
         "checks": checks,
         "warnings": warnings,
         "sulfate_requirements": sulfate_requirements(classes["sulfate"]),
+        "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
         "traceability": {
             "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
             "mixture_requirements": "ACI CODE-318-25 Table 19.3.2.1",
             "air_content": "ACI CODE-318-25 Table 19.3.3.1",
-            "soil_sulfate_test": "ASTM C1580",
-            "water_sulfate_test": "ASTM D516",
+            "soil_sulfate_test": "caller-supplied method/edition retained in sulfate_evidence",
+            "water_sulfate_test": "caller-supplied method/edition retained in sulfate_evidence",
             "chloride_test": "ASTM C1218/C1218M",
         },
     }
@@ -136,8 +241,9 @@ def classify_corrosion(conditions: dict) -> str:
 def air_requirement(freeze_class: str, nmsa_mm: float) -> float | None:
     if freeze_class == "F0":
         return None
-    selected = min(AIR_CONTENT_PERCENT, key=lambda item: abs(item - nmsa_mm))
-    return AIR_CONTENT_PERCENT[selected][freeze_class]
+    if nmsa_mm not in AIR_CONTENT_PERCENT:
+        return None
+    return AIR_CONTENT_PERCENT[nmsa_mm][freeze_class]
 
 
 def sulfate_requirements(exposure_class: str) -> dict:
@@ -163,32 +269,19 @@ def sulfate_requirements(exposure_class: str) -> dict:
 def build_warnings(classes: dict, conditions: dict, nmsa_mm: float, target_air: float | None) -> list[dict]:
     warnings: list[dict] = []
     if classes["sulfate"] == "S3":
-        warnings.append(
-            {
-                "code": "S3_OPTION_SELECTION_REQUIRED",
-                "severity": "needs_review",
-                "message": "برای S3 باید گزینه سیستم سیمانی مقاوم به سولفات و مدارک ASTM C1012/سابقه عملکرد توسط مهندس انتخاب و ثبت شود.",
-                "reference": "ACI CODE-318-25 Table 19.3.2.1 and 26.4.2.2(c)",
-            }
-        )
+        warnings.append({
+            "code": "S3_OPTION_SELECTION_REQUIRED",
+            "severity": "needs_review",
+            "message": "برای S3 باید گزینه سیستم سیمانی مقاوم به سولفات و مدارک ASTM C1012/سابقه عملکرد توسط مهندس انتخاب و ثبت شود.",
+            "reference": "ACI CODE-318-25 Table 19.3.2.1 and 26.4.2.2(c)",
+        })
     if classes["corrosion"] == "C2" and not bool(conditions.get("reinforced_or_embedded_metal", True)):
-        warnings.append(
-            {
-                "code": "C2_PLAIN_CONCRETE_REVIEW",
-                "severity": "needs_review",
-                "message": "C2 برای بتن ساده ممکن است طبق ضوابط عضو و جزئیات مدفون‌شده نیازمند بازبینی مهندس باشد.",
-                "reference": "ACI CODE-318-25 R19.3.2",
-            }
-        )
-    if target_air is not None and nmsa_mm not in AIR_CONTENT_PERCENT:
-        warnings.append(
-            {
-                "code": "AIR_TABLE_NMSA_SNAPPED",
-                "severity": "needs_review",
-                "message": "اندازه اسمی سنگدانه برای جدول هوا به نزدیک‌ترین NMSA استاندارد نگاشت شد.",
-                "reference": "ACI CODE-318-25 Table 19.3.3.1",
-            }
-        )
+        warnings.append({
+            "code": "C2_PLAIN_CONCRETE_REVIEW",
+            "severity": "needs_review",
+            "message": "C2 برای بتن ساده ممکن است طبق ضوابط عضو و جزئیات مدفون‌شده نیازمند بازبینی مهندس باشد.",
+            "reference": "ACI CODE-318-25 R19.3.2",
+        })
     return warnings
 
 

@@ -8,7 +8,8 @@ export const RUNTIME_MIGRATION_IDS = [
   '022_users_roles_audit_security',
   '023_trial_mix_v2_foundation',
   '024_production_qc_foundation',
-  '025_cost_engine_foundation'
+  '025_cost_engine_foundation',
+  '026_chloride_provenance'
 ] as const;
 
 export type RuntimeMigrationId = typeof RUNTIME_MIGRATION_IDS[number];
