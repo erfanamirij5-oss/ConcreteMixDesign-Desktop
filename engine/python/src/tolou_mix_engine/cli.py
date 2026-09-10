@@ -66,13 +66,16 @@ def _attach_aci211_traceability(response: dict, payload: dict) -> dict:
 def validate_normal_mix_request(payload: dict) -> dict | None:
     """Fail closed when the current ACI 211 lookup domain is unresolved.
 
-    G02A does not certify implicit clamping or nearest-table snapping as ACI 211.1-22
-    behavior. Requests outside the implemented slump domain or using a non-tabulated
-    NMSA are rejected before numerical proportioning. Strength-only w/cm requests are
-    likewise rejected outside the bounded preliminary strength lookup unless an explicit
-    project/durability w/cm is supplied.
+    G02A does not certify implicit clamping, nearest-table snapping, or an assumed
+    air-entrained exposure condition as ACI 211.1-22 behavior. Requests outside the
+    implemented slump domain or using a non-tabulated NMSA are rejected before numerical
+    proportioning. Air-entrained mixtures must receive air content explicitly or through a
+    freeze/thaw durability condition. Strength-only w/cm requests are likewise rejected
+    outside the bounded preliminary strength lookup unless an explicit project/durability
+    w/cm is supplied.
     """
     requirements = payload.get("requirements", {}) if isinstance(payload, dict) else {}
+    durability_conditions = payload.get("durability_conditions", {}) if isinstance(payload, dict) else {}
 
     slump = float(requirements.get("slump_mm", 100) or 0)
     slump_lower, slump_upper = ACI_211_SLUMP_RANGE_MM
@@ -110,12 +113,30 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
             f"NMSA باید یکی از مقادیر پیاده‌سازی‌شده باشد: {allowed} mm؛ هر سیاست interpolation یا mapping دیگر نیازمند evidence و test مستقل است.",
         )
 
+    air_entrained = bool(requirements.get("air_entrained", False))
+    explicit_air_content = requirements.get("air_content_percent")
+    freeze_thaw_exposure = bool(durability_conditions.get("freeze_thaw_exposure", False))
+    if air_entrained and explicit_air_content is None and not freeze_thaw_exposure:
+        return _normal_mix_fail(
+            "air_content_required_for_air_entrained_mix",
+            {
+                "code": "AIR_ENTRAINED_CONTENT_UNRESOLVED",
+                "severity": "fail",
+                "message": (
+                    "برای مخلوط هوازایی‌شده، درصد هوا بدون exposure معتبر نباید از یک مقدار پیش‌فرض فرضی انتخاب شود. "
+                    "درصد هوا باید صریحاً وارد شود یا از طبقه‌بندی دوام Freeze/Thaw تعیین گردد."
+                ),
+                "reference": "G02A fail-closed air-content policy; ACI CODE-318-25 durability air requirement where applicable",
+            },
+            "محاسبه پیش از انتخاب درصد هوا متوقف شد تا placeholder هوازایی به‌عنوان الزام استاندارد گزارش نشود.",
+            "برای ادامه، air_content_percent پروژه را ثبت کنید یا شرایط Freeze/Thaw معتبر را در durability_conditions تعیین کنید.",
+        )
+
     provided_w_cm = requirements.get("w_cm_ratio")
     if provided_w_cm is not None:
         return None
 
     target = float(requirements.get("target_strength_mpa", 30) or 30)
-    air_entrained = bool(requirements.get("air_entrained", False))
     lower, upper = AIR_STRENGTH_RANGE_MPA if air_entrained else NON_AIR_STRENGTH_RANGE_MPA
     if lower <= target <= upper:
         return None
