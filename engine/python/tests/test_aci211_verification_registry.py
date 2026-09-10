@@ -12,6 +12,13 @@ def test_g02a_does_not_silently_certify_existing_numerical_rules() -> None:
 
     rules = envelope["rules"]
     assert rules["ACI211.WATER.SLUMP_NMSA.AIR"] == "existing_unverified"
-    assert rules["ACI211.AIR.ENTRAINED.DEFAULT"] == "existing_unverified"
+    assert rules["ACI211.AIR.ENTRAPPED.NMSA"] == "existing_unverified"
+    assert rules["ACI211.AIR.ENTRAINED.DEFAULT"] == "policy_guarded_no_generic_default"
     assert rules["ACI211.WCM.STRENGTH.PRELIMINARY"] == "existing_unverified"
     assert rules["ACI211.COARSE_VOLUME.NMSA_FM"] == "existing_unverified"
+
+    evidence = envelope["numerical_evidence"]
+    assert all(
+        entry["state"] == "blocked_authorized_exact_edition_source_required"
+        for entry in evidence.values()
+    )
