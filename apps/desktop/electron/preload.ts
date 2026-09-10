@@ -65,7 +65,8 @@ contextBridge.exposeInMainWorld('tolouMaterialIntelligence', {
   addObservation: (payload: unknown) => ipcRenderer.invoke('material-intelligence:add-observation', payload),
   listObservations: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:list-observations', materialLibraryId),
   addQualification: (payload: unknown) => ipcRenderer.invoke('material-intelligence:add-qualification', payload),
-  listQualifications: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:list-qualifications', materialLibraryId)
+  listQualifications: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:list-qualifications', materialLibraryId),
+  getVariability: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:get-variability', materialLibraryId)
 });
 
 contextBridge.exposeInMainWorld('tolouGradation', {
