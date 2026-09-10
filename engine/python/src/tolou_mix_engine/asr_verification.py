@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 ASR_ASTM_REFERENCES = {
     "C1260-23": {"kind": "test_method", "verification_state": "identity_only_unverified_acceptance"},
     "C1293/C1293M-23ae1": {"kind": "test_method", "verification_state": "identity_only_unverified_acceptance"},
