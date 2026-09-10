@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 CEMENTITIOUS_PRODUCT_STANDARDS = {
     "portland_cement": ("C150",),
     "blended_cement": ("C595", "C1157"),
