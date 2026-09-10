@@ -65,6 +65,7 @@ def test_full_chloride_passes_when_all_sources_complete_and_below_limit():
     checked = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
     assert checked["status"] == "pass"
     assert checked["data_complete"] is True
+    assert checked["provenance_complete"] is True
     assert checked["total_chloride_percent_by_mass_cementitious"] < 0.15
     assert len(checked["source_breakdown"]) == 5
 
@@ -95,6 +96,22 @@ def test_chloride_source_breakdown_preserves_provenance_without_inference():
         "test_edition": "2026-01",
         "evidence_ref": "ADM-CL-001",
     }]
+
+
+def test_missing_chloride_provenance_downgrades_pass_without_changing_mass_balance():
+    result, binder, admixture, materials = _base()
+    baseline = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
+    materials["aggregates"][0]["chloride_evidence_ref"] = None
+    checked = evaluate_full_chloride_compliance(result, binder, admixture, materials, _durability(), {})
+
+    assert baseline["status"] == "pass"
+    assert checked["status"] == "needs_review"
+    assert checked["data_complete"] is True
+    assert checked["provenance_complete"] is False
+    assert checked["total_chloride_kg_m3"] == baseline["total_chloride_kg_m3"]
+    assert checked["total_chloride_percent_by_mass_cementitious"] == baseline["total_chloride_percent_by_mass_cementitious"]
+    assert any(item["code"] == "AGGREGATE_CHLORIDE_PROVENANCE_INCOMPLETE" for item in checked["warnings"])
+    assert any(item["code"] == "FULL_CHLORIDE_PROVENANCE_INCOMPLETE" for item in checked["warnings"])
 
 
 def test_missing_active_source_chloride_prevents_full_pass():
