@@ -56,6 +56,22 @@ const first = persistCalculatedMixResult(database, 'mix-1', {
       seawater_exposure: false
     }
   },
+  chloride_compliance: {
+    status: 'pass',
+    source_breakdown: [
+      {
+        source_category: 'binder',
+        material_id: 'cement-1',
+        chloride_percent: 0.01,
+        chloride_kg_m3: 0.04,
+        chloride_provenance: {
+          test_method: 'ASTM C1218/C1218M',
+          test_edition: '20',
+          evidence_ref: 'LAB-CL-001'
+        }
+      }
+    ]
+  },
   cementitious_compliance: { status: 'pass', standard: 'ASTM C150' },
   standard_references: ['ACI PRC-211.1-22'],
   assumptions: ['SSD basis'],
@@ -89,6 +105,11 @@ const output = firstTrace.engineeringOutput as {
       soil?: { test_method?: string; test_edition?: string; evidence_ref?: string } | null;
     };
   };
+  chloride_compliance?: {
+    source_breakdown?: Array<{
+      chloride_provenance?: { test_method?: string; test_edition?: string; evidence_ref?: string };
+    }>;
+  };
   cementitious_compliance?: { standard?: string };
 } | undefined;
 if (output?.aggregate_blend_optimizer?.status !== 'pass') throw new Error('Full Blend engineering output was not persisted for reopen.');
@@ -96,6 +117,10 @@ if (output?.durability?.exposure_classes?.sulfate !== 'S1') throw new Error('Ful
 if (output?.durability?.sulfate_evidence?.soil?.test_method !== 'ASTM C1580') throw new Error('Sulfate test method provenance was not persisted.');
 if (output?.durability?.sulfate_evidence?.soil?.test_edition !== '20') throw new Error('Sulfate test edition provenance was not persisted.');
 if (output?.durability?.sulfate_evidence?.soil?.evidence_ref !== 'LAB-SOIL-001') throw new Error('Sulfate evidence reference was not persisted.');
+const chlorideProvenance = output?.chloride_compliance?.source_breakdown?.[0]?.chloride_provenance;
+if (chlorideProvenance?.test_method !== 'ASTM C1218/C1218M') throw new Error('Chloride test method provenance was not persisted.');
+if (chlorideProvenance?.test_edition !== '20') throw new Error('Chloride test edition provenance was not persisted.');
+if (chlorideProvenance?.evidence_ref !== 'LAB-CL-001') throw new Error('Chloride evidence reference was not persisted.');
 if (output?.cementitious_compliance?.standard !== 'ASTM C150') throw new Error('Full compliance output was not persisted for reopen.');
 
 const second = persistCalculatedMixResult(database, 'mix-1', {
@@ -120,4 +145,4 @@ const afterReject = database.prepare('SELECT cementitious_content_kg_m3 AS cemen
 if (afterReject.cementitious !== 420) throw new Error('Rejected engine result modified the last valid persisted calculation.');
 
 database.close();
-console.log('Calculation result persistence smoke validation passed with versioned standard-profile and sulfate evidence provenance.');
+console.log('Calculation result persistence smoke validation passed with versioned standard-profile plus sulfate and chloride evidence provenance.');
