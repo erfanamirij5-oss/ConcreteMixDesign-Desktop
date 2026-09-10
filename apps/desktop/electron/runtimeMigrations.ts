@@ -8,7 +8,9 @@ export const RUNTIME_MIGRATION_IDS = [
   '022_users_roles_audit_security',
   '023_trial_mix_v2_foundation',
   '024_production_qc_foundation',
-  '025_cost_engine_foundation'
+  '025_cost_engine_foundation',
+  '026_material_intelligence_history',
+  '027_material_library_extended_types'
 ] as const;
 
 export type RuntimeMigrationId = typeof RUNTIME_MIGRATION_IDS[number];
@@ -19,8 +21,30 @@ export function ensureRuntimeMigration(database: Database.Database, migrationId:
   if (applied) return;
 
   const migrationPath = path.join(process.cwd(), `database/migrations/${migrationId}.sql`);
+  const sql = readFileSync(migrationPath, 'utf-8');
+
+  // Migration 027 rebuilds the parent material_library table to widen its CHECK constraint.
+  // SQLite requires foreign-key enforcement to be disabled before the transaction begins for
+  // this parent-table rebuild; enforcement is restored immediately and integrity is verified.
+  if (migrationId === '027_material_library_extended_types') {
+    const foreignKeysWereEnabled = Number(database.pragma('foreign_keys', { simple: true })) === 1;
+    if (database.inTransaction) throw new Error('Migration 027 cannot run inside an existing transaction.');
+    if (foreignKeysWereEnabled) database.pragma('foreign_keys = OFF');
+    try {
+      database.transaction(() => {
+        database.exec(sql);
+        database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run(migrationId, new Date().toISOString());
+      })();
+    } finally {
+      if (foreignKeysWereEnabled) database.pragma('foreign_keys = ON');
+    }
+    const violations = database.pragma('foreign_key_check') as Array<Record<string, unknown>>;
+    if (violations.length) throw new Error(`Migration 027 foreign key integrity check failed with ${violations.length} violation(s).`);
+    return;
+  }
+
   database.transaction(() => {
-    database.exec(readFileSync(migrationPath, 'utf-8'));
+    database.exec(sql);
     database.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)').run(migrationId, new Date().toISOString());
   })();
 }
