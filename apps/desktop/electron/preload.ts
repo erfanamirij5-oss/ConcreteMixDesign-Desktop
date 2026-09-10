@@ -61,6 +61,13 @@ contextBridge.exposeInMainWorld('tolouMaterialLibrary', {
   listProvenance: (mixDesignId: string) => ipcRenderer.invoke('material-library:list-provenance', mixDesignId)
 });
 
+contextBridge.exposeInMainWorld('tolouMaterialIntelligence', {
+  addObservation: (payload: unknown) => ipcRenderer.invoke('material-intelligence:add-observation', payload),
+  listObservations: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:list-observations', materialLibraryId),
+  addQualification: (payload: unknown) => ipcRenderer.invoke('material-intelligence:add-qualification', payload),
+  listQualifications: (materialLibraryId: string) => ipcRenderer.invoke('material-intelligence:list-qualifications', materialLibraryId)
+});
+
 contextBridge.exposeInMainWorld('tolouGradation', {
   save: (payload: unknown) => ipcRenderer.invoke('gradation:save', payload),
   listByMaterial: (materialId: string) => ipcRenderer.invoke('gradation:list-by-material', materialId)
