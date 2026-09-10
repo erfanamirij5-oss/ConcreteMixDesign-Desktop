@@ -23,7 +23,9 @@ def test_cli_requires_explicit_wcm_outside_non_air_lookup() -> None:
 
 
 def test_cli_requires_explicit_wcm_outside_air_lookup() -> None:
-    result = validate_normal_mix_request({"requirements": {"target_strength_mpa": 40.0, "air_entrained": True}})
+    result = validate_normal_mix_request(
+        {"requirements": {"target_strength_mpa": 40.0, "air_entrained": True, "air_content_percent": 6.0}}
+    )
     assert result is not None
     assert result["status"] == "fail"
     assert result["error"] == "w_cm_ratio_required_outside_strength_lookup"
@@ -79,6 +81,51 @@ def test_cli_accepts_each_implemented_nmsa_node() -> None:
         assert validate_normal_mix_request(
             {"requirements": {"slump_mm": 100.0, "max_aggregate_size_mm": nmsa, "w_cm_ratio": 0.45}}
         ) is None
+
+
+def test_air_entrained_mix_requires_explicit_air_or_freeze_thaw_basis() -> None:
+    result = validate_normal_mix_request(
+        {
+            "requirements": {
+                "slump_mm": 100.0,
+                "max_aggregate_size_mm": 19.0,
+                "air_entrained": True,
+                "w_cm_ratio": 0.45,
+            }
+        }
+    )
+    assert result is not None
+    assert result["status"] == "fail"
+    assert result["error"] == "air_content_required_for_air_entrained_mix"
+    assert result["warnings"][0]["code"] == "AIR_ENTRAINED_CONTENT_UNRESOLVED"
+
+
+def test_air_entrained_mix_accepts_explicit_air_content() -> None:
+    assert validate_normal_mix_request(
+        {
+            "requirements": {
+                "slump_mm": 100.0,
+                "max_aggregate_size_mm": 19.0,
+                "air_entrained": True,
+                "air_content_percent": 6.0,
+                "w_cm_ratio": 0.45,
+            }
+        }
+    ) is None
+
+
+def test_air_entrained_mix_accepts_freeze_thaw_durability_basis() -> None:
+    assert validate_normal_mix_request(
+        {
+            "requirements": {
+                "slump_mm": 100.0,
+                "max_aggregate_size_mm": 19.0,
+                "air_entrained": True,
+                "w_cm_ratio": 0.45,
+            },
+            "durability_conditions": {"freeze_thaw_exposure": True, "freeze_water_exposure": "frequent"},
+        }
+    ) is None
 
 
 def test_production_response_exposes_rule_registry_and_preserves_versioned_profile() -> None:
