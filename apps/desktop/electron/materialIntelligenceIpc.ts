@@ -3,6 +3,7 @@ import { requireRendererPermission } from './securityRuntime';
 import {
   addMaterialObservation,
   addMaterialQualification,
+  getMaterialVariability,
   listMaterialObservations,
   listMaterialQualifications,
   type MaterialQualificationEventInput,
@@ -37,4 +38,9 @@ export function registerMaterialIntelligenceIpc() {
     requireRendererPermission(event.sender, 'engineering.read');
     return { status: 'pass' as const, qualifications: listMaterialQualifications(materialLibraryId) };
   }, 'خطا در خواندن تاریخچه ارزیابی مصالح'));
+
+  ipcMain.handle('material-intelligence:get-variability', async (event, materialLibraryId: string) => safeCall(() => {
+    requireRendererPermission(event.sender, 'engineering.read');
+    return { status: 'pass' as const, summaries: getMaterialVariability(materialLibraryId) };
+  }, 'خطا در محاسبه تحلیل تغییرپذیری مصالح'));
 }
