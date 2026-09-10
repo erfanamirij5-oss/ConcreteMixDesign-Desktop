@@ -10,6 +10,7 @@ import { getManagementSummary, getRecentManagementActivity } from './managementA
 import { loadCalculatedMixResult, saveCalculatedMixResult, type PersistedCalculationInput } from './calculationResultStore';
 import { requireEditableMaterial, requireEditableMixDesign } from './mixDesignEditGuard';
 import { attachLibraryMaterial, changeLibraryMaterialStatus, listLibraryMaterials, listMaterialProvenance, saveLibraryMaterial } from './materialLibraryStore';
+import { saveMaterialChlorideProvenance } from './chlorideProvenanceStore';
 import { ensureTrialMixMigration, hasCompletedTrialMixRecord, listTrialMixRecords, saveTrialMixRecord } from './trialMixStore';
 import { registerTrialMixV2Ipc } from './trialMixV2Ipc';
 import { registerReportCenterIpc } from './reportIpc';
@@ -102,7 +103,13 @@ ipcMain.handle('engine:get-saved-result', async (event, mixDesignId: string) => 
 
 ipcMain.handle('projects:save-intake', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); return saveProjectIntake(payload); }, 'خطای ناشناخته در ذخیره پروژه'));
 ipcMain.handle('projects:list-recent', async event => safeCall(() => { requireRendererPermission(event.sender, 'engineering.read'); return { status: 'pass', projects: listRecentProjects() }; }, 'خطای ناشناخته در خواندن پروژه‌ها'));
-ipcMain.handle('materials:save', async (event, payload) => safeCall(() => { requireRendererPermission(event.sender, 'engineering.write'); requireEditableMixDesign(payload?.mixDesignId); return saveMaterial(payload); }, 'خطای ناشناخته در ذخیره مصالح'));
+ipcMain.handle('materials:save', async (event, payload) => safeCall(() => {
+  requireRendererPermission(event.sender, 'engineering.write');
+  requireEditableMixDesign(payload?.mixDesignId);
+  const result = saveMaterial(payload);
+  if (result?.id) saveMaterialChlorideProvenance(getDatabase(), result.id, payload ?? {});
+  return result;
+}, 'خطای ناشناخته در ذخیره مصالح'));
 ipcMain.handle('materials:list-by-mix-design', async (event, mixDesignId: string) => safeCall(() => {
   requireRendererPermission(event.sender, 'engineering.read');
   const provenance = new Map(listMaterialProvenance(mixDesignId).map(item => [item.id, item]));
