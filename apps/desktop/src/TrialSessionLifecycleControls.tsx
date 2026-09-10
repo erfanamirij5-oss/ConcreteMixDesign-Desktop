@@ -2,6 +2,7 @@ import { TrialStrengthAnalyticsPanel } from './TrialStrengthAnalyticsPanel';
 import { TrialCalibrationComparisonPanel } from './TrialCalibrationComparisonPanel';
 import { TrialMoistureCorrectionPanel } from './TrialMoistureCorrectionPanel';
 import { TrialRevisionFeedbackPanel } from './TrialRevisionFeedbackPanel';
+import { TrialRevisionProposalPanel } from './TrialRevisionProposalPanel';
 
 type TrialSessionStatus = 'planned' | 'in_progress' | 'completed' | 'void';
 
@@ -50,6 +51,7 @@ export function TrialSessionLifecycleControls(props: Props) {
       </div>
     </section>
     <TrialRevisionFeedbackPanel sessionId={props.sessionId} refreshKey={refreshKey} />
+    <TrialRevisionProposalPanel sessionId={props.sessionId} status={props.status} refreshKey={refreshKey} />
     <TrialMoistureCorrectionPanel sessionId={props.sessionId} refreshKey={refreshKey} />
     <TrialCalibrationComparisonPanel sessionId={props.sessionId} refreshKey={refreshKey} />
     <TrialStrengthAnalyticsPanel sessionId={props.sessionId} refreshKey={refreshKey} />
