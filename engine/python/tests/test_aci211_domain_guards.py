@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tolou_mix_engine.cli import validate_normal_mix_request
+from tolou_mix_engine.cli import calculate_normal_mix_response, validate_normal_mix_request
 from tolou_mix_engine.mix_design.normal_weight import estimate_strength_w_cm
 
 
@@ -79,3 +79,25 @@ def test_cli_accepts_each_implemented_nmsa_node() -> None:
         assert validate_normal_mix_request(
             {"requirements": {"slump_mm": 100.0, "max_aggregate_size_mm": nmsa, "w_cm_ratio": 0.45}}
         ) is None
+
+
+def test_production_response_exposes_rule_registry_and_preserves_versioned_profile() -> None:
+    profile = {
+        "profile_id": "tolou-aci-astm-legacy",
+        "profile_version": "1.1.0-compat",
+        "display_name": "Tolou v1.1 ACI/ASTM compatibility profile",
+    }
+    result = calculate_normal_mix_response(
+        {
+            "standard_profile": profile,
+            "requirements": {"slump_mm": 20.0, "max_aggregate_size_mm": 19.0, "w_cm_ratio": 0.45},
+        }
+    )
+
+    assert result["status"] == "fail"
+    assert result["standard_profile"] == profile
+    envelope = result["aci211_verification"]
+    assert envelope["reference"]["designation"] == "ACI PRC-211.1-22"
+    assert envelope["rules"]["ACI211.WATER.SLUMP_NMSA.AIR"] == "existing_unverified"
+    assert envelope["rules"]["ACI211.ABSOLUTE_VOLUME.FINE_BALANCE"] == "engineering_core"
+    assert envelope["verified_rule_count"] == 0
