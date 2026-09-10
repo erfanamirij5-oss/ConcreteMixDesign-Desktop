@@ -44,11 +44,13 @@ def evaluate_full_chloride_compliance(
     admixture_data = admixture_compliance.get("chloride", {}) if isinstance(admixture_compliance, dict) else {}
     admixture_chloride = float(admixture_data.get("admixture_chloride_kg_m3") or 0.0)
     admixture_complete = bool(admixture_data.get("admixture_chloride_data_complete", False))
+    admixture_sources = [item for item in raw_misc if str(item.get("material_type")) == "admixture"]
     source_rows.append({
         "source_category": "admixture",
         "name": "chemical admixtures total",
         "chloride_kg_m3": round(admixture_chloride, 6),
         "data_complete": admixture_complete,
+        "provenance_sources": [_chloride_provenance(item) for item in admixture_sources],
     })
     complete = complete and admixture_complete
 
@@ -130,6 +132,15 @@ def evaluate_full_chloride_compliance(
     }
 
 
+def _chloride_provenance(raw: dict) -> dict:
+    return {
+        "material_id": raw.get("id"),
+        "test_method": raw.get("chloride_test_method"),
+        "test_edition": raw.get("chloride_test_edition"),
+        "evidence_ref": raw.get("chloride_evidence_ref"),
+    }
+
+
 def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict], mass_key: str, category: str):
     total = 0.0
     complete = True
@@ -142,6 +153,7 @@ def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict],
         if mass <= 0:
             continue
         chloride = raw.get("chloride_percent")
+        provenance = _chloride_provenance(raw)
         if chloride is None:
             complete = False
             warnings.append({
@@ -150,7 +162,7 @@ def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict],
                 "message": f"کلراید منبع «{row.get('name') or row.get('material_name') or material_id or category}» ثبت نشده است.",
                 "reference": "Material certificate / chloride test data",
             })
-            rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": None, "chloride_kg_m3": None, "data_complete": False})
+            rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": None, "chloride_kg_m3": None, "data_complete": False, "chloride_provenance": provenance})
             continue
         chloride_percent = float(chloride)
         if chloride_percent < 0:
@@ -159,7 +171,7 @@ def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict],
             continue
         contribution = mass * chloride_percent / 100.0
         total += contribution
-        rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": chloride_percent, "chloride_kg_m3": round(contribution, 6), "data_complete": True})
+        rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": chloride_percent, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "chloride_provenance": provenance})
     return total, complete, rows, warnings
 
 
@@ -190,10 +202,11 @@ def _water_chloride(water_sources: list[dict], water_to_add_kg_m3: float):
     for item, share in zip(water_sources, shares):
         chloride_mg_l = item.get("chloride_mg_l")
         source_water_mass = water_to_add_kg_m3 * share / 100.0
+        provenance = _chloride_provenance(item)
         if chloride_mg_l is None:
             complete = False
             warnings.append({"code": "WATER_CHLORIDE_DATA_MISSING", "severity": "needs_review", "message": f"کلراید آب «{item.get('name') or 'بدون نام'}» بر حسب mg/L ثبت نشده است.", "reference": "ASTM C1602/C1602M / water analysis"})
-            rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": None, "chloride_kg_m3": None, "data_complete": False})
+            rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": None, "chloride_kg_m3": None, "data_complete": False, "chloride_provenance": provenance})
             continue
         value = float(chloride_mg_l)
         if value < 0:
@@ -202,7 +215,7 @@ def _water_chloride(water_sources: list[dict], water_to_add_kg_m3: float):
             continue
         contribution = source_water_mass * value / 1_000_000.0
         total += contribution
-        rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": value, "chloride_kg_m3": round(contribution, 6), "data_complete": True})
+        rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": value, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "chloride_provenance": provenance})
     return total, complete, rows, warnings
 
 
