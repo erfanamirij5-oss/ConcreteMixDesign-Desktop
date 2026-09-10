@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database';
 
-export type MaterialLibraryType = 'cement' | 'scm' | 'fine_aggregate' | 'coarse_aggregate' | 'water' | 'admixture';
+export type MaterialLibraryType = 'cement' | 'scm' | 'fine_aggregate' | 'coarse_aggregate' | 'water' | 'admixture' | 'fiber' | 'other_addition';
 export type MaterialLibraryStatus = 'active' | 'expired' | 'inactive';
 
 export type MaterialLibraryInput = {
@@ -127,7 +127,7 @@ export function listMaterialProvenance(mixDesignId: string) { return listMixDesi
 export function attachLibraryMaterial(mixDesignId: string, libraryMaterialId: string) { return attachLibraryMaterialToMixDesign(getDatabase(), mixDesignId, libraryMaterialId); }
 
 function validateLibraryInput(input: MaterialLibraryInput) {
-  const allowed = new Set<MaterialLibraryType>(['cement', 'scm', 'fine_aggregate', 'coarse_aggregate', 'water', 'admixture']);
+  const allowed = new Set<MaterialLibraryType>(['cement', 'scm', 'fine_aggregate', 'coarse_aggregate', 'water', 'admixture', 'fiber', 'other_addition']);
   if (!allowed.has(input.materialType)) throw new Error('نوع ماده Library معتبر نیست.');
   if (!input.name?.trim()) throw new Error('نام ماده در Library الزامی است.');
   if (input.status && !['active', 'expired', 'inactive'].includes(input.status)) throw new Error('وضعیت Library معتبر نیست.');
@@ -143,6 +143,11 @@ function validateMaterialProperties(type: MaterialLibraryType, properties: Recor
     if (value == null || value === '') { if (required) throw new Error(`خاصیت ${key} برای این نوع ماده الزامی است.`); return; }
     if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) throw new Error(`مقدار ${key} باید در بازه ${min} تا ${max} باشد.`);
   };
+  const nonNegativeFinite = (key: string) => {
+    const value = properties[key];
+    if (value == null || value === '') return;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`مقدار ${key} باید یک عدد متناهی و نامنفی باشد.`);
+  };
   if (type === 'cement' || type === 'scm') {
     number('specificGravity', 1.5, 4.0, true); number('alkaliPercent', 0, 10);
     if (type === 'scm') { number('activityIndexPercent', 0, 200); number('lossOnIgnitionPercent', 0, 30); }
@@ -156,6 +161,10 @@ function validateMaterialProperties(type: MaterialLibraryType, properties: Recor
   }
   if (type === 'admixture') {
     number('densityKgM3', 500, 2500, true); number('dosageValue', 0, 100000); number('solidsPercent', 0, 100); number('chloridePercent', 0, 100);
+  }
+  if (type === 'fiber' || type === 'other_addition') {
+    // Generic storage validation only. No standards acceptance limits are inferred for these open-ended families.
+    nonNegativeFinite('densityKgM3'); nonNegativeFinite('specificGravity'); nonNegativeFinite('dosageValue'); nonNegativeFinite('replacementPercent');
   }
 }
 
