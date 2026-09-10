@@ -27,6 +27,7 @@
     "test:calculation-persistence": "npm run build:electron && node dist/electron/calculationResultPersistenceSmoke.js",
     "test:revision-immutability": "npm run build:electron && node dist/electron/mixDesignImmutabilitySmoke.js",
     "test:material-library-snapshot": "npm run build:electron && node dist/electron/materialLibrarySnapshotSmoke.js",
+    "test:material-intelligence": "npm run build:electron && node dist/electron/materialIntelligenceSmoke.js",
     "test:trial-mix": "npm run build:electron && node dist/electron/trialMixSmoke.js",
     "test:trial-mix-v2": "npm run build:electron && node dist/electron/trialMixV2MigrationSmoke.js",
     "test:trial-workflow": "npm run build:electron && node dist/electron/trialWorkflowSmoke.js",
