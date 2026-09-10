@@ -1,6 +1,6 @@
 # G02B — ACI CODE-318-25 Durability / Exposure Rule Inventory
 
-Status: FOUNDATION / NUMERICAL CERTIFICATION BLOCKED
+Status: IMPLEMENTATION CLOSED / EXACT-EDITION NUMERICAL CERTIFICATION EVIDENCE-BLOCKED
 
 ## Authoritative identity
 - Authority: American Concrete Institute (ACI)
@@ -28,20 +28,37 @@ The current engine contains executable behavior labelled against ACI 318-25 for:
 | `ACI318.DURABILITY.GOVERNING_COMBINATION` | deterministic minimum max-w/cm + maximum minimum-strength aggregation | `engineering_core` |
 | `ACI318.DURABILITY.PSI_TO_MPA` | deterministic unit conversion | `engineering_core` |
 
-## Safety boundary
-Presence of an ACI 318-25 table/section label in the code does **not** constitute verification. Existing numerical values, category thresholds, exceptions, notes, interpolation/snap policy, and applicability conditions remain unverified until compared to an authorized exact-edition source and covered by independent golden/boundary tests.
+## Implementation closure achieved in G02B
+The software-side safety and traceability work for this gate is complete:
+- active exposure inputs fail closed when dependent evidence is missing or contradictory;
+- F1/F2 durability-air lookup refuses non-tabulated NMSA instead of nearest-node snapping;
+- ACI 318 verification state and exact profile identity are machine-readable in production output;
+- standards-derived rules cannot be promoted to VERIFIED unless exact-edition evidence is closed;
+- sulfate numerical inputs require explicit method / edition / evidence provenance before the current classifier path is used;
+- sulfate acceptance routes remain `needs_review` until exact-edition acceptance relationships are verified;
+- chloride source provenance is persisted end-to-end from material storage through engine payload, source breakdown, calculation persistence and immutable report snapshots;
+- chloride mass balance remains deterministic engineering-core arithmetic;
+- chloride standards acceptance cannot return `pass` when any active numerical chloride source lacks test method, exact edition or evidence reference;
+- missing provenance does not alter the numerical mass balance; it downgrades standards acceptance to `needs_review`;
+- ACI chloride numerical limits remain `existing_unverified` and are not promoted by the provenance implementation;
+- exact-head CI Validation, Release Acceptance and License Manager Windows Gate are green at implementation closure head `67dd822dfd131ef56120adea9bf38a5c156b4f83`.
 
-## Known audit concerns
-1. `air_requirement()` currently snaps a non-tabulated NMSA to the nearest table key.
-2. Exposure classification helpers contain implicit defaults that must be checked against exact code applicability and required project inputs.
-3. Chloride limits and sulfate restrictions are executable acceptance logic and therefore require exact-edition source closure.
-4. Governing-combination arithmetic can be verified independently from standards-derived inputs.
+## Evidence boundary
+Presence of an ACI 318-25 table/section label in the code does **not** constitute exact-edition verification. Existing numerical values, category thresholds, exceptions, notes and applicability conditions remain unverified until compared against an authorized exact-edition source and independently tested from that evidence.
 
-## G02B exit criteria
-G02B may close only when:
-- exact ACI CODE-318-25 source locators are recorded for every executable standards-derived rule;
-- every numerical/category rule is either `verified_exact_edition` or explicitly fail-closed / disabled from compliance claims;
-- exact-node and boundary tests are independently derived from authorized evidence;
-- implicit snapping/default behavior is either justified by evidence or removed from the compliance path;
-- production output exposes machine-readable rule verification state and exact standard identity;
-- exact-head CI / Windows gates are green.
+Public ACI metadata is sufficient to establish document identity and scope only. It is not treated as authority for numerical/category acceptance rules.
+
+## Remaining blocker classification
+The remaining G02B blockers are **evidence blockers, not implementation blockers**:
+- authorized exact-edition ACI CODE-318-25 source locators for F/S/W/C classification rules;
+- authorized exact-edition source locators for max w/cm, minimum strength, air-content requirements, chloride limits and sulfate material restrictions/exceptions;
+- independent golden/boundary cases derived from those authorized source locators before any rule is promoted to `verified_exact_edition`.
+
+These blockers must not trigger additional speculative production coding. When authorized evidence becomes available, verification-state promotion and evidence-derived tests may be added without redesigning the current implementation boundary.
+
+## G02B disposition
+**Implementation status: CLOSED.**
+
+**Standards certification status: EVIDENCE-BLOCKED.**
+
+G02B may therefore hand off to G02C while retaining the unresolved exact-edition verification items as explicit evidence debt. No ACI 318-25 standards-derived numerical/category rule is claimed VERIFIED until that debt is closed.
