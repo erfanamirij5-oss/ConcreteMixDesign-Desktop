@@ -8,6 +8,12 @@ def validate_active_exposure_inputs(conditions: dict) -> list[dict]:
     compatibility. Once an exposure is asserted active, however, any subordinate
     decision needed to classify that exposure must be explicit rather than silently
     defaulted by Python truthiness or ``dict.get`` fallbacks.
+
+    Sulfate is evidence-driven rather than controlled by one parent flag. Supplying
+    any sulfate source/test datum starts an explicit sulfate assessment and requires
+    enough source context to prevent an omitted companion input from silently acting
+    like zero/no exposure. Exact ACI classification thresholds remain separately
+    evidence-gated by G02B.
     """
     source = conditions if isinstance(conditions, dict) else {}
     issues: list[dict] = []
@@ -30,6 +36,34 @@ def validate_active_exposure_inputs(conditions: dict) -> list[dict]:
                 "message": "freeze_water_exposure بدون فعال بودن صریح freeze_thaw_exposure قابل طبقه‌بندی نیست.",
             }
         )
+
+    sulfate_fields_present = any(
+        source.get(field) not in (None, "")
+        for field in (
+            "soil_water_soluble_sulfate_percent",
+            "water_dissolved_sulfate_ppm",
+            "seawater_exposure",
+        )
+    )
+    if sulfate_fields_present:
+        if not isinstance(source.get("seawater_exposure"), bool):
+            issues.append(
+                {
+                    "field": "seawater_exposure",
+                    "code": "SEAWATER_EXPOSURE_DECISION_REQUIRED",
+                    "message": "با شروع ارزیابی سولفات، وجود یا عدم وجود seawater exposure باید صریحاً true/false ثبت شود.",
+                }
+            )
+        soil = source.get("soil_water_soluble_sulfate_percent")
+        water = source.get("water_dissolved_sulfate_ppm")
+        if soil in (None, "") and water in (None, "") and source.get("seawater_exposure") is False:
+            issues.append(
+                {
+                    "field": "soil_water_soluble_sulfate_percent|water_dissolved_sulfate_ppm",
+                    "code": "SULFATE_TEST_RESULT_REQUIRED",
+                    "message": "برای ارزیابی سولفات غیر‌دریایی باید حداقل نتیجه آزمون سولفات خاک یا آب ثبت شود؛ نبود داده نباید به S0 تعبیر شود.",
+                }
+            )
 
     if source.get("water_contact") is True:
         if not isinstance(source.get("low_permeability_required"), bool):
