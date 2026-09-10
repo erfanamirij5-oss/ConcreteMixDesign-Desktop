@@ -3,6 +3,7 @@ import { assertDatabaseReadyForRuntime, assertDatabaseSchemaCompatibility, KNOWN
 import './v11PersistenceContractSmoke';
 import './serviceDeterminismHistoricalGuardSmoke';
 import './historicalRevisionReadContractSmoke';
+import './chlorideProvenanceStoreSmoke';
 
 if (KNOWN_MIGRATIONS.length !== 26 || KNOWN_MIGRATIONS.at(-1) !== '026_chloride_provenance') {
   throw new Error('Database compatibility policy must explicitly recognize migrations through 026.');
