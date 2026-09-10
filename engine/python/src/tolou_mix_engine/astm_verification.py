@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Machine-readable G02C verification boundary for ASTM references.
 
-This registry deliberately separates public identity/scope evidence from
-standards-derived acceptance criteria. A designation appearing here never
-promotes an executable numerical rule to verified by itself.
+Public ASTM metadata can establish designation identity and general scope.
+It cannot, by itself, promote numerical limits or qualification relationships
+to exact-edition verified acceptance rules.
 """
 
 ASTM_VERIFICATION_REGISTRY: dict[str, dict[str, str]] = {
@@ -17,12 +17,21 @@ ASTM_VERIFICATION_REGISTRY: dict[str, dict[str, str]] = {
     "C88/C88M-24": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C142/C142M-17(2023)": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C123/C123M-23": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
+    "C131/C131M": {"kind": "test_method", "state": "existing_unverified_edition"},
+    "C535": {"kind": "test_method", "state": "existing_unverified_edition"},
+    "D4791-19(2023)": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
+    "D5821-13(2025)": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C1260-23": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C1293/C1293M-23ae1": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C1567-25": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C1778-25": {"kind": "guide", "state": "identity_scope_verified_public_metadata"},
     "C150/C150M-24": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
+    "C595/C595M-26": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
     "C1157/C1157M-25": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
+    "C618": {"kind": "material_specification", "state": "existing_unverified_edition"},
+    "C989/C989M-25": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
+    "C1240": {"kind": "material_specification", "state": "existing_unverified_edition"},
+    "C1012/C1012M-24a": {"kind": "test_method", "state": "identity_scope_verified_public_metadata"},
     "C494/C494M-24": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
     "C260/C260M-24": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
     "C1602/C1602M-22": {"kind": "material_specification", "state": "identity_scope_verified_public_metadata"},
