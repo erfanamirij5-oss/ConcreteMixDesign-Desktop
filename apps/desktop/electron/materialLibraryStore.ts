@@ -17,7 +17,7 @@ const PROPERTY_COLUMN_MAP: Record<string, string> = {
   aggregateRole: 'aggregate_role', nominalSizeMm: 'nominal_size_mm', fracturedFacePercent: 'fractured_face_percent', moistureCondition: 'moisture_condition',
   specificGravity: 'specific_gravity', absorptionPercent: 'absorption_percent', moisturePercent: 'moisture_percent', unitWeightKgM3: 'unit_weight_kg_m3',
   densityKgM3: 'density_kg_m3', dosageValue: 'dosage_value', dosageUnit: 'dosage_unit', binderSharePercent: 'binder_share_percent', replacementPercent: 'replacement_percent',
-  solidsPercent: 'solids_percent', chloridePercent: 'chloride_percent', chlorideMgL: 'chloride_mg_l', waterSharePercent: 'water_share_percent', alkaliPercent: 'alkali_percent',
+  solidsPercent: 'solids_percent', chloridePercent: 'chloride_percent', chlorideMgL: 'chloride_mg_l', chlorideTestMethod: 'chloride_test_method', chlorideTestEdition: 'chloride_test_edition', chlorideEvidenceRef: 'chloride_evidence_ref', waterSharePercent: 'water_share_percent', alkaliPercent: 'alkali_percent',
   sulfateMgL: 'sulfate_mg_l', totalSolidsMgL: 'total_solids_mg_l', alkalisNa2oeqMgL: 'alkalis_na2oeq_mg_l',
   c1602StrengthRatio7dPercent: 'c1602_strength_ratio_7d_percent', c1602SettingTimeDeviationMin: 'c1602_setting_time_deviation_min', c1602PerformanceEvidenceRef: 'c1602_performance_evidence_ref',
   waterSourceClass: 'water_source_class', c1602LastQualificationDate: 'c1602_last_qualification_date', c1602LastDensityCheckDate: 'c1602_last_density_check_date',
