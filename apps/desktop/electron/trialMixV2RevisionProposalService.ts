@@ -46,6 +46,23 @@ export function assertProposalEvidenceTraceable(metrics: Array<Omit<RevisionProp
   }
 }
 
+export function assertProposalMatchesFeedbackSnapshot(input: {
+  proposal: TrialRevisionProposal;
+  feedbackSession: { id: string; mixDesignId: string; revisionNumber: number };
+  evidenceIds: string[];
+}) {
+  const { proposal, feedbackSession } = input;
+  if (proposal.source.trialSessionId !== feedbackSession.id) throw new Error('Revision Proposal Trial Session identity mismatch.');
+  if (proposal.source.mixDesignId !== feedbackSession.mixDesignId) throw new Error('Revision Proposal feedback mix design identity mismatch.');
+  if (proposal.source.revisionNumber !== Number(feedbackSession.revisionNumber)) throw new Error('Revision Proposal feedback revision identity mismatch.');
+  assertProposalEvidenceTraceable(proposal.metrics, input.evidenceIds);
+  const proposedEvidence = [...new Set(proposal.source.evidenceIds)].sort();
+  const currentEvidence = [...new Set(input.evidenceIds)].sort();
+  if (proposedEvidence.length !== currentEvidence.length || proposedEvidence.some((id, index) => id !== currentEvidence[index])) {
+    throw new Error('Revision Proposal evidence snapshot is stale or has been altered.');
+  }
+}
+
 export function assertControlledRevisionApplication(input: {
   proposal: TrialRevisionProposal;
   currentMixDesignId: string;
@@ -60,17 +77,20 @@ export function assertControlledRevisionApplication(input: {
   }
 }
 
-export function buildTrialRevisionProposalFromFeedback(input: BuildTrialRevisionProposalInput) {
-  const sessionId = nonEmpty(input.trialSessionId, 'trialSessionId');
-  const result = getTrialSessionRevisionFeedback(sessionId);
-  const feedback = result.feedback;
-  if (feedback.session.status !== 'completed') throw new Error('Revision Proposal requires a completed Trial Session.');
-
-  const evidenceIds = collectRevisionFeedbackEvidenceIds({
+function feedbackEvidenceIds(feedback: ReturnType<typeof getTrialSessionRevisionFeedback>['feedback']) {
+  return collectRevisionFeedbackEvidenceIds({
     observations: feedback.observations,
     calibrationDesignResultId: feedback.sourceIdentity.calibrationDesignResultId,
     moistureDesignResultId: feedback.sourceIdentity.moistureDesignResultId
   });
+}
+
+export function buildTrialRevisionProposalFromFeedback(input: BuildTrialRevisionProposalInput) {
+  const sessionId = nonEmpty(input.trialSessionId, 'trialSessionId');
+  const feedback = getTrialSessionRevisionFeedback(sessionId).feedback;
+  if (feedback.session.status !== 'completed') throw new Error('Revision Proposal requires a completed Trial Session.');
+
+  const evidenceIds = feedbackEvidenceIds(feedback);
   assertProposalEvidenceTraceable(input.metrics, evidenceIds);
 
   const warnings = [...(input.warnings ?? [])];
@@ -95,8 +115,14 @@ export function applyTrialRevisionProposal(input: ApplyTrialRevisionProposalInpu
   const reason = nonEmpty(input.changeReason, 'changeReason');
   const proposal = input.proposal;
   const feedback = getTrialSessionRevisionFeedback(proposal.source.trialSessionId).feedback;
+  const evidenceIds = feedbackEvidenceIds(feedback);
   const current = getMixDesignManagementRecord(proposal.source.mixDesignId) as { mixDesignId: string; revisionNumber: number };
 
+  assertProposalMatchesFeedbackSnapshot({
+    proposal,
+    feedbackSession: feedback.session,
+    evidenceIds
+  });
   assertControlledRevisionApplication({
     proposal,
     currentMixDesignId: current.mixDesignId,
@@ -119,7 +145,7 @@ export function applyTrialRevisionProposal(input: ApplyTrialRevisionProposalInpu
       sourceRevisionNumber: proposal.source.revisionNumber,
       newRevisionNumber: revision.revisionNumber,
       trialSessionId: proposal.source.trialSessionId,
-      evidenceIds: proposal.source.evidenceIds,
+      evidenceIds,
       automaticMetricMutationApplied: false as const,
       automaticApprovalApplied: false as const,
       standardsAcceptanceInferred: false as const

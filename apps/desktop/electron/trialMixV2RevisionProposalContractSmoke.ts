@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createTrialRevisionProposal } from './trialMixV2RevisionProposal';
-import { assertControlledRevisionApplication, assertProposalEvidenceTraceable, collectRevisionFeedbackEvidenceIds } from './trialMixV2RevisionProposalService';
+import { assertControlledRevisionApplication, assertProposalEvidenceTraceable, assertProposalMatchesFeedbackSnapshot, collectRevisionFeedbackEvidenceIds } from './trialMixV2RevisionProposalService';
 
 const evidenceIds = collectRevisionFeedbackEvidenceIds({
   observations: [
@@ -34,6 +34,13 @@ const proposal = createTrialRevisionProposal({
 assert.equal(proposal.metrics[0].delta, -5);
 assert.equal(proposal.method.automaticMixMutationApplied, false);
 assert.equal(proposal.method.acceptanceCriteriaApplied, false);
+
+const feedbackSession = { id: 'session-1', mixDesignId: 'mix-1', revisionNumber: 4 };
+assert.doesNotThrow(() => assertProposalMatchesFeedbackSnapshot({ proposal, feedbackSession, evidenceIds }));
+assert.throws(() => assertProposalMatchesFeedbackSnapshot({ proposal: { ...proposal, source: { ...proposal.source, trialSessionId: 'session-forged' } }, feedbackSession, evidenceIds }), /Trial Session identity mismatch/);
+assert.throws(() => assertProposalMatchesFeedbackSnapshot({ proposal: { ...proposal, source: { ...proposal.source, evidenceIds: [...proposal.source.evidenceIds, 'forged-evidence'] } }, feedbackSession, evidenceIds }), /evidence snapshot is stale or has been altered/);
+assert.throws(() => assertProposalMatchesFeedbackSnapshot({ proposal: { ...proposal, metrics: [{ ...proposal.metrics[0], sourceIds: ['forged-evidence'] }] }, feedbackSession, evidenceIds }), /outside the Trial Revision Feedback package/);
+assert.throws(() => assertProposalMatchesFeedbackSnapshot({ proposal, feedbackSession: { ...feedbackSession, revisionNumber: 3 }, evidenceIds }), /feedback revision identity mismatch/);
 
 assert.doesNotThrow(() => assertControlledRevisionApplication({
   proposal,
