@@ -94,6 +94,23 @@ export function getMaterialLibraryRecord(database: Database.Database, id: string
   return parseLibraryRow(row);
 }
 
+function buildMaterialIntelligenceSnapshot(database: Database.Database, materialLibraryId: string) {
+  const tableExists = (table: string) => Boolean(database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table));
+  const observations = tableExists('material_test_observations')
+    ? database.prepare(`SELECT id, observed_at AS observedAt, property_key AS propertyKey, numeric_value AS numericValue,
+        text_value AS textValue, unit, method_reference AS methodReference, standard_edition AS standardEdition,
+        laboratory_name AS laboratoryName, report_number AS reportNumber, evidence_ref AS evidenceRef,
+        source_kind AS sourceKind, notes, created_at AS createdAt
+      FROM material_test_observations WHERE material_library_id = ? ORDER BY observed_at, created_at, id`).all(materialLibraryId)
+    : [];
+  const qualifications = tableExists('material_qualification_events')
+    ? database.prepare(`SELECT id, event_at AS eventAt, status, basis, standard_reference AS standardReference,
+        standard_edition AS standardEdition, evidence_ref AS evidenceRef, actor, reason, created_at AS createdAt
+      FROM material_qualification_events WHERE material_library_id = ? ORDER BY event_at, created_at, id`).all(materialLibraryId)
+    : [];
+  return { observations, qualifications };
+}
+
 export function attachLibraryMaterialToMixDesign(database: Database.Database, mixDesignId: string, libraryMaterialId: string) {
   const mix = database.prepare('SELECT id, status FROM mix_designs WHERE id = ?').get(mixDesignId) as { id: string; status: string } | undefined;
   if (!mix) throw new Error('طرح اختلاط مقصد پیدا نشد.');
@@ -104,7 +121,8 @@ export function attachLibraryMaterialToMixDesign(database: Database.Database, mi
   if (library.validUntil && Date.parse(library.validUntil) < Date.now()) throw new Error('اعتبار آزمایش این ماده منقضی شده است.');
 
   const snapshotAt = new Date().toISOString();
-  const snapshot = { ...library, snapshotAt };
+  const intelligence = buildMaterialIntelligenceSnapshot(database, libraryMaterialId);
+  const snapshot = { ...library, snapshotAt, intelligence };
   const materialId = crypto.randomUUID();
   const row: Record<string, unknown> = {
     id: materialId, mix_design_id: mixDesignId, material_type: library.materialType,
@@ -189,11 +207,11 @@ function parseLibraryRow(row: Record<string, unknown>) {
   try { properties = JSON.parse(String(row.properties_json ?? '{}')) as Record<string, unknown>; } catch { properties = {}; }
   return {
     id: String(row.id), materialType: String(row.material_type) as MaterialLibraryType, name: String(row.name),
-    materialSubtype: row.material_subtype ? String(row.material_subtype) : null, manufacturer: row.manufacturer ? String(row.manufacturer) : null,
-    source: row.source ? String(row.source) : null, productCode: row.product_code ? String(row.product_code) : null,
-    standardDesignation: row.standard_designation ? String(row.standard_designation) : null, status: String(row.status) as MaterialLibraryStatus,
-    testDate: row.test_date ? String(row.test_date) : null, validUntil: row.valid_until ? String(row.valid_until) : null,
-    laboratoryName: row.laboratory_name ? String(row.laboratory_name) : null, laboratoryReportNumber: row.laboratory_report_number ? String(row.laboratory_report_number) : null,
-    properties, notes: row.notes ? String(row.notes) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at)
+    materialSubtype: row.material_subtype == null ? null : String(row.material_subtype), manufacturer: row.manufacturer == null ? null : String(row.manufacturer),
+    source: row.source == null ? null : String(row.source), productCode: row.product_code == null ? null : String(row.product_code),
+    standardDesignation: row.standard_designation == null ? null : String(row.standard_designation), status: String(row.status) as MaterialLibraryStatus,
+    testDate: row.test_date == null ? null : String(row.test_date), validUntil: row.valid_until == null ? null : String(row.valid_until),
+    laboratoryName: row.laboratory_name == null ? null : String(row.laboratory_name), laboratoryReportNumber: row.laboratory_report_number == null ? null : String(row.laboratory_report_number),
+    properties, notes: row.notes == null ? null : String(row.notes), createdAt: String(row.created_at), updatedAt: String(row.updated_at)
   };
 }
