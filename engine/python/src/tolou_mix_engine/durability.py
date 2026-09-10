@@ -38,7 +38,39 @@ AIR_CONTENT_PERCENT = {
 }
 
 
-def _incomplete_exposure_result(issues: list[dict]) -> dict:
+def _sulfate_evidence_snapshot(conditions: dict) -> dict:
+    """Return a compact, persistence-safe record of sulfate source evidence.
+
+    This snapshot records what the caller actually supplied. It does not certify the
+    ACI 318-25 classification relationship or any ASTM acceptance criterion.
+    """
+    source = conditions if isinstance(conditions, dict) else {}
+    snapshot = {
+        "verification_state": "classification_thresholds_existing_unverified",
+        "seawater_exposure": source.get("seawater_exposure"),
+        "soil": None,
+        "water": None,
+    }
+    if source.get("soil_water_soluble_sulfate_percent") not in (None, ""):
+        snapshot["soil"] = {
+            "value": source.get("soil_water_soluble_sulfate_percent"),
+            "unit": "percent_by_mass",
+            "test_method": source.get("soil_sulfate_test_method"),
+            "test_edition": source.get("soil_sulfate_test_edition"),
+            "evidence_ref": source.get("soil_sulfate_evidence_ref"),
+        }
+    if source.get("water_dissolved_sulfate_ppm") not in (None, ""):
+        snapshot["water"] = {
+            "value": source.get("water_dissolved_sulfate_ppm"),
+            "unit": "ppm",
+            "test_method": source.get("water_sulfate_test_method"),
+            "test_edition": source.get("water_sulfate_test_edition"),
+            "evidence_ref": source.get("water_sulfate_evidence_ref"),
+        }
+    return snapshot
+
+
+def _incomplete_exposure_result(issues: list[dict], conditions: dict) -> dict:
     return {
         "status": "fail",
         "standard": STANDARD_VERSION,
@@ -63,6 +95,7 @@ def _incomplete_exposure_result(issues: list[dict]) -> dict:
             for issue in issues
         ],
         "sulfate_requirements": {},
+        "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
         "traceability": {
             "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
             "verification_state": "input_evidence_incomplete",
@@ -79,7 +112,7 @@ def evaluate_durability(payload: dict) -> dict:
 
     input_issues = validate_active_exposure_inputs(conditions)
     if input_issues:
-        return _incomplete_exposure_result(input_issues)
+        return _incomplete_exposure_result(input_issues, conditions)
 
     classes = {
         "freeze_thaw": classify_freeze_thaw(conditions),
@@ -117,6 +150,7 @@ def evaluate_durability(payload: dict) -> dict:
                 "reference": "ACI CODE-318-25 Table 19.3.3.1; G02B fail-closed verification policy",
             }],
             "sulfate_requirements": sulfate_requirements(classes["sulfate"]),
+            "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
             "traceability": {
                 "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
                 "mixture_requirements": "ACI CODE-318-25 Table 19.3.2.1",
@@ -156,12 +190,13 @@ def evaluate_durability(payload: dict) -> dict:
         "checks": checks,
         "warnings": warnings,
         "sulfate_requirements": sulfate_requirements(classes["sulfate"]),
+        "sulfate_evidence": _sulfate_evidence_snapshot(conditions),
         "traceability": {
             "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
             "mixture_requirements": "ACI CODE-318-25 Table 19.3.2.1",
             "air_content": "ACI CODE-318-25 Table 19.3.3.1",
-            "soil_sulfate_test": "ASTM C1580",
-            "water_sulfate_test": "ASTM D516",
+            "soil_sulfate_test": "caller-supplied method/edition retained in sulfate_evidence",
+            "water_sulfate_test": "caller-supplied method/edition retained in sulfate_evidence",
             "chloride_test": "ASTM C1218/C1218M",
         },
     }
