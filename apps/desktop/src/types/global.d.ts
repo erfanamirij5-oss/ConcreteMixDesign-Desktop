@@ -28,6 +28,7 @@ declare global {
       listObservations: (materialLibraryId: string) => Promise<unknown>;
       addQualification: (payload: unknown) => Promise<unknown>;
       listQualifications: (materialLibraryId: string) => Promise<unknown>;
+      getVariability: (materialLibraryId: string) => Promise<unknown>;
     };
     tolouGradation?: { save: (payload: unknown) => Promise<unknown>; listByMaterial: (materialId: string) => Promise<unknown>; };
     tolouBlendOptimizer?: { save: (payload: unknown) => Promise<unknown>; get: (mixDesignId: string) => Promise<unknown>; };
