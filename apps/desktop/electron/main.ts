@@ -107,7 +107,7 @@ ipcMain.handle('materials:save', async (event, payload) => safeCall(() => {
   requireRendererPermission(event.sender, 'engineering.write');
   requireEditableMixDesign(payload?.mixDesignId);
   const result = saveMaterial(payload);
-  if (result?.id) saveMaterialChlorideProvenance(getDatabase(), result.id, payload ?? {});
+  if (result?.materialId) saveMaterialChlorideProvenance(getDatabase(), result.materialId, payload ?? {});
   return result;
 }, 'خطای ناشناخته در ذخیره مصالح'));
 ipcMain.handle('materials:list-by-mix-design', async (event, mixDesignId: string) => safeCall(() => {
