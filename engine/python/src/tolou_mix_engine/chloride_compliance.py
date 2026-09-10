@@ -13,11 +13,12 @@ def evaluate_full_chloride_compliance(
 
     Material chloride percentages are interpreted as chloride ion by mass of that material.
     Mixing-water chloride is entered in mg/L. Full pass is only possible when every active
-    source has chloride data and the total is within the governing ACI limit.
+    source has chloride data and the numerical chloride inputs carry explicit test provenance.
     """
     warnings: list[dict] = []
     source_rows: list[dict] = []
     complete = True
+    provenance_complete = True
 
     mix = result.get("mix_proportions", {}) if isinstance(result, dict) else {}
     cementitious_mass = float(mix.get("cementitious_kg_m3") or 0.0)
@@ -27,38 +28,53 @@ def evaluate_full_chloride_compliance(
     raw_aggregates = {str(item.get("id")): item for item in list(materials.get("aggregates") or []) if item.get("id")}
     raw_misc = list(materials.get("admixtures") or [])
 
-    binder_chloride, binder_complete, binder_rows, binder_warnings = _percent_mass_sources(
+    binder_chloride, binder_complete, binder_provenance_complete, binder_rows, binder_warnings = _percent_mass_sources(
         list(binder_system.get("components") or []), raw_binders, "mass_kg_m3", "binder"
     )
     source_rows.extend(binder_rows)
     warnings.extend(binder_warnings)
     complete = complete and binder_complete
+    provenance_complete = provenance_complete and binder_provenance_complete
 
-    aggregate_chloride, aggregate_complete, aggregate_rows, aggregate_warnings = _percent_mass_sources(
+    aggregate_chloride, aggregate_complete, aggregate_provenance_complete, aggregate_rows, aggregate_warnings = _percent_mass_sources(
         list(result.get("aggregate_analysis") or []), raw_aggregates, "ssd_mass_kg_m3", "aggregate"
     )
     source_rows.extend(aggregate_rows)
     warnings.extend(aggregate_warnings)
     complete = complete and aggregate_complete
+    provenance_complete = provenance_complete and aggregate_provenance_complete
 
     admixture_data = admixture_compliance.get("chloride", {}) if isinstance(admixture_compliance, dict) else {}
     admixture_chloride = float(admixture_data.get("admixture_chloride_kg_m3") or 0.0)
     admixture_complete = bool(admixture_data.get("admixture_chloride_data_complete", False))
     admixture_sources = [item for item in raw_misc if str(item.get("material_type")) == "admixture"]
+    active_admixture_sources = [item for item in admixture_sources if item.get("chloride_percent") is not None]
+    admixture_provenance_sources = [_chloride_provenance(item) for item in active_admixture_sources]
+    admixture_provenance_complete = all(_provenance_is_complete(item) for item in active_admixture_sources)
+    if admixture_complete and active_admixture_sources and not admixture_provenance_complete:
+        provenance_complete = False
+        warnings.append({
+            "code": "ADMIXTURE_CHLORIDE_PROVENANCE_INCOMPLETE",
+            "severity": "needs_review",
+            "message": "داده عددی کلراید افزودنی ثبت شده است، اما روش آزمون، ویرایش دقیق و مرجع شواهد برای حداقل یک منبع کامل نیست.",
+            "reference": "Chloride source provenance contract",
+        })
     source_rows.append({
         "source_category": "admixture",
         "name": "chemical admixtures total",
         "chloride_kg_m3": round(admixture_chloride, 6),
         "data_complete": admixture_complete,
-        "provenance_sources": [_chloride_provenance(item) for item in admixture_sources],
+        "provenance_complete": admixture_provenance_complete,
+        "provenance_sources": admixture_provenance_sources,
     })
     complete = complete and admixture_complete
 
     water_sources = [item for item in raw_misc if str(item.get("material_type")) == "water"]
-    water_chloride, water_complete, water_rows, water_warnings = _water_chloride(water_sources, water_to_add)
+    water_chloride, water_complete, water_provenance_complete, water_rows, water_warnings = _water_chloride(water_sources, water_to_add)
     source_rows.extend(water_rows)
     warnings.extend(water_warnings)
     complete = complete and water_complete
+    provenance_complete = provenance_complete and water_provenance_complete
 
     total_chloride = binder_chloride + aggregate_chloride + admixture_chloride + water_chloride
     total_percent = total_chloride / cementitious_mass * 100.0 if cementitious_mass > 0 else None
@@ -99,14 +115,21 @@ def evaluate_full_chloride_compliance(
                 ),
                 "reference": "ACI CODE-318-25 chloride-ion limit / ASTM C1218/C1218M",
             })
-        elif complete:
+        elif complete and provenance_complete:
             status = "pass"
-        else:
+        elif not complete:
             warnings.append({
                 "code": "FULL_CHLORIDE_DATA_INCOMPLETE",
                 "severity": "needs_review",
                 "message": "جمع کلراید محاسبه شده ولی حداقل یک منبع فعال فاقد داده کلراید معتبر است؛ تأیید نهایی مجاز نیست.",
                 "reference": "Material traceability / chloride test data",
+            })
+        elif not provenance_complete:
+            warnings.append({
+                "code": "FULL_CHLORIDE_PROVENANCE_INCOMPLETE",
+                "severity": "needs_review",
+                "message": "جمع کلراید محاسبه شده است، اما منشأ آزمون حداقل یک ورودی عددی کامل نیست؛ نتیجه استانداردی نمی‌تواند pass باشد.",
+                "reference": "Chloride source provenance contract",
             })
 
     if any(item.get("severity") == "fail" for item in warnings):
@@ -120,6 +143,7 @@ def evaluate_full_chloride_compliance(
         "total_chloride_kg_m3": round(total_chloride, 6),
         "total_chloride_percent_by_mass_cementitious": round(total_percent, 6) if total_percent is not None else None,
         "data_complete": complete,
+        "provenance_complete": provenance_complete,
         "source_breakdown": source_rows,
         "calcium_chloride_detected": calcium_chloride,
         "calcium_chloride_prohibited": calcium_chloride_prohibited,
@@ -141,9 +165,15 @@ def _chloride_provenance(raw: dict) -> dict:
     }
 
 
+def _provenance_is_complete(raw: dict) -> bool:
+    provenance = _chloride_provenance(raw)
+    return all(str(provenance.get(key) or "").strip() for key in ("test_method", "test_edition", "evidence_ref"))
+
+
 def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict], mass_key: str, category: str):
     total = 0.0
     complete = True
+    provenance_complete = True
     rows: list[dict] = []
     warnings: list[dict] = []
     for row in analysis_rows:
@@ -162,27 +192,36 @@ def _percent_mass_sources(analysis_rows: list[dict], raw_by_id: dict[str, dict],
                 "message": f"کلراید منبع «{row.get('name') or row.get('material_name') or material_id or category}» ثبت نشده است.",
                 "reference": "Material certificate / chloride test data",
             })
-            rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": None, "chloride_kg_m3": None, "data_complete": False, "chloride_provenance": provenance})
+            rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": None, "chloride_kg_m3": None, "data_complete": False, "provenance_complete": False, "chloride_provenance": provenance})
             continue
         chloride_percent = float(chloride)
         if chloride_percent < 0:
             complete = False
             warnings.append({"code": f"{category.upper()}_CHLORIDE_INVALID", "severity": "fail", "message": "درصد کلراید نمی‌تواند منفی باشد.", "reference": "Engineering input validation"})
             continue
+        source_provenance_complete = _provenance_is_complete(raw)
+        if not source_provenance_complete:
+            provenance_complete = False
+            warnings.append({
+                "code": f"{category.upper()}_CHLORIDE_PROVENANCE_INCOMPLETE",
+                "severity": "needs_review",
+                "message": f"برای منبع «{row.get('name') or row.get('material_name') or material_id or category}» روش آزمون، ویرایش دقیق و مرجع شواهد کلراید باید کامل ثبت شود.",
+                "reference": "Chloride source provenance contract",
+            })
         contribution = mass * chloride_percent / 100.0
         total += contribution
-        rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": chloride_percent, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "chloride_provenance": provenance})
-    return total, complete, rows, warnings
+        rows.append({"source_category": category, "material_id": material_id, "name": row.get("name") or row.get("material_name"), "mass_kg_m3": round(mass, 3), "chloride_percent": chloride_percent, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "provenance_complete": source_provenance_complete, "chloride_provenance": provenance})
+    return total, complete, provenance_complete, rows, warnings
 
 
 def _water_chloride(water_sources: list[dict], water_to_add_kg_m3: float):
     warnings: list[dict] = []
     rows: list[dict] = []
     if water_to_add_kg_m3 <= 0:
-        return 0.0, True, rows, warnings
+        return 0.0, True, True, rows, warnings
     if not water_sources:
         warnings.append({"code": "MIXING_WATER_SOURCE_MISSING", "severity": "needs_review", "message": "منبع آب اختلاط برای کنترل کلراید ثبت نشده است.", "reference": "ASTM C1602/C1602M"})
-        return 0.0, False, rows, warnings
+        return 0.0, False, False, rows, warnings
 
     if len(water_sources) == 1:
         shares = [100.0]
@@ -191,14 +230,15 @@ def _water_chloride(water_sources: list[dict], water_to_add_kg_m3: float):
         for item in water_sources:
             if item.get("water_share_percent") is None:
                 warnings.append({"code": "WATER_SOURCE_SHARE_MISSING", "severity": "needs_review", "message": "برای استفاده همزمان از چند منبع آب، سهم هر منبع باید ثبت شود.", "reference": "Water source mass balance"})
-                return 0.0, False, rows, warnings
+                return 0.0, False, False, rows, warnings
             shares.append(float(item.get("water_share_percent")))
         if abs(sum(shares) - 100.0) > 0.01:
             warnings.append({"code": "WATER_SOURCE_SHARES_NOT_100", "severity": "fail", "message": f"جمع سهم منابع آب {sum(shares):.2f}% است و باید 100% باشد.", "reference": "Water source mass balance"})
-            return 0.0, False, rows, warnings
+            return 0.0, False, False, rows, warnings
 
     total = 0.0
     complete = True
+    provenance_complete = True
     for item, share in zip(water_sources, shares):
         chloride_mg_l = item.get("chloride_mg_l")
         source_water_mass = water_to_add_kg_m3 * share / 100.0
@@ -206,17 +246,26 @@ def _water_chloride(water_sources: list[dict], water_to_add_kg_m3: float):
         if chloride_mg_l is None:
             complete = False
             warnings.append({"code": "WATER_CHLORIDE_DATA_MISSING", "severity": "needs_review", "message": f"کلراید آب «{item.get('name') or 'بدون نام'}» بر حسب mg/L ثبت نشده است.", "reference": "ASTM C1602/C1602M / water analysis"})
-            rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": None, "chloride_kg_m3": None, "data_complete": False, "chloride_provenance": provenance})
+            rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": None, "chloride_kg_m3": None, "data_complete": False, "provenance_complete": False, "chloride_provenance": provenance})
             continue
         value = float(chloride_mg_l)
         if value < 0:
             complete = False
             warnings.append({"code": "WATER_CHLORIDE_INVALID", "severity": "fail", "message": "کلراید آب نمی‌تواند منفی باشد.", "reference": "Engineering input validation"})
             continue
+        source_provenance_complete = _provenance_is_complete(item)
+        if not source_provenance_complete:
+            provenance_complete = False
+            warnings.append({
+                "code": "WATER_CHLORIDE_PROVENANCE_INCOMPLETE",
+                "severity": "needs_review",
+                "message": f"برای آب «{item.get('name') or 'بدون نام'}» روش آزمون، ویرایش دقیق و مرجع شواهد کلراید باید کامل ثبت شود.",
+                "reference": "Chloride source provenance contract",
+            })
         contribution = source_water_mass * value / 1_000_000.0
         total += contribution
-        rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": value, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "chloride_provenance": provenance})
-    return total, complete, rows, warnings
+        rows.append({"source_category": "water", "material_id": item.get("id"), "name": item.get("name"), "share_percent": share, "water_kg_m3": round(source_water_mass, 3), "chloride_mg_l": value, "chloride_kg_m3": round(contribution, 6), "data_complete": True, "provenance_complete": source_provenance_complete, "chloride_provenance": provenance})
+    return total, complete, provenance_complete, rows, warnings
 
 
 def _find_calcium_chloride(materials: list[dict]) -> bool:
