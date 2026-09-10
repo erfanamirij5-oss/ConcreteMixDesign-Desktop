@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tolou_mix_engine.durability_input_policy import validate_active_exposure_inputs
+
 PSI_TO_MPA = 0.006894757293168361
 STANDARD_VERSION = "ACI_CODE_318_25"
 
@@ -36,9 +38,49 @@ AIR_CONTENT_PERCENT = {
 }
 
 
+def _incomplete_exposure_result(issues: list[dict]) -> dict:
+    return {
+        "status": "fail",
+        "standard": STANDARD_VERSION,
+        "error": "durability_exposure_inputs_incomplete",
+        "exposure_classes": {},
+        "governing_requirements": {
+            "max_w_cm": None,
+            "min_strength_psi": None,
+            "min_strength_mpa": None,
+            "target_air_percent": None,
+            "chloride_limit_percent": None,
+        },
+        "checks": [],
+        "warnings": [
+            {
+                "code": issue["code"],
+                "severity": "fail",
+                "message": issue["message"],
+                "field": issue["field"],
+                "reference": "G02B fail-closed durability exposure input policy; ACI CODE-318-25 exposure classification evidence boundary",
+            }
+            for issue in issues
+        ],
+        "sulfate_requirements": {},
+        "traceability": {
+            "exposure_categories": "ACI CODE-318-25 Table 19.3.1.1",
+            "verification_state": "input_evidence_incomplete",
+        },
+        "limitations": [
+            "استخراج exposure class و حدود وابسته متوقف شد تا ورودی‌های فعال/متناقض به‌صورت صریح تکمیل شوند."
+        ],
+    }
+
+
 def evaluate_durability(payload: dict) -> dict:
     conditions = payload.get("conditions", {}) if isinstance(payload, dict) else {}
     nmsa_mm = float(payload.get("max_aggregate_size_mm", 19) or 19)
+
+    input_issues = validate_active_exposure_inputs(conditions)
+    if input_issues:
+        return _incomplete_exposure_result(input_issues)
+
     classes = {
         "freeze_thaw": classify_freeze_thaw(conditions),
         "sulfate": classify_sulfate(conditions),
