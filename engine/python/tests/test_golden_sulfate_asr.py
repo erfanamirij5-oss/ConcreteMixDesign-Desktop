@@ -18,7 +18,8 @@ def test_golden_s2_direct_type_v_cement_is_recognized_but_not_certified_without_
 
     assert checked["status"] == "needs_review"
     assert checked["sulfate_exposure_class"] == "S2"
-    assert checked["compliance_route"] == "direct_designation_evidence_pending"
+    # Route identity remains factual/traceable; certification state is carried separately.
+    assert checked["compliance_route"] == "direct_designation"
     assert checked["qualification_evidence"]["matched_requirement"] == "C150 TYPEV"
     assert checked["acceptance_relationship_state"] == "blocked_exact_edition_evidence_required"
     assert any(item["code"] == "SULFATE_ACCEPTANCE_RELATIONSHIP_UNVERIFIED" for item in checked["warnings"])
