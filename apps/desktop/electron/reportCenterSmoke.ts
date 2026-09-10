@@ -77,9 +77,7 @@ database.exec(`
 database.exec(readFileSync(path.join(process.cwd(), 'database/migrations/021_report_center_snapshots.sql'), 'utf-8'));
 
 const now = '2026-09-04T00:00:00.000Z';
-database.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  'p1', 'Tolou Commercial Project', 'Yazd', 'Industrial site', 'RC building', 'Foundation', 'Client A', 'Contractor A', 'Consultant A', now, now
-);
+database.prepare('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('p1', 'Tolou Commercial Project', 'Yazd', 'Industrial site', 'RC building', 'Foundation', 'Client A', 'Contractor A', 'Consultant A', now, now);
 database.prepare('INSERT INTO laboratories VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('l1', 'Tolou Concrete Lab', 'LAB-001', 'Yazd', '035', null, now, now);
 database.prepare('INSERT INTO designers VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('d1', 'Engineer Test', 'Mix Designer', 'ENG-1', '0913', 'engineer@example.com', now, now);
 database.prepare(`INSERT INTO mix_designs (
@@ -91,30 +89,18 @@ database.prepare(`INSERT INTO mix_designs (
   '0.3.0', 'ACI_CODE_318_25|ACI_PRC_211_1_22|ASTM', now, now
 );
 database.prepare('INSERT INTO materials VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('mat1', 'm1', 'cement', 'Type II Cement', 'Plant A', 3.15, 0, 0);
+const profileEvidence = { profile_id: 'tolou-aci-astm-legacy', profile_version: '1.1.0-compat', scope: 'authoritative_standard', selection_source: 'v1.1_legacy_compatibility_mapping' };
 database.prepare('INSERT INTO mix_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
   'r1', 'm1', 400, 180, 0.45, 680, 1050, 2,
-  JSON.stringify({ calculationMethod: 'absolute_volume', standardReferences: ['ACI PRC-211.1-22'], assumptions: ['SSD basis'], warnings: [], limitations: [] })
+  JSON.stringify({ calculationMethod: 'absolute_volume', standardReferences: ['ACI PRC-211.1-22'], standardProfile: profileEvidence, standardProfileState: 'versioned', assumptions: ['SSD basis'], warnings: [], limitations: [] })
 );
-database.prepare('INSERT INTO trial_mix_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  't1', 'm1', 2, '2026-09-04', 0.08, 95, 2.1, 26, 2390, 30, 42, 'CI trial', 'CI Engineer', now, now
-);
-database.prepare('INSERT INTO production_batches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  'pb1', 'm1', 2, 'B-001', now, 6, 'Plant A', 'TK-1', 'TR-1', 'Operator A', 100, 2.0, 27, 2385, 'CI production', 'CI Engineer', now, now
-);
-database.prepare('INSERT INTO production_material_actuals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  'pm1', 'pb1', 'cement', 'mat1', 'Type II Cement', 2400, 2405, 0, 0, '{}', now
-);
-database.prepare('INSERT INTO production_specimens VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  'ps1', 'pb1', 'C-28-001', 'cube', now, 28, 150, 150, 150, null, 'water curing', null, now
-);
-database.prepare('INSERT INTO production_compressive_strength_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-  'pr1', 'ps1', now, 28, 945, 22500, 42, 'load_kn_x_1000_div_area_mm2', null, 'M-01', 'normal', 'CI Tester', null, now
-);
+database.prepare('INSERT INTO trial_mix_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('t1', 'm1', 2, '2026-09-04', 0.08, 95, 2.1, 26, 2390, 30, 42, 'CI trial', 'CI Engineer', now, now);
+database.prepare('INSERT INTO production_batches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('pb1', 'm1', 2, 'B-001', now, 6, 'Plant A', 'TK-1', 'TR-1', 'Operator A', 100, 2.0, 27, 2385, 'CI production', 'CI Engineer', now, now);
+database.prepare('INSERT INTO production_material_actuals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('pm1', 'pb1', 'cement', 'mat1', 'Type II Cement', 2400, 2405, 0, 0, '{}', now);
+database.prepare('INSERT INTO production_specimens VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('ps1', 'pb1', 'C-28-001', 'cube', now, 28, 150, 150, 150, null, 'water curing', null, now);
+database.prepare('INSERT INTO production_compressive_strength_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('pr1', 'ps1', now, 28, 945, 22500, 42, 'load_kn_x_1000_div_area_mm2', null, 'M-01', 'normal', 'CI Tester', null, now);
 
-const types: ReportType[] = [
-  'mix_design', 'engineering_calculation', 'material_summary', 'durability_compliance',
-  'gradation_blend', 'revision_identity', 'production_sheet'
-];
+const types: ReportType[] = ['mix_design', 'engineering_calculation', 'material_summary', 'durability_compliance', 'gradation_blend', 'revision_identity', 'production_sheet'];
 let firstId = '';
 let productionId = '';
 for (const [index, reportType] of types.entries()) {
@@ -124,6 +110,8 @@ for (const [index, reportType] of types.entries()) {
   if (created.snapshot.materials.length !== 1) throw new Error(`${reportType} did not capture persisted materials.`);
   if (created.snapshot.trialMix.length !== 1) throw new Error(`${reportType} did not capture current-revision Trial Mix evidence.`);
   if (!created.snapshot.standards.includes('ACI PRC-211.1-22')) throw new Error(`${reportType} lost engineering traceability standards.`);
+  if (created.snapshot.standardProfileState !== 'versioned') throw new Error(`${reportType} did not persist versioned standard profile state.`);
+  if (created.snapshot.standardProfile?.profile_id !== 'tolou-aci-astm-legacy') throw new Error(`${reportType} lost standard profile identity.`);
   if (created.snapshot.productionQc.batches.length !== 1) throw new Error(`${reportType} did not capture Production Batch evidence.`);
   if (created.snapshot.productionQc.strengthResults.length !== 1) throw new Error(`${reportType} did not capture Production strength evidence.`);
   if (created.snapshot.productionQc.overallStrength.mean !== 42) throw new Error(`${reportType} descriptive Production strength mean is incorrect.`);
@@ -138,13 +126,14 @@ if (listed.length !== 7) throw new Error(`Expected 7 report snapshots, found ${l
 database.prepare("UPDATE projects SET project_name = 'Changed Live Project' WHERE id = 'p1'").run();
 database.prepare("UPDATE mix_results SET w_cm_ratio = 0.60 WHERE id = 'r1'").run();
 database.prepare("UPDATE production_compressive_strength_results SET strength_mpa = 55 WHERE id = 'pr1'").run();
-const historical = getReportSnapshotFromDatabase(database, firstId) as { snapshot: { identity: Record<string, unknown>; calculation: Record<string, unknown> | null } } | null;
+const historical = getReportSnapshotFromDatabase(database, firstId) as { snapshot: { identity: Record<string, unknown>; calculation: Record<string, unknown> | null; standardProfile: Record<string, unknown> | null } } | null;
 if (!historical) throw new Error('Historical report snapshot could not be reopened.');
 if (historical.snapshot.identity.projectName !== 'Tolou Commercial Project') throw new Error('Historical report snapshot mutated after live project edit.');
 if (historical.snapshot.calculation?.w_cm_ratio !== 0.45) throw new Error('Historical report snapshot mutated after live calculation edit.');
+if (historical.snapshot.standardProfile?.profile_version !== '1.1.0-compat') throw new Error('Historical report standard profile evidence mutated or was lost.');
 const productionHistorical = getReportSnapshotFromDatabase(database, productionId) as { snapshot: { productionQc: { strengthResults: Array<Record<string, unknown>> } } } | null;
 if (!productionHistorical) throw new Error('Historical production report snapshot could not be reopened.');
 if (productionHistorical.snapshot.productionQc.strengthResults[0]?.strengthMpa !== 42) throw new Error('Historical Production/QC snapshot mutated after live strength edit.');
 
 database.close();
-console.log('Report Center smoke passed: all seven report types preserve immutable identity, engineering traceability and Production/QC evidence without acceptance inference.');
+console.log('Report Center smoke passed: report snapshots preserve immutable standard-profile identity, engineering traceability and Production/QC evidence.');

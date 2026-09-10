@@ -49,6 +49,14 @@ for (const reportType of types) {
       }
     },
     standards: ['ACI 211.1'],
+    standardProfile: {
+      id: 'aci-astm-normal-weight',
+      version: '1.0.0',
+      category: 'standard',
+      authority: 'ACI/ASTM',
+      applicability: 'normal-weight concrete'
+    },
+    standardProfileState: 'versioned',
     signatures: { preparedBy: 'Engineer', reviewedBy: null, approvedBy: null }
   };
   const html = renderReportHtml(snapshot);

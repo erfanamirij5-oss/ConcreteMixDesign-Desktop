@@ -12,6 +12,7 @@ export type ReportSnapshot = {
   identity: Record<string, unknown>; materials: Array<Record<string, unknown>>; gradation: Array<Record<string, unknown>>;
   durability: Record<string, unknown> | null; blend: Record<string, unknown>; calculation: Record<string, unknown> | null;
   trialMix: Array<Record<string, unknown>>; productionQc: ProductionQcReportSnapshot; standards: string[];
+  standardProfile: Record<string, unknown> | null; standardProfileState: 'versioned' | 'legacy_unversioned';
   signatures: { preparedBy: string | null; reviewedBy: string | null; approvedBy: string | null };
 };
 
@@ -34,7 +35,6 @@ export function createReportSnapshotInDatabase(database: Database.Database, inpu
   if (!['fa', 'en'].includes(input.language)) throw new Error('زبان گزارش باید fa یا en باشد.');
   const generatedBy = input.generatedBy?.trim();
   if (!generatedBy) throw new Error('نام مسئول صدور گزارش برای Traceability الزامی است.');
-
   const identity = getIdentity(database, input.mixDesignId);
   const revisionNumber = Number(identity.revisionNumber ?? 0);
   const generatedAt = new Date().toISOString();
@@ -50,11 +50,9 @@ export function getReportSnapshotFromDatabase(database: Database.Database, id: s
   if (!row) return null;
   return { ...row, snapshot: JSON.parse(String(row.snapshotJson)), snapshotJson: undefined };
 }
-
 export function listReportSnapshotsFromDatabase(database: Database.Database, mixDesignId: string) {
   return database.prepare(`SELECT id, mix_design_id AS mixDesignId, revision_number AS revisionNumber, report_type AS reportType, language, generated_by AS generatedBy, generated_at AS generatedAt FROM report_snapshots WHERE mix_design_id = ? ORDER BY generated_at DESC`).all(mixDesignId);
 }
-
 export function createReportSnapshot(input: CreateReportInput) { const database = getDatabase(); ensureReportCenterMigration(database); return createReportSnapshotInDatabase(database, input); }
 export function getReportSnapshot(id: string) { const database = getDatabase(); ensureReportCenterMigration(database); return getReportSnapshotFromDatabase(database, id); }
 export function listReportSnapshots(mixDesignId: string) { const database = getDatabase(); ensureReportCenterMigration(database); return listReportSnapshotsFromDatabase(database, mixDesignId); }
@@ -77,7 +75,9 @@ function buildCanonicalSnapshot(database: Database.Database, mixDesignId: string
   const productionQc = buildProductionQcReportSnapshot(database, mixDesignId);
   const trace = calculation && typeof calculation.traceability === 'object' && calculation.traceability ? calculation.traceability as Record<string, unknown> : {};
   const standards = uniqueStrings([String(identity.designStandard ?? ''), String(identity.standardsVersion ?? ''), ...asStringArray(trace.standardReferences)]);
-  return { schemaVersion: 1, reportType, language, generatedAt, identity, materials, gradation, durability, blend, calculation, trialMix, productionQc, standards, signatures: { preparedBy: generatedBy, reviewedBy: null, approvedBy: null } };
+  const standardProfile = isRecord(trace.standardProfile) ? trace.standardProfile : null;
+  const standardProfileState = standardProfile ? 'versioned' as const : 'legacy_unversioned' as const;
+  return { schemaVersion: 1, reportType, language, generatedAt, identity, materials, gradation, durability, blend, calculation, trialMix, productionQc, standards, standardProfile, standardProfileState, signatures: { preparedBy: generatedBy, reviewedBy: null, approvedBy: null } };
 }
 
 function getIdentity(database: Database.Database, mixDesignId: string) {
@@ -91,3 +91,4 @@ function isMissingTable(error: unknown) { return String(error).includes('no such
 function parseJson(value: unknown) { if (typeof value !== 'string' || !value) return null; try { return JSON.parse(value); } catch { return { legacyNotes: value }; } }
 function asStringArray(value: unknown): string[] { return Array.isArray(value) ? value.filter(item => typeof item === 'string') as string[] : []; }
 function uniqueStrings(values: string[]) { return Array.from(new Set(values.map(item => item.trim()).filter(Boolean))); }
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }

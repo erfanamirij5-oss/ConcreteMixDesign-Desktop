@@ -13,12 +13,20 @@ export type StandardReference = {
   sourceUri?: string | null;
 };
 
+export type StandardProfileApplicability = {
+  concreteTypes: readonly string[];
+  jurisdictions: readonly string[];
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+};
+
 export type StandardProfileIdentity = {
   profileId: string;
   profileVersion: string;
   displayName: string;
   scope: StandardProfileScope;
   references: readonly StandardReference[];
+  applicability: StandardProfileApplicability;
 };
 
 export type StandardProfileOverride = {
@@ -50,6 +58,10 @@ export function validateStandardProfile(profile: StandardProfile): string[] {
   if (!profile.profileId.trim()) errors.push('profileId is required');
   if (!profile.profileVersion.trim()) errors.push('profileVersion is required');
   if (!profile.displayName.trim()) errors.push('displayName is required');
+  if (!profile.applicability) errors.push('applicability is required');
+  if (profile.applicability?.effectiveFrom && profile.applicability?.effectiveTo && profile.applicability.effectiveFrom > profile.applicability.effectiveTo) {
+    errors.push('applicability effectiveFrom must not be after effectiveTo');
+  }
 
   if (profile.scope === 'authoritative_standard' && profile.overrides.length > 0) {
     errors.push('authoritative standard profiles cannot contain regional/company overrides');
@@ -76,7 +88,9 @@ export function validateStandardProfile(profile: StandardProfile): string[] {
 export function resolveStandardProfileChain(profiles: readonly StandardProfile[], targetProfileId: string, targetProfileVersion: string): ResolvedStandardProfile {
   const byIdentity: Map<string, StandardProfile> = new Map<string, StandardProfile>();
   for (const profile of profiles) {
-    byIdentity.set(standardProfileIdentityKey(profile.profileId, profile.profileVersion), profile);
+    const key = standardProfileIdentityKey(profile.profileId, profile.profileVersion);
+    if (byIdentity.has(key)) throw new Error(`duplicate standard profile identity: ${key}`);
+    byIdentity.set(key, profile);
   }
 
   const targetKey: string = standardProfileIdentityKey(targetProfileId, targetProfileVersion);
@@ -103,15 +117,20 @@ export function resolveStandardProfileChain(profiles: readonly StandardProfile[]
     }
 
     const parentKey: string = standardProfileIdentityKey(current.parentProfileId, current.parentProfileVersion);
-    current = byIdentity.get(parentKey);
-    if (!current) throw new Error(`parent standard profile not found: ${parentKey}`);
+    const parent = byIdentity.get(parentKey);
+    if (!parent) throw new Error(`parent standard profile not found: ${parentKey}`);
+    if (current.scope === 'regional_profile' && parent.scope !== 'authoritative_standard') {
+      throw new Error(`regional profile ${currentKey} must inherit from an authoritative standard profile`);
+    }
+    if (current.scope === 'company_profile' && parent.scope === 'company_profile') {
+      throw new Error(`company profile ${currentKey} cannot hide policy behind another company profile`);
+    }
+    current = parent;
   }
 
   const effectiveOverrides: Record<string, StandardProfileOverride> = {};
   for (const profile of chain) {
-    for (const override of profile.overrides) {
-      effectiveOverrides[override.key] = override;
-    }
+    for (const override of profile.overrides) effectiveOverrides[override.key] = override;
   }
 
   return {
@@ -120,11 +139,8 @@ export function resolveStandardProfileChain(profiles: readonly StandardProfile[]
     displayName: target.displayName,
     scope: target.scope,
     references: target.references,
-    chain: chain.map((profile) => ({
-      profileId: profile.profileId,
-      profileVersion: profile.profileVersion,
-      scope: profile.scope,
-    })),
+    applicability: target.applicability,
+    chain: chain.map((profile) => ({ profileId: profile.profileId, profileVersion: profile.profileVersion, scope: profile.scope })),
     effectiveOverrides,
   };
 }
