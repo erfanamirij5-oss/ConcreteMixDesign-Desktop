@@ -42,6 +42,8 @@ declare global {
       getCalibrationComparison: (sessionId: string) => Promise<unknown>;
       getMoistureCorrection: (sessionId: string) => Promise<unknown>;
       getRevisionFeedback: (sessionId: string) => Promise<unknown>;
+      buildRevisionProposal: (payload: unknown) => Promise<unknown>;
+      applyRevisionProposal: (payload: unknown) => Promise<unknown>;
       transitionSessionStatus: (payload: unknown) => Promise<unknown>;
       linkRecord: (payload: unknown) => Promise<unknown>;
       saveMaterialActual: (payload: unknown) => Promise<unknown>;
