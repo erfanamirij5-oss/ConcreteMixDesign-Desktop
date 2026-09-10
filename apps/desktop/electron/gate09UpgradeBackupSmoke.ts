@@ -36,12 +36,16 @@ async function run() {
     ensureRuntimeMigrations(database);
 
     const migrations = database.prepare('SELECT id FROM schema_migrations ORDER BY id').all() as Array<{ id: string }>;
-    assert.equal(migrations.length, 26, 'Gate08 upgrade must append current runtime migrations through 026');
+    assert.equal(migrations.length, 27, 'Gate08 upgrade must append current runtime migrations through 027');
     assert.ok(migrations.some(migration => migration.id === '022_users_roles_audit_security'), 'Gate09 security migration 022 must remain present after later runtime upgrades');
-    assert.equal(migrations.at(-1)?.id, '026_material_intelligence_history');
+    assert.equal(migrations.at(-1)?.id, '027_material_library_extended_types');
     assert.equal((database.prepare('SELECT COUNT(*) AS count FROM security_roles').get() as { count: number }).count, 3);
     assert.equal((database.prepare('SELECT COUNT(*) AS count FROM security_permissions').get() as { count: number }).count, 7);
     assert.equal((database.prepare("SELECT COUNT(*) AS count FROM security_role_permissions WHERE role_id = 'administrator'").get() as { count: number }).count, 7);
+    database.prepare("INSERT INTO material_library (id, material_type, name, status, properties_json, created_at, updated_at) VALUES ('fiber-g03', 'fiber', 'G03 Fiber', 'active', '{}', ?, ?)").run(new Date().toISOString(), new Date().toISOString());
+    database.prepare("INSERT INTO material_library (id, material_type, name, status, properties_json, created_at, updated_at) VALUES ('other-g03', 'other_addition', 'G03 Other Addition', 'active', '{}', ?, ?)").run(new Date().toISOString(), new Date().toISOString());
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM material_library WHERE material_type IN ('fiber','other_addition')").get() as { count: number }).count, 2, 'Migration 027 must support Fiber and Other Addition without losing existing library schema');
+    assert.deepEqual(database.pragma('foreign_key_check'), [], 'Migration 027 must preserve foreign-key integrity');
 
     const security = new SecurityService(database);
     const admin = security.bootstrapFirstAdministrator('gate09.admin', 'Gate 09 Administrator', 'Strong-Gate09-Password-2026');
@@ -52,7 +56,7 @@ async function run() {
 
     const manifest = await createValidatedBackup(database, backupPath);
     assert.ok(manifest.schemaMigrations.includes('022_users_roles_audit_security'), 'Backup manifest must preserve Gate09 security migration identity');
-    assert.equal(manifest.schemaMigrations.at(-1), '026_material_intelligence_history');
+    assert.equal(manifest.schemaMigrations.at(-1), '027_material_library_extended_types');
 
     database.prepare("UPDATE security_users SET display_name = 'Mutated after backup' WHERE id = ?").run(admin.id);
     const restored = await restoreValidatedBackup(backupPath, activePath, database);
@@ -66,13 +70,14 @@ async function run() {
       assert.notEqual(restoredAdmin.verifier, 'Strong-Gate09-Password-2026');
       assert.equal((restoredDatabase.prepare('SELECT COUNT(*) AS count FROM security_users').get() as { count: number }).count, 2);
       assert.equal((restoredDatabase.prepare('SELECT COUNT(*) AS count FROM security_audit_events').get() as { count: number }).count, auditBefore);
+      assert.equal((restoredDatabase.prepare("SELECT COUNT(*) AS count FROM material_library WHERE material_type IN ('fiber','other_addition')").get() as { count: number }).count, 2, 'Extended material types must survive validated backup/restore');
       assert.equal(restoredDatabase.pragma('quick_check', { simple: true }), 'ok');
       assert.deepEqual(restoredDatabase.pragma('foreign_key_check'), []);
     } finally {
       restoredDatabase.close();
     }
 
-    console.log('Gate 09 upgrade/backup smoke passed: representative Gate08 schema upgrades through current runtime migrations and Gate09 users, password verifiers, roles and append-only audit survive validated backup/restore.');
+    console.log('Gate 09 upgrade/backup smoke passed: representative Gate08 schema upgrades through current runtime migrations and security/material-library state survive validated backup/restore.');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
