@@ -1,6 +1,37 @@
 from __future__ import annotations
 
 
+def _missing_text(source: dict, field: str) -> bool:
+    value = source.get(field)
+    return not isinstance(value, str) or not value.strip()
+
+
+def _require_sulfate_result_provenance(
+    source: dict,
+    *,
+    result_field: str,
+    prefix: str,
+    issues: list[dict],
+) -> None:
+    if source.get(result_field) in (None, ""):
+        return
+
+    required = (
+        (f"{prefix}_test_method", "SULFATE_TEST_METHOD_REQUIRED"),
+        (f"{prefix}_test_edition", "SULFATE_TEST_EDITION_REQUIRED"),
+        (f"{prefix}_evidence_ref", "SULFATE_EVIDENCE_REFERENCE_REQUIRED"),
+    )
+    for field, code in required:
+        if _missing_text(source, field):
+            issues.append(
+                {
+                    "field": field,
+                    "code": code,
+                    "message": f"برای استفاده از {result_field} در طبقه‌بندی سولفات، {field} باید به‌صورت صریح و قابل‌ردیابی ثبت شود.",
+                }
+            )
+
+
 def validate_active_exposure_inputs(conditions: dict) -> list[dict]:
     """Return fail-closed issues for active/contradictory durability exposure inputs.
 
@@ -10,10 +41,10 @@ def validate_active_exposure_inputs(conditions: dict) -> list[dict]:
     defaulted by Python truthiness or ``dict.get`` fallbacks.
 
     Sulfate is evidence-driven rather than controlled by one parent flag. Explicit
-    soil/water sulfate test results are sufficient evidence to enter the existing
-    classifier without requiring a separate seawater=False flag. An explicit
-    seawater=False assertion with no soil/water result is incomplete and fails closed.
-    Exact ACI classification thresholds remain separately evidence-gated by G02B.
+    soil/water sulfate results may enter the existing unverified classifier only when
+    their laboratory method designation, exact edition, and evidence reference are
+    retained with the result. This records provenance without certifying the existing
+    ACI classification thresholds, which remain separately evidence-gated by G02B.
     """
     source = conditions if isinstance(conditions, dict) else {}
     issues: list[dict] = []
@@ -59,6 +90,19 @@ def validate_active_exposure_inputs(conditions: dict) -> list[dict]:
                 "message": "برای ارزیابی سولفات غیر‌دریایی باید حداقل نتیجه آزمون سولفات خاک یا آب ثبت شود؛ نبود داده نباید به S0 تعبیر شود.",
             }
         )
+
+    _require_sulfate_result_provenance(
+        source,
+        result_field="soil_water_soluble_sulfate_percent",
+        prefix="soil_sulfate",
+        issues=issues,
+    )
+    _require_sulfate_result_provenance(
+        source,
+        result_field="water_dissolved_sulfate_ppm",
+        prefix="water_sulfate",
+        issues=issues,
+    )
 
     if source.get("water_contact") is True:
         if not isinstance(source.get("low_permeability_required"), bool):
