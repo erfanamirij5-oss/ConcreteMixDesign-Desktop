@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { prepareEnginePayloadForCommand } from './standardProfileEngineDispatch';
 
 export type EngineLaunch = { executable: string; prefixArgs: string[] };
 export type EngineProcessOptions = {
@@ -87,7 +88,8 @@ export function runBoundedEngineCommand(
     });
 
     try {
-      const serialized = JSON.stringify(payload ?? {});
+      const preparedPayload = prepareEnginePayloadForCommand(command, payload);
+      const serialized = JSON.stringify(preparedPayload ?? {});
       child.stdin.end(serialized, 'utf8');
     } catch (error) {
       terminate(error instanceof Error ? error : new Error('Engineering engine payload could not be serialized.'));
