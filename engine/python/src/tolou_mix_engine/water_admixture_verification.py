@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 WATER_ADMIXTURE_ASTM_REFERENCES = {
     "C1602/C1602M-22": {
         "kind": "material_specification",
