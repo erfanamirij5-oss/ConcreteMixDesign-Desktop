@@ -4,6 +4,7 @@ import json
 import sys
 
 from tolou_mix_engine import __version__
+from tolou_mix_engine.aci211_verification import aci211_verification_envelope
 from tolou_mix_engine.durability import evaluate_durability
 from tolou_mix_engine.integrated_design import calculate_integrated_normal_mix
 
@@ -46,6 +47,20 @@ def _normal_mix_fail(error: str, warning: dict, note: str, limitation: str) -> d
         ],
         "limitations": [limitation],
     }
+
+
+def _attach_aci211_traceability(response: dict, payload: dict) -> dict:
+    """Attach the conservative G02A rule registry to every production normal-mix response.
+
+    The standard-profile selection is supplied by the Electron dispatch layer. We preserve
+    that exact versioned envelope and add the machine-readable ACI 211 rule verification
+    registry without promoting any numerical lookup to VERIFIED.
+    """
+    standard_profile = payload.get("standard_profile") if isinstance(payload, dict) else None
+    if isinstance(standard_profile, dict):
+        response["standard_profile"] = dict(standard_profile)
+    response["aci211_verification"] = aci211_verification_envelope()
+    return response
 
 
 def validate_normal_mix_request(payload: dict) -> dict | None:
@@ -122,6 +137,12 @@ def validate_normal_mix_request(payload: dict) -> dict | None:
     )
 
 
+def calculate_normal_mix_response(payload: dict) -> dict:
+    guarded = validate_normal_mix_request(payload)
+    response = guarded if guarded is not None else calculate_integrated_normal_mix(payload)
+    return _attach_aci211_traceability(response, payload)
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print(json.dumps({"status": "fail", "error": "missing command"}, ensure_ascii=False))
@@ -138,7 +159,7 @@ def main() -> int:
             "message": "Python engineering engine is ready.",
         }
     elif command == "calculate-normal-mix":
-        response = validate_normal_mix_request(payload) or calculate_integrated_normal_mix(payload)
+        response = calculate_normal_mix_response(payload)
     elif command == "evaluate-durability":
         response = evaluate_durability(payload)
     else:
