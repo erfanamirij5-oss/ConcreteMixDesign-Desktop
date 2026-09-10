@@ -4,8 +4,8 @@ import './v11PersistenceContractSmoke';
 import './serviceDeterminismHistoricalGuardSmoke';
 import './historicalRevisionReadContractSmoke';
 
-if (KNOWN_MIGRATIONS.length !== 26 || KNOWN_MIGRATIONS.at(-1) !== '026_material_intelligence_history') {
-  throw new Error('Database compatibility policy must explicitly recognize migrations through 026.');
+if (KNOWN_MIGRATIONS.length !== 27 || KNOWN_MIGRATIONS.at(-1) !== '027_material_library_extended_types') {
+  throw new Error('Database compatibility policy must explicitly recognize migrations through 027.');
 }
 
 const database = new Database(':memory:');
@@ -43,4 +43,4 @@ if (!fkRejected) throw new Error('Runtime database guard must reject foreign key
 
 fkDatabase.close();
 database.close();
-console.log('Database compatibility and runtime health guard smoke validation passed through migration 026.');
+console.log('Database compatibility and runtime health guard smoke validation passed through migration 027.');
