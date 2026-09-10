@@ -5,6 +5,7 @@ import { getDatabase } from './database';
 export type PersistedCalculationInput = {
   status?: string;
   calculation_method?: string;
+  standard_profile?: unknown;
   mix_proportions?: {
     cementitious_kg_m3?: number | null;
     water_kg_m3?: number | null;
@@ -39,10 +40,13 @@ export function persistCalculatedMixResult(database: Database.Database, mixDesig
   if (result.status && result.status !== 'pass') throw new Error('نتیجه ناموفق موتور نباید به‌عنوان نتیجه معتبر طرح ذخیره شود.');
 
   const mix = result.mix_proportions ?? {};
+  const hasVersionedProfile = isVersionedStandardProfile(result.standard_profile);
   const traceability = {
     calculationMethod: result.calculation_method ?? null,
     engineeringNotes: result.engineering_notes ?? [],
     standardReferences: result.standard_references ?? [],
+    standardProfile: hasVersionedProfile ? result.standard_profile : null,
+    standardProfileState: hasVersionedProfile ? 'versioned' : 'legacy_unversioned',
     warnings: result.warnings ?? [],
     assumptions: result.assumptions ?? [],
     limitations: result.limitations ?? [],
@@ -93,7 +97,8 @@ export function getLatestCalculatedMixResult(database: Database.Database, mixDes
 
   let traceability: unknown = null;
   if (typeof row.notes === 'string' && row.notes) {
-    try { traceability = JSON.parse(row.notes); } catch { traceability = { legacyNotes: row.notes }; }
+    try { traceability = normalizeTraceability(JSON.parse(row.notes)); }
+    catch { traceability = { legacyNotes: row.notes, standardProfile: null, standardProfileState: 'legacy_unversioned' }; }
   }
   return { ...row, traceability };
 }
@@ -104,4 +109,22 @@ export function saveCalculatedMixResult(mixDesignId: string, result: PersistedCa
 
 export function loadCalculatedMixResult(mixDesignId: string) {
   return getLatestCalculatedMixResult(getDatabase(), mixDesignId);
+}
+
+function normalizeTraceability(value: unknown): unknown {
+  if (!isPlainRecord(value)) return { legacyTraceability: value, standardProfile: null, standardProfileState: 'legacy_unversioned' };
+  if (isVersionedStandardProfile(value.standardProfile)) {
+    return { ...value, standardProfileState: 'versioned' };
+  }
+  return { ...value, standardProfile: null, standardProfileState: 'legacy_unversioned' };
+}
+
+function isVersionedStandardProfile(value: unknown): value is Record<string, unknown> {
+  if (!isPlainRecord(value)) return false;
+  return typeof value.profile_id === 'string' && value.profile_id.trim().length > 0
+    && typeof value.profile_version === 'string' && value.profile_version.trim().length > 0;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

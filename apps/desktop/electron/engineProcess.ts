@@ -21,6 +21,7 @@ export function runBoundedEngineCommand(
   const timeoutMs = positiveInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS);
   const maxStdoutBytes = positiveInteger(options.maxStdoutBytes, DEFAULT_MAX_STDOUT_BYTES);
   const maxStderrBytes = positiveInteger(options.maxStderrBytes, DEFAULT_MAX_STDERR_BYTES);
+  const preparedPayload = prepareEnginePayloadForCommand(command, payload);
 
   return new Promise((resolve, reject) => {
     const child = spawn(launch.executable, [...launch.prefixArgs, command], {
@@ -81,20 +82,31 @@ export function runBoundedEngineCommand(
         return;
       }
       try {
-        finish(undefined, JSON.parse(stdout));
+        const parsed = JSON.parse(stdout);
+        finish(undefined, bindDispatchedProfileEvidence(command, preparedPayload, parsed));
       } catch {
         finish(new Error('Engineering engine returned invalid JSON.'));
       }
     });
 
     try {
-      const preparedPayload = prepareEnginePayloadForCommand(command, payload);
       const serialized = JSON.stringify(preparedPayload ?? {});
       child.stdin.end(serialized, 'utf8');
     } catch (error) {
       terminate(error instanceof Error ? error : new Error('Engineering engine payload could not be serialized.'));
     }
   });
+}
+
+function bindDispatchedProfileEvidence(command: string, preparedPayload: unknown, engineResult: unknown): unknown {
+  if (command !== 'calculate-normal-mix' || !isPlainRecord(engineResult) || !isPlainRecord(preparedPayload)) return engineResult;
+  const standardProfile = preparedPayload.standard_profile;
+  if (!isPlainRecord(standardProfile)) return engineResult;
+  return { ...engineResult, standard_profile: standardProfile };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function positiveInteger(value: number | undefined, fallback: number) {

@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { persistCalculatedMixResult } from './calculationResultStore';
+import { LEGACY_V11_PROFILE } from './standardProfileEngineDispatch';
 
 const database = new Database(':memory:');
 database.pragma('foreign_keys = ON');
@@ -25,6 +26,12 @@ database.prepare('INSERT INTO mix_designs (id) VALUES (?)').run('mix-1');
 const first = persistCalculatedMixResult(database, 'mix-1', {
   status: 'pass',
   calculation_method: 'ACI PRC-211.1-22',
+  standard_profile: {
+    profile_id: LEGACY_V11_PROFILE.profileId,
+    profile_version: LEGACY_V11_PROFILE.profileVersion,
+    display_name: LEGACY_V11_PROFILE.displayName,
+    selection_source: 'v1.1_legacy_compatibility_mapping'
+  },
   mix_proportions: {
     cementitious_kg_m3: 400,
     water_kg_m3: 180,
@@ -48,6 +55,8 @@ const firstTrace = first.traceability as {
   calculationMethod?: string;
   engineeringNotes?: string[];
   standardReferences?: string[];
+  standardProfile?: { profile_id?: string; profile_version?: string } | null;
+  standardProfileState?: string;
   limitations?: string[];
   engineeringOutput?: Record<string, unknown>;
 };
@@ -55,6 +64,10 @@ if (firstTrace.calculationMethod !== 'ACI PRC-211.1-22') throw new Error('Calcul
 if (!firstTrace.engineeringNotes?.includes('Moisture corrections are included in batch water.')) throw new Error('Engineering notes were not persisted.');
 if (!firstTrace.standardReferences?.includes('ACI PRC-211.1-22')) throw new Error('Standard references were not persisted.');
 if (!firstTrace.limitations?.includes('Trial validation pending')) throw new Error('Calculation limitations were not persisted.');
+if (firstTrace.standardProfileState !== 'versioned') throw new Error('Versioned standard profile state was not persisted.');
+if (firstTrace.standardProfile?.profile_id !== LEGACY_V11_PROFILE.profileId || firstTrace.standardProfile?.profile_version !== LEGACY_V11_PROFILE.profileVersion) {
+  throw new Error('Standard profile identity/version was not persisted with calculation evidence.');
+}
 const output = firstTrace.engineeringOutput as { aggregate_blend_optimizer?: { status?: string }; durability?: { exposure_classes?: { sulfate?: string } }; cementitious_compliance?: { standard?: string } } | undefined;
 if (output?.aggregate_blend_optimizer?.status !== 'pass') throw new Error('Full Blend engineering output was not persisted for reopen.');
 if (output?.durability?.exposure_classes?.sulfate !== 'S1') throw new Error('Full durability output was not persisted for reopen.');
@@ -68,6 +81,10 @@ const second = persistCalculatedMixResult(database, 'mix-1', {
 const count = database.prepare('SELECT COUNT(*) AS count FROM mix_results WHERE mix_design_id = ?').get('mix-1') as { count: number };
 if (count.count !== 1) throw new Error('Current revision must keep exactly one current calculation result row.');
 if (!second || second.cementitiousContentKgM3 !== 420 || second.wCmRatio !== 0.429) throw new Error('Recalculation did not replace the current revision result atomically.');
+const legacyTrace = second.traceability as { standardProfile?: unknown; standardProfileState?: string };
+if (legacyTrace.standardProfile !== null || legacyTrace.standardProfileState !== 'legacy_unversioned') {
+  throw new Error('Unversioned historical calculation evidence must be explicitly classified as legacy_unversioned without silent profile assignment.');
+}
 
 let rejected = false;
 try { persistCalculatedMixResult(database, 'mix-1', { status: 'fail', mix_proportions: { w_cm_ratio: 0.5 } }); }
@@ -78,4 +95,4 @@ const afterReject = database.prepare('SELECT cementitious_content_kg_m3 AS cemen
 if (afterReject.cementitious !== 420) throw new Error('Rejected engine result modified the last valid persisted calculation.');
 
 database.close();
-console.log('Calculation result persistence smoke validation passed with full engineering reopen fidelity.');
+console.log('Calculation result persistence smoke validation passed with versioned standard-profile evidence and explicit legacy compatibility.');
