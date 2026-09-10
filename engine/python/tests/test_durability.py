@@ -34,7 +34,13 @@ def test_sulfate_classification_uses_more_severe_measurement():
         {
             "conditions": {
                 "soil_water_soluble_sulfate_percent": 0.12,
+                "soil_sulfate_test_method": "ASTM C1580",
+                "soil_sulfate_test_edition": "20",
+                "soil_sulfate_evidence_ref": "LAB-SOIL-001",
                 "water_dissolved_sulfate_ppm": 3000,
+                "water_sulfate_test_method": "ASTM D516",
+                "water_sulfate_test_edition": "22",
+                "water_sulfate_evidence_ref": "LAB-WATER-001",
             }
         }
     )
