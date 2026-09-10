@@ -12,6 +12,7 @@ def evaluate_admixture_compliance(
 
     This module intentionally reports chloride from chemical admixtures only. Final mixture
     chloride acceptance is performed by chloride_compliance after all active sources are known.
+    Standard-designation checks are identity checks only and do not establish ASTM product compliance.
     """
     warnings: list[dict] = []
     checks: list[dict] = []
@@ -125,6 +126,9 @@ def _check_standard_designation(subtype: str, designation: str, name: object) ->
             "standard_designation": designation or None,
             "expected_standard": "manufacturer / applicable project specification",
             "status": "needs_review",
+            "verification_scope": "project_or_manufacturer_review",
+            "verification_state": "unverified",
+            "compliance_claim_allowed": False,
             "warning": {
                 "code": "ADMIXTURE_STANDARD_PROJECT_SPEC_REVIEW",
                 "severity": "needs_review",
@@ -140,6 +144,9 @@ def _check_standard_designation(subtype: str, designation: str, name: object) ->
             "standard_designation": designation,
             "expected_standard": expected,
             "status": "pass",
+            "verification_scope": "designation_identity_only",
+            "verification_state": "identity_only_unverified_acceptance",
+            "compliance_claim_allowed": False,
         }
     return {
         "material_subtype": subtype,
@@ -147,6 +154,9 @@ def _check_standard_designation(subtype: str, designation: str, name: object) ->
         "standard_designation": designation or None,
         "expected_standard": expected,
         "status": "needs_review",
+        "verification_scope": "designation_identity_only",
+        "verification_state": "unverified",
+        "compliance_claim_allowed": False,
         "warning": {
             "code": "ADMIXTURE_STANDARD_DESIGNATION_MISSING_OR_MISMATCHED",
             "severity": "needs_review",
