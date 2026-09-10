@@ -90,9 +90,14 @@ database.prepare(`INSERT INTO mix_designs (
 );
 database.prepare('INSERT INTO materials VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('mat1', 'm1', 'cement', 'Type II Cement', 'Plant A', 3.15, 0, 0);
 const profileEvidence = { profile_id: 'tolou-aci-astm-legacy', profile_version: '1.1.0-compat', scope: 'authoritative_standard', selection_source: 'v1.1_legacy_compatibility_mapping' };
+const sulfateEvidence = {
+  soil: { value: 0.15, unit: 'percent_by_mass', test_method: 'ASTM C1580', test_edition: '20', evidence_ref: 'LAB-SOIL-001' },
+  water: null,
+  seawater_exposure: false
+};
 database.prepare('INSERT INTO mix_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
   'r1', 'm1', 400, 180, 0.45, 680, 1050, 2,
-  JSON.stringify({ calculationMethod: 'absolute_volume', standardReferences: ['ACI PRC-211.1-22'], standardProfile: profileEvidence, standardProfileState: 'versioned', assumptions: ['SSD basis'], warnings: [], limitations: [] })
+  JSON.stringify({ calculationMethod: 'absolute_volume', standardReferences: ['ACI PRC-211.1-22'], standardProfile: profileEvidence, standardProfileState: 'versioned', assumptions: ['SSD basis'], warnings: [], limitations: [], engineeringOutput: { durability: { exposure_classes: { sulfate: 'S1' }, sulfate_evidence: sulfateEvidence } } })
 );
 database.prepare('INSERT INTO trial_mix_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('t1', 'm1', 2, '2026-09-04', 0.08, 95, 2.1, 26, 2390, 30, 42, 'CI trial', 'CI Engineer', now, now);
 database.prepare('INSERT INTO production_batches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('pb1', 'm1', 2, 'B-001', now, 6, 'Plant A', 'TK-1', 'TR-1', 'Operator A', 100, 2.0, 27, 2385, 'CI production', 'CI Engineer', now, now);
@@ -112,6 +117,8 @@ for (const [index, reportType] of types.entries()) {
   if (!created.snapshot.standards.includes('ACI PRC-211.1-22')) throw new Error(`${reportType} lost engineering traceability standards.`);
   if (created.snapshot.standardProfileState !== 'versioned') throw new Error(`${reportType} did not persist versioned standard profile state.`);
   if (created.snapshot.standardProfile?.profile_id !== 'tolou-aci-astm-legacy') throw new Error(`${reportType} lost standard profile identity.`);
+  const calculationTrace = created.snapshot.calculation?.traceability as { engineeringOutput?: { durability?: { sulfate_evidence?: { soil?: { evidence_ref?: string } | null } } } } | undefined;
+  if (calculationTrace?.engineeringOutput?.durability?.sulfate_evidence?.soil?.evidence_ref !== 'LAB-SOIL-001') throw new Error(`${reportType} lost sulfate evidence provenance in immutable calculation snapshot.`);
   if (created.snapshot.productionQc.batches.length !== 1) throw new Error(`${reportType} did not capture Production Batch evidence.`);
   if (created.snapshot.productionQc.strengthResults.length !== 1) throw new Error(`${reportType} did not capture Production strength evidence.`);
   if (created.snapshot.productionQc.overallStrength.mean !== 42) throw new Error(`${reportType} descriptive Production strength mean is incorrect.`);
@@ -131,9 +138,14 @@ if (!historical) throw new Error('Historical report snapshot could not be reopen
 if (historical.snapshot.identity.projectName !== 'Tolou Commercial Project') throw new Error('Historical report snapshot mutated after live project edit.');
 if (historical.snapshot.calculation?.w_cm_ratio !== 0.45) throw new Error('Historical report snapshot mutated after live calculation edit.');
 if (historical.snapshot.standardProfile?.profile_version !== '1.1.0-compat') throw new Error('Historical report standard profile evidence mutated or was lost.');
+const historicalTrace = historical.snapshot.calculation?.traceability as { engineeringOutput?: { durability?: { sulfate_evidence?: { soil?: { test_method?: string; test_edition?: string; evidence_ref?: string } | null } } } } | undefined;
+const historicalSoilEvidence = historicalTrace?.engineeringOutput?.durability?.sulfate_evidence?.soil;
+if (historicalSoilEvidence?.test_method !== 'ASTM C1580' || historicalSoilEvidence.test_edition !== '20' || historicalSoilEvidence.evidence_ref !== 'LAB-SOIL-001') {
+  throw new Error('Historical report sulfate evidence provenance mutated or was lost.');
+}
 const productionHistorical = getReportSnapshotFromDatabase(database, productionId) as { snapshot: { productionQc: { strengthResults: Array<Record<string, unknown>> } } } | null;
 if (!productionHistorical) throw new Error('Historical production report snapshot could not be reopened.');
 if (productionHistorical.snapshot.productionQc.strengthResults[0]?.strengthMpa !== 42) throw new Error('Historical Production/QC snapshot mutated after live strength edit.');
 
 database.close();
-console.log('Report Center smoke passed: report snapshots preserve immutable standard-profile identity, engineering traceability and Production/QC evidence.');
+console.log('Report Center smoke passed: immutable snapshots preserve standard-profile identity, sulfate evidence provenance, engineering traceability and Production/QC evidence.');
