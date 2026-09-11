@@ -10,7 +10,8 @@ export const RUNTIME_MIGRATION_IDS = [
   '024_production_qc_foundation',
   '025_cost_engine_foundation',
   '026_material_intelligence_history',
-  '027_material_library_extended_types'
+  '027_material_library_extended_types',
+  '028_requirements_formal_approval'
 ] as const;
 
 export type RuntimeMigrationId = typeof RUNTIME_MIGRATION_IDS[number];
@@ -23,9 +24,6 @@ export function ensureRuntimeMigration(database: Database.Database, migrationId:
   const migrationPath = path.join(process.cwd(), `database/migrations/${migrationId}.sql`);
   const sql = readFileSync(migrationPath, 'utf-8');
 
-  // Migration 027 rebuilds the parent material_library table to widen its CHECK constraint.
-  // SQLite requires foreign-key enforcement to be disabled before the transaction begins for
-  // this parent-table rebuild; enforcement is restored immediately and integrity is verified.
   if (migrationId === '027_material_library_extended_types') {
     const foreignKeysWereEnabled = Number(database.pragma('foreign_keys', { simple: true })) === 1;
     if (database.inTransaction) throw new Error('Migration 027 cannot run inside an existing transaction.');
